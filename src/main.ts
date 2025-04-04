@@ -20,6 +20,7 @@ const log = electronLog;
 // Load environment variables
 dotenv.config();
 
+
 // Initialize store for settings
 // Define schema type for TypeScript
 interface StoreSchema {
@@ -50,17 +51,62 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
+// Keep track of the current ignore state
+let isIgnoringMouseEvents = true;
+let isWindowVisible = false;
+
+function hideMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const bounds = mainWindow.getBounds();
+    store.set('windowPosition', { x: bounds.x, y: bounds.y });
+    store.set('windowSize', { width: bounds.width, height: bounds.height });
+
+    mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    mainWindow.setOpacity(0);
+    mainWindow.hide();
+    isWindowVisible = false;
+    isIgnoringMouseEvents = true;
+  }
+}
+
+function showMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const savedPosition = store.get('windowPosition');
+    const savedSize = store.get('windowSize');
+
+    if (savedPosition && savedSize) {
+      mainWindow.setBounds({
+        ...savedPosition,
+        ...savedSize
+      });
+    }
+
+    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    mainWindow.setContentProtection(true);
+    mainWindow.setOpacity(0);
+    mainWindow.showInactive();
+    mainWindow.setOpacity(1);
+    isWindowVisible = true;
+  }
+}
+
+function toggleMainWindow() {
+  isWindowVisible ? hideMainWindow() : showMainWindow();
+}
+
 function createWindow() {
   // Get saved position and size or use defaults
   const savedPosition = store.get('windowPosition');
   const savedSize = store.get('windowSize');
-  
-  
+
+
   // Get screen dimensions
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
-  
-  // Ensure window is within screen bounds
+
   const x = Math.min(Math.max(savedPosition.x, 0), width - savedSize.width);
   const y = Math.min(Math.max(savedPosition.y, 0), height - savedSize.height);
 
@@ -69,7 +115,7 @@ function createWindow() {
     height: savedSize.height,
     x: x,
     y: y,
-    show: false, // Window is initially hidden
+    show: isWindowVisible,
 
     // Enable transparent window
     transparent: true,
@@ -85,21 +131,18 @@ function createWindow() {
     }
   });
 
-  // Keep track of the current ignore state
-let isIgnoringMouseEvents = true;
+  // Register a new global shortcut for toggling
+  globalShortcut.register('CommandOrControl+Shift+W', () => {
+    // Flip the ignore state
+    isIgnoringMouseEvents = !isIgnoringMouseEvents;
 
-// Register a new global shortcut for toggling
-globalShortcut.register('CommandOrControl+Shift+W', () => {
-  // Flip the ignore state
-  isIgnoringMouseEvents = !isIgnoringMouseEvents;
-  
-  // Apply the updated ignore state to the main window
-  if (mainWindow) {
-    mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
-  }
+    // Apply the updated ignore state to the main window
+    if (mainWindow) {
+      mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
+    }
 
-  console.log('Toggled mouse events ignoring:', isIgnoringMouseEvents);
-});
+    console.log('Toggled mouse events ignoring:', isIgnoringMouseEvents);
+  });
 
   // Enhanced screen capture resistance
   mainWindow.setContentProtection(true);
@@ -124,6 +167,8 @@ globalShortcut.register('CommandOrControl+Shift+W', () => {
       slashes: true
     })
   );
+
+  mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
 
   // Save window position when moved
   mainWindow.on('moved', () => {
@@ -152,11 +197,11 @@ async function takeScreenshot(): Promise<string> {
   try {
     const timestamp = new Date().getTime();
     const screenshotPath = path.join(tempDir, `screenshot-${timestamp}.png`);
-    
+
     // Take screenshot
     const imgBuffer = await screenshot();
     fs.writeFileSync(screenshotPath, imgBuffer);
-    
+
     log.info(`Screenshot saved to ${screenshotPath}`);
     return screenshotPath;
   } catch (error) {
@@ -182,7 +227,7 @@ function imageToBase64(imagePath: string): string {
 ipcMain.handle('chatgpt-request', async (_event: IpcMainInvokeEvent, prompt: string) => {
   // Get API key from store
   const apiKey = store.get('apiKey');
-  
+
   if (!apiKey) {
     const errorMsg = 'Missing OpenAI API Key. Please add your API key in the Settings tab.';
     log.error(errorMsg);
@@ -192,12 +237,12 @@ ipcMain.handle('chatgpt-request', async (_event: IpcMainInvokeEvent, prompt: str
 
   try {
     log.info('Sending request to OpenAI API');
-    
+
     // Initialize OpenAI client
     const openai = new OpenAI({
       apiKey: apiKey
     });
-    
+
     // Make a request to OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -220,7 +265,7 @@ ipcMain.handle('take-screenshot', async () => {
   try {
     const screenshotPath = await takeScreenshot();
     screenshotQueue.push(screenshotPath);
-    
+
     // Keep only the last 2 screenshots
     if (screenshotQueue.length > 2) {
       const oldScreenshot = screenshotQueue.shift();
@@ -228,7 +273,7 @@ ipcMain.handle('take-screenshot', async () => {
         fs.unlinkSync(oldScreenshot);
       }
     }
-    
+
     return { success: true, path: screenshotPath };
   } catch (error) {
     log.error('Error taking screenshot:', error);
@@ -256,43 +301,43 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
   try {
     // Get API key from store
     const apiKey = store.get('apiKey');
-    
+
     if (!apiKey) {
       const errorMsg = 'Missing OpenAI API Key. Please add your API key in the Settings tab.';
       log.error(errorMsg);
       console.error(errorMsg);
       return { success: false, error: errorMsg };
     }
-    
+
     // Initialize OpenAI client
     const openai = new OpenAI({
       apiKey: apiKey
     });
-    
+
     // Prepare screenshots for analysis
     const screenshots = [...screenshotQueue];
     const language = options.language || store.get('preferredLanguage') || 'python';
-    
+
     // Build prompt for OpenAI
     const answerStyle = store.get('answerStyle', 'code');
-    let promptText =``;
+    let promptText = ``;
     if (answerStyle === 'code') {
       promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First explain the problem, then provide a step-by-step solution with code examples. But make it short and condense`;
     } else {
       promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Explain the logic and expected result **without writing any code**. Keep it short and clear.`;
     }
-    
+
     // Prepare message content array
     const messageContent: MessageContent = [
       { type: 'text', text: promptText }
     ];
-    
+
     // Add images to the message content
     for (const screenshotPath of screenshots) {
       try {
         // Convert image to base64
         const base64Image = imageToBase64(screenshotPath);
-        
+
         // Add image content
         (messageContent as Array<any>).push({
           type: 'image_url',
@@ -305,10 +350,10 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
         console.error(`Error processing image ${screenshotPath}:`, error);
       }
     }
-    
+
     log.info('Sending request to OpenAI API with images');
     console.log('Sending request to OpenAI API with images');
-    
+
     // Make a request to OpenAI with images using the SDK
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -321,12 +366,12 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
 
     // Extract the response
     const analysis = completion.choices[0].message.content || 'Analysis completed, but no specific solution was generated.';
-    
+
     log.info('Received analysis from OpenAI API');
     console.log('Received analysis from OpenAI API');
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       analysis: analysis,
       screenshots: screenshots
     };
@@ -381,11 +426,11 @@ ipcMain.handle('remove-screenshot', (_event: IpcMainInvokeEvent, index: number) 
     if (index >= 0 && index < screenshotQueue.length) {
       const screenshotPath = screenshotQueue[index];
       screenshotQueue.splice(index, 1);
-      
+
       if (fs.existsSync(screenshotPath)) {
         fs.unlinkSync(screenshotPath);
       }
-      
+
       return { success: true };
     }
     return { success: false, error: 'Invalid screenshot index' };
@@ -402,22 +447,22 @@ ipcMain.on('close-window', () => {
 });
 
 ipcMain.on('hide-window', () => {
-  mainWindow?.hide();
+  hideMainWindow();
 });
 
 ipcMain.on('show-window', () => {
-  mainWindow?.show();
+  showMainWindow();
 });
 
 ipcMain.on('move-window', (_event, direction) => {
   if (!mainWindow) return;
-  
+
   const position = mainWindow.getPosition();
   const step = 200; // pixels to move
-  
+
   let newX = position[0];
   let newY = position[1];
-  
+
   switch (direction) {
     case 'up':
       newY -= step;
@@ -432,7 +477,7 @@ ipcMain.on('move-window', (_event, direction) => {
       newX += step;
       break;
   }
-  
+
   mainWindow.setPosition(newX, newY);
 });
 
@@ -443,17 +488,8 @@ app.whenReady().then(() => {
   console.log('Application started');
   console.log('CMD/Control+Shift+A for showing up');
 
-  // Register global shortcuts
-  
-  // Toggle window visibility: Ctrl+Shift+A
   globalShortcut.register('CommandOrControl+Shift+A', () => {
-    if (!mainWindow) {
-      createWindow();
-    } else if (mainWindow.isVisible()) {
-      mainWindow.hide();
-    } else {
-      mainWindow.show();
-    }
+    toggleMainWindow();
   });
 
   // Change answer type: Ctrl+Shift+L
@@ -465,13 +501,13 @@ app.whenReady().then(() => {
       mainWindow.webContents.send('answer-style-changed', current);
     }
   });
-  
+
   // Take screenshot: Ctrl+Shift+S
   globalShortcut.register('CommandOrControl+Shift+S', async () => {
     try {
       const screenshotPath = await takeScreenshot();
       screenshotQueue.push(screenshotPath);
-      
+
       // Keep only the last 5 screenshots
       if (screenshotQueue.length > 1) {
         const oldScreenshot = screenshotQueue.shift();
@@ -479,7 +515,7 @@ app.whenReady().then(() => {
           fs.unlinkSync(oldScreenshot);
         }
       }
-      
+
       // Notify renderer
       if (mainWindow) {
         mainWindow.webContents.send('screenshot-taken', { path: screenshotPath });
@@ -508,37 +544,38 @@ app.whenReady().then(() => {
       log.error('Failed to delete screenshots:', err);
     }
   });
-  
+
+
   // Move window: Ctrl+Shift+Arrow keys
   globalShortcut.register('CommandOrControl+Shift+Up', () => {
     ipcMain.emit('move-window', null, 'up');
   });
-  
+
   globalShortcut.register('CommandOrControl+Shift+Down', () => {
     ipcMain.emit('move-window', null, 'down');
   });
-  
+
   globalShortcut.register('CommandOrControl+Shift+Left', () => {
     ipcMain.emit('move-window', null, 'left');
   });
-  
+
   globalShortcut.register('CommandOrControl+Shift+Right', () => {
     ipcMain.emit('move-window', null, 'right');
   });
-  
+
   // Scroll window: Ctrl+Arrow keys
   globalShortcut.register('CommandOrControl+Up', () => {
     if (mainWindow) {
       mainWindow.webContents.send('scroll-content', { direction: 'up' });
     }
   });
-  
+
   globalShortcut.register('CommandOrControl+Down', () => {
     if (mainWindow) {
       mainWindow.webContents.send('scroll-content', { direction: 'down' });
     }
   });
-  
+
   // Process screenshots: Ctrl+Shift+P
   globalShortcut.register('CommandOrControl+Shift+P', () => {
     if (mainWindow) {
@@ -560,7 +597,7 @@ app.on('window-all-closed', () => {
 // Clean up before quitting
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  
+
   // Clean up temp screenshots
   try {
     for (const screenshot of screenshotQueue) {
