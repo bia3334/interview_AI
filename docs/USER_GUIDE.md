@@ -1,12 +1,4 @@
-# Open Interview Coder - Improved Version
-
-
-
-https://github.com/user-attachments/assets/23365245-2f4b-4f9a-af44-5358402b0546
-
-
-
-
+# Open Interview Coder - User Guide
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -20,11 +12,9 @@ https://github.com/user-attachments/assets/23365245-2f4b-4f9a-af44-5358402b0546
 9. [Window Management](#window-management)
 10. [Troubleshooting](#troubleshooting)
 
-### Introduction:
-You know about the Interview Coder guy who made invisible AI window? 🫠🫠🫠 I don't like the fact that he taking advantage of poor job market and rip off poor students 😐😐. I rather make a fair game for everyone. I reverse engineering it and his whole thing was based on one functionality: `setContentProtection` from electron https://www.electronjs.org/docs/latest/api/browser-window
-This project is an improved version of the Open Interview Coder, an invisible desktop application that helps with technical interviews. It provides features like screenshot capture, AI-powered analysis, and solution generation without requiring login or authentication.
+## Introduction
 
-Open Interview Coder is an opensource invisible desktop application designed to help you succeed in technical coding interviews. It provides a discreet way to capture, analyze, and solve coding problems during interviews without being detected by most screen sharing and recording software.
+Open Interview Coder is an invisible desktop application designed to help you succeed in technical coding interviews. It provides a discreet way to capture, analyze, and solve coding problems during interviews without being detected by most screen sharing and recording software.
 
 The application works by creating an invisible window that can be toggled on and off with keyboard shortcuts. When visible, you can take screenshots of coding problems, get AI-powered analysis and solutions, and manage the application window.
 
@@ -47,16 +37,20 @@ The application works by creating an invisible window that can be toggled on and
    npm install
    ```
 
-3. Build the application:
+3. Create a `.env` file in the root directory with your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+
+4. Build the application:
    ```bash
    npm run build
    ```
 
-4. Start the application:
+5. Start the application:
    ```bash
    npm start
    ```
-5. Apply your OpenAI API key in settings
 
 ## Getting Started
 
@@ -67,15 +61,44 @@ The application works by creating an invisible window that can be toggled on and
 
 ## Features
 
-## Features
+### Invisibility
+The application window is invisible to most screen sharing and recording software, including:
+- Google Meet
+- Discord
+- Most browser-based screen recording tools
+- Screenshot tools
 
-- 🎯 Invisibility: Undetectable window that bypasses most screen capture methods
-- 📸 Screenshot Capture: Capture screenshots of coding problems with a simple keyboard shortcut.
-- 🤖 AI-Powered Analysis: Automatically analyzes coding problems
-- 💡 Solution Generation: Get detailed explanations and solutions
-- 🔧 Real-time Debugging: Debug your code with AI assistance (GPT for now)
-- 🎨 Window Management: Freely move and position the window anywhere on screen
+### Screenshot Capture
+Capture screenshots of coding problems directly from your screen with a simple keyboard shortcut.
 
+### AI-Powered Analysis
+Get AI-powered analysis of coding problems, including:
+- Problem understanding
+- Solution strategies
+- Code examples
+- Debugging assistance
+
+### Window Management
+Easily move and position the window anywhere on your screen using keyboard shortcuts.
+
+## User Interface
+
+The application has a tabbed interface with three main sections:
+
+### Prompt Tab
+- Text input field for entering custom prompts
+- Send button to submit prompts to the AI
+- Response area displaying AI-generated solutions and explanations
+
+### Screenshots Tab
+- Button to take screenshots
+- Button to process screenshots
+- List of captured screenshots
+- Option to remove screenshots
+
+### Shortcuts Tab
+- List of all available keyboard shortcuts
+- Descriptions of what each shortcut does
 
 ## Keyboard Shortcuts
 
@@ -145,6 +168,7 @@ To show the window after it's been hidden:
 ### Application Not Starting
 - Ensure Node.js is installed and is version 18.19.0 
 - Check that all dependencies are installed with `npm install`
+- Verify that the `.env` file exists with a valid OpenAI API key
 
 ### Screenshots Not Working
 - Ensure the application has screen recording permissions
@@ -153,6 +177,7 @@ To show the window after it's been hidden:
 - On Linux: May require `xhost` access depending on your distribution
 
 ### OpenAI API Errors
+- Verify your API key is correct in the `.env` file
 - Check your internet connection
 - Ensure your OpenAI account has available credits
 
