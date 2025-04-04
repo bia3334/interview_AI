@@ -323,7 +323,7 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
     const answerStyle = store.get('answerStyle', 'code');
     let promptText = ``;
     if (answerStyle === 'code') {
-      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First explain the problem, then provide a step-by-step solution with code examples. But make it short and condense`;
+      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First provide the code with short comments, then 3-4 lines of thoughts process. **Do not write any explanation before the code**.`;
     } else {
       promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Explain the logic and expected result **without writing any code**. Keep it short and clear.`;
     }
