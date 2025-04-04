@@ -71,6 +71,45 @@ const tempDir = path.join(os.tmpdir(), 'open-interview-coder');
 if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
+// Keep track of the current ignore state
+let isIgnoringMouseEvents = true;
+let isWindowVisible = false;
+function hideMainWindow() {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        const bounds = mainWindow.getBounds();
+        store.set('windowPosition', { x: bounds.x, y: bounds.y });
+        store.set('windowSize', { width: bounds.width, height: bounds.height });
+        mainWindow.setIgnoreMouseEvents(true, { forward: true });
+        mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+        mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        mainWindow.setOpacity(0);
+        mainWindow.hide();
+        isWindowVisible = false;
+        isIgnoringMouseEvents = true;
+    }
+}
+function showMainWindow() {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        const savedPosition = store.get('windowPosition');
+        const savedSize = store.get('windowSize');
+        if (savedPosition && savedSize) {
+            mainWindow.setBounds({
+                ...savedPosition,
+                ...savedSize
+            });
+        }
+        mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+        mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        mainWindow.setContentProtection(true);
+        mainWindow.setOpacity(0);
+        mainWindow.showInactive();
+        mainWindow.setOpacity(1);
+        isWindowVisible = true;
+    }
+}
+function toggleMainWindow() {
+    isWindowVisible ? hideMainWindow() : showMainWindow();
+}
 function createWindow() {
     // Get saved position and size or use defaults
     const savedPosition = store.get('windowPosition');
@@ -78,7 +117,6 @@ function createWindow() {
     // Get screen dimensions
     const primaryDisplay = electron_1.screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
-    // Ensure window is within screen bounds
     const x = Math.min(Math.max(savedPosition.x, 0), width - savedSize.width);
     const y = Math.min(Math.max(savedPosition.y, 0), height - savedSize.height);
     mainWindow = new electron_1.BrowserWindow({
@@ -86,7 +124,7 @@ function createWindow() {
         height: savedSize.height,
         x: x,
         y: y,
-        show: false, // Window is initially hidden
+        show: isWindowVisible,
         // Enable transparent window
         transparent: true,
         backgroundColor: '#00000000',
@@ -97,10 +135,9 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
-        }
+        },
+        skipTaskbar: true,
     });
-    // Keep track of the current ignore state
-    let isIgnoringMouseEvents = true;
     // Register a new global shortcut for toggling
     electron_1.globalShortcut.register('CommandOrControl+Shift+W', () => {
         // Flip the ignore state
@@ -129,6 +166,7 @@ function createWindow() {
         protocol: 'file:',
         slashes: true
     }));
+    mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
     // Save window position when moved
     mainWindow.on('moved', () => {
         if (mainWindow) {
@@ -214,8 +252,8 @@ electron_1.ipcMain.handle('take-screenshot', async () => {
     try {
         const screenshotPath = await takeScreenshot();
         screenshotQueue.push(screenshotPath);
-        // Keep only the last 5 screenshots
-        if (screenshotQueue.length > 5) {
+        // Keep only the last 2 screenshots
+        if (screenshotQueue.length > 2) {
             const oldScreenshot = screenshotQueue.shift();
             if (oldScreenshot && fs.existsSync(oldScreenshot)) {
                 fs.unlinkSync(oldScreenshot);
@@ -370,10 +408,10 @@ electron_1.ipcMain.on('close-window', () => {
     mainWindow?.close();
 });
 electron_1.ipcMain.on('hide-window', () => {
-    mainWindow?.hide();
+    hideMainWindow();
 });
 electron_1.ipcMain.on('show-window', () => {
-    mainWindow?.show();
+    showMainWindow();
 });
 electron_1.ipcMain.on('move-window', (_event, direction) => {
     if (!mainWindow)
@@ -404,18 +442,8 @@ electron_1.app.whenReady().then(() => {
     log.info('Application started');
     console.log('Application started');
     console.log('CMD/Control+Shift+A for showing up');
-    // Register global shortcuts
-    // Toggle window visibility: Ctrl+Shift+A
     electron_1.globalShortcut.register('CommandOrControl+Shift+A', () => {
-        if (!mainWindow) {
-            createWindow();
-        }
-        else if (mainWindow.isVisible()) {
-            mainWindow.hide();
-        }
-        else {
-            mainWindow.show();
-        }
+        toggleMainWindow();
     });
     // Change answer type: Ctrl+Shift+L
     electron_1.globalShortcut.register('CommandOrControl+Shift+L', () => {

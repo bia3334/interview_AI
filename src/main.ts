@@ -128,7 +128,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-    }
+    },
+    skipTaskbar: true,
   });
 
   // Register a new global shortcut for toggling
