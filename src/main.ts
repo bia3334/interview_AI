@@ -267,8 +267,8 @@ ipcMain.handle('take-screenshot', async () => {
     const screenshotPath = await takeScreenshot();
     screenshotQueue.push(screenshotPath);
 
-    // Keep only the last 2 screenshots
-    if (screenshotQueue.length > 2) {
+    // Keep only the last 5 screenshots
+    if (screenshotQueue.length > 5) {
       const oldScreenshot = screenshotQueue.shift();
       if (oldScreenshot && fs.existsSync(oldScreenshot)) {
         fs.unlinkSync(oldScreenshot);
