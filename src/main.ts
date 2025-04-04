@@ -537,6 +537,10 @@ app.whenReady().then(() => {
         const filePath = path.join(screenshotsDir, file);
         await fs.promises.unlink(filePath);
       }
+
+      // Clear the screenshot queue in memory
+      screenshotQueue = [];
+
       log.info('All screenshots deleted via shortcut.');
       if (mainWindow) {
         mainWindow.webContents.send('screenshots-cleared');

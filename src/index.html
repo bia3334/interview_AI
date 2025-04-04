@@ -621,17 +621,17 @@
     // Screenshot functionality
     takeScreenshotBtn.addEventListener('click', async () => {
       try {
-          const result = await window.electronAPI.takeScreenshot();
-          if (result.success) {
-              showToast('Screenshot taken');
-              await updateScreenshotList(); // Add await here
-          } else {
-              showToast(`Error: ${result.error}`);
-          }
+        const result = await window.electronAPI.takeScreenshot();
+        if (result.success) {
+          showToast('Screenshot taken');
+          await updateScreenshotList(); // Add await here
+        } else {
+          showToast(`Error: ${result.error}`);
+        }
       } catch (error) {
-          showToast(`Error: ${error.message}`);
+        showToast(`Error: ${error.message}`);
       }
-  });
+    });
 
     processScreenshotsBtn.addEventListener('click', async () => {
       try {
@@ -727,7 +727,7 @@
     }
 
     // Toast notification
-    function showToast(message, duration = 3000) {
+    function showToast(message, duration = 1000) {
       toast.textContent = message;
       toast.classList.add('show');
 
@@ -738,11 +738,18 @@
 
     // Event listeners from main process
     window.electronAPI.onScreenshotTaken(() => {
+      showToast('Screenshot taken!');
       updateScreenshotList();
     });
 
     window.electronAPI.onProcessScreenshots(() => {
       processScreenshotsBtn.click();
+      showToast('Screenshot processed!');
+    });
+
+    window.electronAPI.onScreenshotsCleared(() => {
+      showToast('Screenshots cleared!');
+      updateScreenshotList();
     });
 
     // Initialize
