@@ -48,7 +48,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
-  // Add this with your other event listeners
+  onAnswerStyleChanged: (callback: (style: string) => void) => {
+    ipcRenderer.on('answer-style-changed', (_event, style) => callback(style));
+    return () => {
+      ipcRenderer.removeAllListeners('answer-style-changed');
+    };
+  },
+
   onScreenshotsCleared: (callback: () => void) => {
     ipcRenderer.on('screenshots-cleared', () => callback());
 

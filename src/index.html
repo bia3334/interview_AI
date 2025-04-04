@@ -758,6 +758,10 @@
       updateScreenshotList();
     });
 
+    window.electronAPI.onAnswerStyleChanged((style) => {
+      showToast(`Answer style changed to: ${style}`);
+    });
+
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       loadSettings();
