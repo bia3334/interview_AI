@@ -510,7 +510,7 @@ app.whenReady().then(() => {
       screenshotQueue.push(screenshotPath);
 
       // Keep only the last 5 screenshots
-      if (screenshotQueue.length > 1) {
+      if (screenshotQueue.length > 5) {
         const oldScreenshot = screenshotQueue.shift();
         if (oldScreenshot && fs.existsSync(oldScreenshot)) {
           fs.unlinkSync(oldScreenshot);
