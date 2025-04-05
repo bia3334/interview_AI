@@ -88,6 +88,9 @@ The application works by creating an invisible window that can be toggled on and
 | Ctrl/Cmd+Shift+↓ | Move window down |
 | Ctrl/Cmd+Shift+← | Move window left |
 | Ctrl/Cmd+Shift+→ | Move window right |
+| Ctrl/Cmd+Shift+Space | Change between tabs |
+| Ctrl/Cmd+Shift+L | Change type of answer |
+| Ctrl/Cmd+Shift+D | Delete all screenshots |
 
 ## Taking Screenshots
 
