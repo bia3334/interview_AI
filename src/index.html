@@ -494,6 +494,12 @@
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">D</span>
             </div>
           </div>
+          <div class="shortcut-item">
+            <span>Change Between Tabs</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Space</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -699,7 +705,6 @@
     }
 
     // Update screenshot list
-    // Update screenshot list
     async function updateScreenshotList() {
       const screenshots = await window.electronAPI.getScreenshots();
 
@@ -768,6 +773,18 @@
       updateScreenshotList();
       tabs[0].click();
     });
+
+    // Keyboard shortcuts
+    window.electronAPI.onSwitchTab((direction) => {
+    if (direction === 'next') {
+      const tabs = Array.from(document.querySelectorAll('.tab'));
+      let currentIndex = tabs.findIndex(tab => tab.classList.contains('active'));
+      if (currentIndex === -1) currentIndex = 0;
+      let newIndex = currentIndex + 1;
+      if (newIndex >= tabs.length) newIndex = 0;
+      tabs[newIndex].click();
+    }});
+    
   </script>
 </body>
 

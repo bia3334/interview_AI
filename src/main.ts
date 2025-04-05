@@ -588,6 +588,13 @@ app.whenReady().then(() => {
     }
   });
 
+  // Switch tabs: Ctrl+Shift+Space
+  globalShortcut.register('CommandOrControl+Shift+Space', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('switch-tab', 'next');
+    }
+  });
+
   // On macOS, re-create a window when clicking the dock icon if none open
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

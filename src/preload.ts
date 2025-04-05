@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
+  // Event listeners for various actions
   onProcessScreenshots: (callback: () => void) => {
     ipcRenderer.on('process-screenshots', () => callback());
 
@@ -48,6 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
+  // Event listeners for API key changes
   onAnswerStyleChanged: (callback: (style: string) => void) => {
     ipcRenderer.on('answer-style-changed', (_event, style) => callback(style));
     return () => {
@@ -55,6 +57,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
+  // Event listeners for preferences changes
   onScreenshotsCleared: (callback: () => void) => {
     ipcRenderer.on('screenshots-cleared', () => callback());
 
@@ -63,4 +66,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeAllListeners('screenshots-cleared');
     };
   },
+
+  // Event listeners for window management
+  onSwitchTab: (callback: (direction: string) => void) => {
+    ipcRenderer.on('switch-tab', (_event, direction) => callback(direction));
+    return () => {
+      ipcRenderer.removeAllListeners('switch-tab');
+    };
+  }
 });
