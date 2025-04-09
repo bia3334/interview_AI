@@ -246,7 +246,7 @@ ipcMain.handle('chatgpt-request', async (_event: IpcMainInvokeEvent, prompt: str
 
     // Make a request to OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -357,7 +357,7 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
 
     // Make a request to OpenAI with images using the SDK
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [{
         role: "user",
         content: messageContent as any
