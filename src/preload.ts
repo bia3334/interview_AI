@@ -3,8 +3,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Send prompt to ChatGPT
+  // Send prompt to AI models
   sendPrompt: (prompt: string) => ipcRenderer.invoke('chatgpt-request', prompt),
+  sendPromptToOpenAI: (prompt: string) => ipcRenderer.invoke('sendPromptToOpenAI', prompt),
+  sendPromptToGemini: (prompt: string) => ipcRenderer.invoke('sendPromptToGemini', prompt),
 
   // Window management
   closeWindow: () => ipcRenderer.send('close-window'),
@@ -17,13 +19,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   analyzeScreenshots: (options: { language?: string }) =>
     ipcRenderer.invoke('analyze-screenshots', options),
+  analyzeScreenshotsWithOpenAI: (options: { language?: string }) =>
+    ipcRenderer.invoke('analyzeScreenshotsWithOpenAI', options),
+  analyzeScreenshotsWithGemini: (options: { language?: string }) =>
+    ipcRenderer.invoke('analyzeScreenshotsWithGemini', options),
 
   // API Key and Preferences management
   saveApiKey: (apiKey: string) => ipcRenderer.invoke('save-api-key', apiKey),
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
+  saveGeminiApiKey: (apiKey: string) => ipcRenderer.invoke('saveGeminiApiKey', apiKey),
+  getGeminiApiKey: () => ipcRenderer.invoke('getGeminiApiKey'),
+  saveOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke('saveOpenAIApiKey', apiKey),
+  getOpenAIApiKey: () => ipcRenderer.invoke('getOpenAIApiKey'),
   savePreferences: (preferences: { preferredLanguage: string }) =>
     ipcRenderer.invoke('save-preferences', preferences),
   getPreferences: () => ipcRenderer.invoke('get-preferences'),
+  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both') => 
+    ipcRenderer.invoke('saveDefaultModel', defaultModel),
+  getDefaultModel: () => ipcRenderer.invoke('getDefaultModel'),
 
   // Screenshot management
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
@@ -54,6 +67,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('answer-style-changed', (_event, style) => callback(style));
     return () => {
       ipcRenderer.removeAllListeners('answer-style-changed');
+    };
+  },
+  
+  // Event listener for model changes
+  onModelChanged: (callback: (model: 'openai' | 'gemini' | 'both') => void) => {
+    ipcRenderer.on('model-changed', (_event, model) => callback(model));
+    return () => {
+      ipcRenderer.removeAllListeners('model-changed');
     };
   },
 

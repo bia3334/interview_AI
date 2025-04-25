@@ -2,15 +2,15 @@ import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, globalShortcut, screen
 import * as path from 'path';
 import * as url from 'url';
 import * as dotenv from 'dotenv';
-import fetch from 'node-fetch';
 import screenshot from 'screenshot-desktop';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as electronLog from 'electron-log';
-// Use CommonJS require for electron-store with Node 18
 const Store = require('electron-store');
-// Use CommonJS require for OpenAI with Node 18
-const { OpenAI } = require('openai');
+
+const { GoogleGenAI, createUserContent, createPartFromUri } = require('@google/genai');
+import { OpenAI } from 'openai';
+import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
 // Configure logging
 electronLog.initialize();
@@ -20,6 +20,43 @@ const log = electronLog;
 // Load environment variables
 dotenv.config();
 
+// Get model from apiKey
+// const model = "gemini-2.5-pro-exp-03-25"
+// const model = "gemini-2.0-flash"
+const model = "gemini-2.0-flash-thinking-exp-01-21"
+const OPENAI_MODEL = "gpt-4o" // Using GPT-4o by default
+
+// Initialize OpenAI client
+function getOpenAIClient() {
+  const apiKey = getOpenAIApiKey();
+  if (!apiKey) {
+    log.error('OpenAI API key is not configured');
+    throw new Error('OpenAI API key is not configured');
+  }
+  log.info('OpenAI client initialized with API key');
+  return new OpenAI({ apiKey });
+}
+
+// Send prompt to Gemini
+function sendPromptToGemini(prompt: string[]) {
+  const ai = new GoogleGenAI({
+    apiKey: getGeminiApiKey(),
+  });
+  return ai.models.generateContent({
+    model: model,
+    contents: [createUserContent(prompt)],
+  });
+}
+
+// Send prompt to OpenAI
+async function sendPromptToOpenAI(prompt: string) {
+  const openai = getOpenAIClient();
+  const response = await openai.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return response.choices[0]?.message?.content || '';
+}
 
 // Initialize store for settings
 // Define schema type for TypeScript
@@ -27,8 +64,10 @@ interface StoreSchema {
   windowPosition: { x: number, y: number };
   windowSize: { width: number, height: number };
   preferredLanguage: string;
-  apiKey?: string;
+  geminiApiKey?: string;
+  openaiApiKey?: string;
   answerStyle?: 'code' | 'explanation';
+  defaultModel?: 'openai' | 'gemini' | 'both';
 }
 
 // Create store with schema
@@ -37,9 +76,33 @@ const store = new Store({
     windowPosition: { x: 100, y: 100 },
     windowSize: { width: 1600, height: 1200 },
     preferredLanguage: 'python',
-    answerStyle: 'explaination'
+    answerStyle: 'explaination',
+    defaultModel: 'both'
   }
 });
+
+// Rename the existing getApiKey function to getGeminiApiKey
+function getGeminiApiKey() {
+  const key = store.get('geminiApiKey') || process.env.GEMINI_API_KEY || '';
+  if (key) {
+    log.info('Gemini API key found');
+  } else {
+    log.warn('No Gemini API key found');
+  }
+  return key;
+}
+
+// Add a new function for getting OpenAI API key
+function getOpenAIApiKey() {
+  // Check both keys to ensure backward compatibility
+  const apiKey = store.get('openaiApiKey') || store.get('apiKey') || process.env.OPENAI_API_KEY || '';
+  if (apiKey) {
+    log.info('OpenAI API key found');
+  } else {
+    log.warn('No OpenAI API key found');
+  }
+  return apiKey;
+}
 
 // Global variables
 let mainWindow: BrowserWindow | null = null;
@@ -224,34 +287,33 @@ function imageToBase64(imagePath: string): string {
   }
 }
 
-// Handle calls from the renderer to ChatGPT
-ipcMain.handle('chatgpt-request', async (_event: IpcMainInvokeEvent, prompt: string) => {
-  // Get API key from store
-  const apiKey = store.get('apiKey');
+// Handle calls from the renderer to Google Gemini
+ipcMain.handle('sendPromptToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  try {
+    log.info('Sending request to Google Gemini API');
 
-  if (!apiKey) {
-    const errorMsg = 'Missing OpenAI API Key. Please add your API key in the Settings tab.';
-    log.error(errorMsg);
-    console.error(errorMsg);
-    throw new Error(errorMsg);
+    // Make a request to Google Gemini
+    const result = await sendPromptToGemini([prompt])
+
+    const assistantReply = result.text || 'No response from Google Gemini.';
+
+    log.info('Received response from Google Gemini API');
+    return assistantReply;
+  } catch (error) {
+    log.error('Failed to fetch from Google Gemini:', error);
+    console.error('Failed to fetch from Google Gemini:', error);
+    throw new Error(`Failed to fetch from Google Gemini: ${(error as Error).message}`);
   }
+});
 
+// Add handler for OpenAI
+ipcMain.handle('sendPromptToOpenAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
   try {
     log.info('Sending request to OpenAI API');
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: apiKey
-    });
-
     // Make a request to OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: 'user', content: prompt }]
-    });
+    const assistantReply = await sendPromptToOpenAI(prompt);
 
-    // Extract the response
-    const assistantReply = completion.choices[0].message.content || '';
     log.info('Received response from OpenAI API');
     return assistantReply;
   } catch (error) {
@@ -261,37 +323,14 @@ ipcMain.handle('chatgpt-request', async (_event: IpcMainInvokeEvent, prompt: str
   }
 });
 
-// Handle screenshot request
-ipcMain.handle('take-screenshot', async () => {
-  try {
-    const screenshotPath = await takeScreenshot();
-    screenshotQueue.push(screenshotPath);
-
-    // Keep only the last 5 screenshots
-    if (screenshotQueue.length > 5) {
-      const oldScreenshot = screenshotQueue.shift();
-      if (oldScreenshot && fs.existsSync(oldScreenshot)) {
-        fs.unlinkSync(oldScreenshot);
-      }
-    }
-
-    return { success: true, path: screenshotPath };
-  } catch (error) {
-    log.error('Error taking screenshot:', error);
-    console.error('Error taking screenshot:', error);
-    return { success: false, error: (error as Error).message };
-  }
+// Keep compatibility with old analyze-screenshots endpoint
+ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options: { language?: string }) => {
+  // Just redirect to the Gemini implementation for backward compatibility
+  return await analyzeScreenshotsWithGemini(options);
 });
 
-// Define the type for message content
-type MessageContent = string | Array<{
-  type: string;
-  text?: string;
-  image_url?: { url: string };
-}>;
-
-// Handle screenshot analysis request with image upload using modern OpenAI SDK
-ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options: { language?: string }) => {
+// Extract the handler function for reuse
+async function analyzeScreenshotsWithGemini(options: { language?: string }) {
   if (screenshotQueue.length === 0) {
     const errorMsg = 'No screenshots available to analyze';
     log.error(errorMsg);
@@ -300,21 +339,83 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
   }
 
   try {
-    // Get API key from store
-    const apiKey = store.get('apiKey');
+    log.info('Analyzing screenshots with Google Gemini API');
 
-    if (!apiKey) {
-      const errorMsg = 'Missing OpenAI API Key. Please add your API key in the Settings tab.';
-      log.error(errorMsg);
-      console.error(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: apiKey
+    const ai = new GoogleGenAI({
+      apiKey: getGeminiApiKey(),
     });
 
+    // Prepare screenshots for analysis
+    const screenshots = [...screenshotQueue];
+    const language = options.language || store.get('preferredLanguage') || 'python';
+
+    // Build prompt for Gemini
+    const answerStyle = store.get('answerStyle', 'code');
+    let promptText = ``;
+    if (answerStyle === 'code') {
+      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
+    } else {
+      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Explain the logic and expected result **without writing any code**. Keep it short and clear.`;
+    }
+
+    // Prepare parts array for Gemini
+    const parts = [promptText];
+
+    // Add images to the parts
+    for (const screenshotPath of screenshots) {
+      try {
+        const image = await ai.files.upload({
+          file: screenshotPath,
+        });
+        parts.push(createPartFromUri(image.uri, image.mimeType));
+      } catch (error) {
+        log.error(`Error processing image ${screenshotPath}:`, error);
+        console.error(`Error processing image ${screenshotPath}:`, error);
+      }
+    }
+
+    log.info('Sending request to Google Gemini API with images');
+    console.log('Sending request to Google Gemini API with images');
+
+    // Make a request to Gemini with images
+    const result = await sendPromptToGemini(parts);
+
+    const analysis = result.text || 'Analysis completed, but no specific solution was generated.';
+
+    log.info('Received analysis from Google Gemini API');
+    console.log('Received analysis from Google Gemini API');
+
+    return {
+      success: true,
+      analysis: analysis,
+      screenshots: screenshots
+    };
+  } catch (error) {
+    log.error('Error analyzing screenshots with Gemini:', error);
+    console.error('Error analyzing screenshots with Gemini:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// Set up the Gemini handler to use the extracted function
+ipcMain.handle('analyzeScreenshotsWithGemini', async (_event: IpcMainInvokeEvent, options: { language?: string }) => {
+  return await analyzeScreenshotsWithGemini(options);
+});
+
+// Add a new handler for analyzing screenshots with OpenAI
+ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent, options: { language?: string }) => {
+  if (screenshotQueue.length === 0) {
+    const errorMsg = 'No screenshots available to analyze';
+    log.error(errorMsg);
+    console.error(errorMsg);
+    return { success: false, error: errorMsg };
+  }
+
+  try {
+    log.info('Analyzing screenshots with OpenAI API');
+
+    const openai = getOpenAIClient();
+    
     // Prepare screenshots for analysis
     const screenshots = [...screenshotQueue];
     const language = options.language || store.get('preferredLanguage') || 'python';
@@ -323,29 +424,25 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
     const answerStyle = store.get('answerStyle', 'code');
     let promptText = ``;
     if (answerStyle === 'code') {
-      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First provide the code with short comments, then 3-4 lines of thoughts process. **Do not write any explanation before the code**.`;
+      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
     } else {
       promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Explain the logic and expected result **without writing any code**. Keep it short and clear.`;
     }
 
-    // Prepare message content array
-    const messageContent: MessageContent = [
-      { type: 'text', text: promptText }
+    // Convert images to base64 and create message content
+    const content: ChatCompletionContentPart[] = [
+      { type: "text", text: promptText }
     ];
 
-    // Add images to the message content
     for (const screenshotPath of screenshots) {
       try {
-        // Convert image to base64
         const base64Image = imageToBase64(screenshotPath);
-
-        // Add image content
-        (messageContent as Array<any>).push({
-          type: 'image_url',
-          image_url: {
-            url: `data:image/png;base64,${base64Image}`
-          }
-        });
+        const dataUrl = `data:image/png;base64,${base64Image}`;
+        
+        content.push({
+          type: "image_url",
+          image_url: { url: dataUrl }
+        } as ChatCompletionContentPart);
       } catch (error) {
         log.error(`Error processing image ${screenshotPath}:`, error);
         console.error(`Error processing image ${screenshotPath}:`, error);
@@ -355,18 +452,18 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
     log.info('Sending request to OpenAI API with images');
     console.log('Sending request to OpenAI API with images');
 
-    // Make a request to OpenAI with images using the SDK
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{
-        role: "user",
-        content: messageContent as any
-      }],
-      max_tokens: 2000
+    // Make a request to OpenAI with images
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: content
+        }
+      ],
     });
 
-    // Extract the response
-    const analysis = completion.choices[0].message.content || 'Analysis completed, but no specific solution was generated.';
+    const analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
 
     log.info('Received analysis from OpenAI API');
     console.log('Received analysis from OpenAI API');
@@ -377,16 +474,18 @@ ipcMain.handle('analyze-screenshots', async (_event: IpcMainInvokeEvent, options
       screenshots: screenshots
     };
   } catch (error) {
-    log.error('Error analyzing screenshots:', error);
-    console.error('Error analyzing screenshots:', error);
+    log.error('Error analyzing screenshots with OpenAI:', error);
+    console.error('Error analyzing screenshots with OpenAI:', error);
     return { success: false, error: (error as Error).message };
   }
 });
 
-// API Key and Preferences handlers
+// Update API Key and Preferences handlers
 ipcMain.handle('save-api-key', (_event: IpcMainInvokeEvent, apiKey: string) => {
   try {
+    // Save under both old and new names for compatibility
     store.set('apiKey', apiKey);
+    store.set('openaiApiKey', apiKey);
     return { success: true };
   } catch (error) {
     log.error('Error saving API key:', error);
@@ -395,8 +494,45 @@ ipcMain.handle('save-api-key', (_event: IpcMainInvokeEvent, apiKey: string) => {
   }
 });
 
+// Add handler for saving OpenAI API key
+ipcMain.handle('saveGeminiApiKey', (_event: IpcMainInvokeEvent, apiKey: string) => {
+  try {
+    store.set('geminiApiKey', apiKey);
+    log.info('Gemini API key saved successfully');
+    return { success: true };
+  } catch (error) {
+    log.error('Error saving Gemini API key:', error);
+    console.error('Error saving Gemini API key:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle('saveOpenAIApiKey', (_event: IpcMainInvokeEvent, apiKey: string) => {
+  try {
+    store.set('openaiApiKey', apiKey);
+    // Also save under old key name for compatibility
+    store.set('apiKey', apiKey);
+    log.info('OpenAI API key saved successfully');
+    return { success: true };
+  } catch (error) {
+    log.error('Error saving OpenAI API key:', error);
+    console.error('Error saving OpenAI API key:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle('getGeminiApiKey', () => {
+  return getGeminiApiKey();
+});
+
+ipcMain.handle('getOpenAIApiKey', () => {
+  return getOpenAIApiKey();
+});
+
+// For backward compatibility
 ipcMain.handle('get-api-key', () => {
-  return store.get('apiKey') || '';
+  // Prioritize OpenAI API key for backward compatibility
+  return getOpenAIApiKey() || getGeminiApiKey();
 });
 
 ipcMain.handle('save-preferences', (_event: IpcMainInvokeEvent, preferences: { preferredLanguage: string }) => {
@@ -482,6 +618,44 @@ ipcMain.on('move-window', (_event, direction) => {
   mainWindow.setPosition(newX, newY);
 });
 
+// Add screenshot handler
+ipcMain.handle('take-screenshot', async () => {
+  try {
+    const screenshotPath = await takeScreenshot();
+    screenshotQueue.push(screenshotPath);
+
+    // Keep only the last 5 screenshots
+    if (screenshotQueue.length > 5) {
+      const oldScreenshot = screenshotQueue.shift();
+      if (oldScreenshot && fs.existsSync(oldScreenshot)) {
+        fs.unlinkSync(oldScreenshot);
+      }
+    }
+
+    return { success: true, path: screenshotPath };
+  } catch (error) {
+    log.error('Error taking screenshot via API:', error);
+    console.error('Error taking screenshot via API:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// Add handler for saving default model preference
+ipcMain.handle('saveDefaultModel', (_event: IpcMainInvokeEvent, defaultModel: 'openai' | 'gemini' | 'both') => {
+  try {
+    store.set('defaultModel', defaultModel);
+    return { success: true };
+  } catch (error) {
+    log.error('Error saving default model preference:', error);
+    console.error('Error saving default model preference:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle('getDefaultModel', () => {
+  return store.get('defaultModel') || 'both';
+});
+
 // Application initialization
 app.whenReady().then(() => {
   createWindow();
@@ -500,6 +674,30 @@ app.whenReady().then(() => {
     log.info(`Switched answer style to: ${current}`);
     if (mainWindow) {
       mainWindow.webContents.send('answer-style-changed', current);
+    }
+  });
+
+  // Switch AI model: Ctrl+Shift+M
+  globalShortcut.register('CommandOrControl+Shift+M', () => {
+    // Get current model setting and cycle to next
+    const currentModel = store.get('defaultModel') || 'both';
+    let newModel;
+    
+    if (currentModel === 'both') {
+      newModel = 'openai';
+    } else if (currentModel === 'openai') {
+      newModel = 'gemini';
+    } else {
+      newModel = 'both';
+    }
+    
+    // Save new model setting
+    store.set('defaultModel', newModel);
+    log.info(`Switched AI model to: ${newModel}`);
+    
+    // Notify renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('model-changed', newModel);
     }
   });
 

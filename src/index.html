@@ -31,8 +31,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       background: var(--background);
       color: var(--text);
-
-
+      font-weight: 400;
       user-select: none;
       -webkit-app-region: drag;
     }
@@ -41,6 +40,8 @@
       display: flex;
       flex-direction: column;
       padding: 1rem;
+      height: 100vh;
+      box-sizing: border-box;
     }
 
     .header {
@@ -165,6 +166,12 @@
       overflow: auto;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    /* Add a custom class for text that needs to be more visible */
+    .highlighted-text {
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 500;
     }
 
     /* Style for markdown content */
@@ -378,7 +385,21 @@
           <input type="text" id="userInput" class="prompt-input" placeholder="Enter your prompt here..." />
           <button id="sendBtn" class="btn btn-primary">Send</button>
         </div>
-        <div id="responseContainer" class="response-container"></div>
+        <div id="responseToggle" style="display: flex; margin-bottom: 0.5rem;">
+          <button id="showBothBtn" class="btn btn-primary" style="margin-right: 0.5rem;">Show Both</button>
+          <button id="showOpenAIBtn" class="btn">OpenAI</button>
+          <button id="showGeminiBtn" class="btn">Gemini</button>
+        </div>
+        <div id="responsesContainer" style="display: flex; gap: 1rem; flex: 1;">
+          <div style="flex: 1; display: flex; flex-direction: column;">
+            <div style="font-weight: bold; margin-bottom: 0.5rem;">OpenAI</div>
+            <div id="openaiResponseContainer" class="response-container"></div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column;">
+            <div style="font-weight: bold; margin-bottom: 0.5rem;">Gemini</div>
+            <div id="geminiResponseContainer" class="response-container"></div>
+          </div>
+        </div>
       </div>
 
       <div class="tab-content" data-tab-content="screenshots">
@@ -408,8 +429,14 @@
               <small style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Your API key is stored locally and never
                 sent to our servers.</small>
             </div>
+            <div class="form-group">
+              <label for="geminiApiKey">Gemini API Key</label>
+              <input type="password" id="geminiApiKey" class="prompt-input" placeholder="AIza..." />
+              <small style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Your Gemini API key is stored locally and never
+                sent to our servers.</small>
+            </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
-              <button id="saveApiKeyBtn" class="btn btn-primary">Save API Key</button>
+              <button id="saveApiKeyBtn" class="btn btn-primary">Save API Keys</button>
             </div>
           </div>
 
@@ -423,6 +450,14 @@
                 <option value="java">Java</option>
                 <option value="csharp">C#</option>
                 <option value="cpp">C++</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="defaultModel">Default AI Model</label>
+              <select id="defaultModel" class="prompt-input">
+                <option value="both">Both OpenAI and Gemini</option>
+                <option value="openai">OpenAI Only</option>
+                <option value="gemini">Gemini Only</option>
               </select>
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
@@ -500,6 +535,12 @@
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Space</span>
             </div>
           </div>
+          <div class="shortcut-item">
+            <span>Switch AI Model (OpenAI/Gemini/Both)</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">M</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -561,14 +602,21 @@
     const closeBtn = document.getElementById('closeBtn');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
-    const responseContainer = document.getElementById('responseContainer');
+    const openaiResponseContainer = document.getElementById('openaiResponseContainer');
+    const geminiResponseContainer = document.getElementById('geminiResponseContainer');
+    const responsesContainer = document.getElementById('responsesContainer');
+    const showBothBtn = document.getElementById('showBothBtn');
+    const showOpenAIBtn = document.getElementById('showOpenAIBtn');
+    const showGeminiBtn = document.getElementById('showGeminiBtn');
     const takeScreenshotBtn = document.getElementById('takeScreenshotBtn');
     const processScreenshotsBtn = document.getElementById('processScreenshotsBtn');
     const screenshotList = document.getElementById('screenshotList');
     const toast = document.getElementById('toast');
     const apiKeyInput = document.getElementById('apiKey');
+    const geminiApiKeyInput = document.getElementById('geminiApiKey');
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const preferredLanguageSelect = document.getElementById('preferredLanguage');
+    const defaultModelSelect = document.getElementById('defaultModel');
     const savePreferencesBtn = document.getElementById('savePreferencesBtn');
 
     // Tab switching
@@ -598,19 +646,67 @@
       window.electronAPI.closeWindow();
     });
 
-    // Send prompt to ChatGPT
+    // Send prompt to both AI models
     sendBtn.addEventListener('click', async () => {
       const prompt = userInput.value.trim();
       if (!prompt) return;
 
-      responseContainer.innerHTML = '<p>Loading...</p>';
+      const defaultModel = await window.electronAPI.getDefaultModel();
+      
+      if (defaultModel === 'both' || defaultModel === 'openai') {
+        openaiResponseContainer.innerHTML = '<p>Loading...</p>';
+      } else {
+        openaiResponseContainer.innerHTML = '<p>OpenAI model not selected</p>';
+      }
+      
+      if (defaultModel === 'both' || defaultModel === 'gemini') {
+        geminiResponseContainer.innerHTML = '<p>Loading...</p>';
+      } else {
+        geminiResponseContainer.innerHTML = '<p>Gemini model not selected</p>';
+      }
+      
       try {
-        const reply = await window.electronAPI.sendPrompt(prompt);
-        responseContainer.innerHTML = renderMarkdown(reply);
+        // Prepare promises array based on selected models
+        const promises = [];
+        const promptPromises = [];
+        
+        if (defaultModel === 'both' || defaultModel === 'openai') {
+          promptPromises.push(window.electronAPI.sendPromptToOpenAI(prompt));
+        } else {
+          promptPromises.push(Promise.resolve('Model not selected'));
+        }
+        
+        if (defaultModel === 'both' || defaultModel === 'gemini') {
+          promptPromises.push(window.electronAPI.sendPromptToGemini(prompt));
+        } else {
+          promptPromises.push(Promise.resolve('Model not selected'));
+        }
+        
+        // Send to selected models
+        const [openaiReply, geminiReply] = await Promise.allSettled(promptPromises);
+
+        // Handle OpenAI response
+        if (defaultModel === 'both' || defaultModel === 'openai') {
+          if (openaiReply.status === 'fulfilled') {
+            openaiResponseContainer.innerHTML = renderMarkdown(openaiReply.value);
+          } else {
+            openaiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${openaiReply.reason.message || 'Failed to get response'}`);
+          }
+        }
+        
+        // Handle Gemini response
+        if (defaultModel === 'both' || defaultModel === 'gemini') {
+          if (geminiReply.status === 'fulfilled') {
+            geminiResponseContainer.innerHTML = renderMarkdown(geminiReply.value);
+          } else {
+            geminiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${geminiReply.reason.message || 'Failed to get response'}`);
+          }
+        }
+        
         // Apply syntax highlighting to any code blocks
         if (isHighlightJsLoaded()) {
           try {
-            responseContainer.querySelectorAll('pre code').forEach((block) => {
+            document.querySelectorAll('pre code').forEach((block) => {
               hljs.highlightElement(block);
             });
           } catch (e) {
@@ -620,7 +716,12 @@
           console.warn('Highlight.js not loaded, skipping syntax highlighting');
         }
       } catch (error) {
-        responseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+        if (defaultModel === 'both' || defaultModel === 'openai') {
+          openaiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+        }
+        if (defaultModel === 'both' || defaultModel === 'gemini') {
+          geminiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+        }
       }
     });
 
@@ -648,60 +749,213 @@
     processScreenshotsBtn.addEventListener('click', async () => {
       try {
         const language = preferredLanguageSelect.value;
-        const result = await window.electronAPI.analyzeScreenshots({ language });
-        if (result.success) {
-          switchTab('prompt');
-          const analysis = result.analysis || 'Analysis completed, but no specific solution was generated.';
-          responseContainer.innerHTML = renderMarkdown(analysis);
-          // Apply syntax highlighting to any code blocks
-          if (isHighlightJsLoaded()) {
-            try {
-              responseContainer.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-              });
-            } catch (e) {
-              console.error('Error applying syntax highlighting:', e);
-            }
+        const defaultModel = await window.electronAPI.getDefaultModel();
+        
+        showToast('Processing screenshots...');
+        
+        // Switch to prompt tab to show results
+        switchTab('prompt');
+        
+        if (defaultModel === 'both' || defaultModel === 'openai') {
+          openaiResponseContainer.innerHTML = '<p>Analyzing screenshots with OpenAI...</p>';
+        } else {
+          openaiResponseContainer.innerHTML = '<p>OpenAI model not selected</p>';
+        }
+        
+        if (defaultModel === 'both' || defaultModel === 'gemini') {
+          geminiResponseContainer.innerHTML = '<p>Analyzing screenshots with Gemini...</p>';
+        } else {
+          geminiResponseContainer.innerHTML = '<p>Gemini model not selected</p>';
+        }
+        
+        // Prepare analysis promises based on selected models
+        const analysisPromises = [];
+        
+        if (defaultModel === 'both' || defaultModel === 'openai') {
+          analysisPromises.push(window.electronAPI.analyzeScreenshotsWithOpenAI({ language }));
+        } else {
+          analysisPromises.push(Promise.resolve({ success: false, error: 'Model not selected' }));
+        }
+        
+        if (defaultModel === 'both' || defaultModel === 'gemini') {
+          analysisPromises.push(window.electronAPI.analyzeScreenshotsWithGemini({ language }));
+        } else {
+          analysisPromises.push(Promise.resolve({ success: false, error: 'Model not selected' }));
+        }
+        
+        // Process with selected models
+        const [openaiResult, geminiResult] = await Promise.allSettled(analysisPromises);
+        
+        // Handle OpenAI result
+        if (defaultModel === 'both' || defaultModel === 'openai') {
+          if (openaiResult.status === 'fulfilled' && openaiResult.value.success) {
+            const analysis = openaiResult.value.analysis || 'Analysis completed, but no specific solution was generated.';
+            openaiResponseContainer.innerHTML = renderMarkdown(analysis);
           } else {
-            console.warn('Highlight.js not loaded, skipping syntax highlighting');
+            const errorMsg = openaiResult.reason?.message || openaiResult.value?.error || 'Failed to analyze screenshots';
+            openaiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${errorMsg}`);
+          }
+        }
+        
+        // Handle Gemini result
+        if (defaultModel === 'both' || defaultModel === 'gemini') {
+          if (geminiResult.status === 'fulfilled' && geminiResult.value.success) {
+            const analysis = geminiResult.value.analysis || 'Analysis completed, but no specific solution was generated.';
+            geminiResponseContainer.innerHTML = renderMarkdown(analysis);
+          } else {
+            const errorMsg = geminiResult.reason?.message || geminiResult.value?.error || 'Failed to analyze screenshots';
+            geminiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${errorMsg}`);
+          }
+        }
+        
+        // Apply syntax highlighting
+        if (isHighlightJsLoaded()) {
+          try {
+            document.querySelectorAll('pre code').forEach((block) => {
+              hljs.highlightElement(block);
+            });
+          } catch (e) {
+            console.error('Error applying syntax highlighting:', e);
           }
         } else {
-          showToast(`Error: ${result.error}`);
+          console.warn('Highlight.js not loaded, skipping syntax highlighting');
         }
       } catch (error) {
+        openaiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+        geminiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
         showToast(`Error: ${error.message}`);
+      }
+    });
+
+    // Response view toggles
+    showBothBtn.addEventListener('click', () => {
+      responsesContainer.style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(1)').style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(2)').style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(1)').style.flex = '1';
+      document.querySelector('#responsesContainer > div:nth-child(2)').style.flex = '1';
+      showBothBtn.classList.add('btn-primary');
+      showOpenAIBtn.classList.remove('btn-primary');
+      showGeminiBtn.classList.remove('btn-primary');
+      
+      // Save preference
+      window.electronAPI.saveDefaultModel('both');
+      defaultModelSelect.value = 'both';
+    });
+    
+    showOpenAIBtn.addEventListener('click', () => {
+      responsesContainer.style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(1)').style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(1)').style.flex = '1';
+      document.querySelector('#responsesContainer > div:nth-child(2)').style.display = 'none';
+      showBothBtn.classList.remove('btn-primary');
+      showOpenAIBtn.classList.add('btn-primary');
+      showGeminiBtn.classList.remove('btn-primary');
+      
+      // Save preference
+      window.electronAPI.saveDefaultModel('openai');
+      defaultModelSelect.value = 'openai';
+    });
+    
+    showGeminiBtn.addEventListener('click', () => {
+      responsesContainer.style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(1)').style.display = 'none';
+      document.querySelector('#responsesContainer > div:nth-child(2)').style.display = 'flex';
+      document.querySelector('#responsesContainer > div:nth-child(2)').style.flex = '1';
+      showBothBtn.classList.remove('btn-primary');
+      showOpenAIBtn.classList.remove('btn-primary');
+      showGeminiBtn.classList.add('btn-primary');
+      
+      // Save preference
+      window.electronAPI.saveDefaultModel('gemini');
+      defaultModelSelect.value = 'gemini';
+    });
+
+    // When default model is changed in the settings, update the UI
+    defaultModelSelect.addEventListener('change', () => {
+      const defaultModel = defaultModelSelect.value;
+      
+      if (defaultModel === 'both') {
+        showBothBtn.click();
+      } else if (defaultModel === 'openai') {
+        showOpenAIBtn.click();
+      } else if (defaultModel === 'gemini') {
+        showGeminiBtn.click();
       }
     });
 
     // API Key and Preferences
     saveApiKeyBtn.addEventListener('click', () => {
       const apiKey = apiKeyInput.value.trim();
-      if (!apiKey) {
-        showToast('Please enter an API key');
+      const geminiApiKey = geminiApiKeyInput.value.trim();
+      
+      if (!apiKey && !geminiApiKey) {
+        showToast('Please enter at least one API key');
         return;
       }
 
-      window.electronAPI.saveApiKey(apiKey);
-      showToast('API key saved');
+      if (apiKey) {
+        // Save key for both names to ensure backward compatibility
+        window.electronAPI.saveApiKey(apiKey);
+        // Save directly to OpenAI key
+        window.electronAPI.saveOpenAIApiKey(apiKey);
+        showToast('OpenAI API key saved');
+      }
+      
+      if (geminiApiKey) {
+        window.electronAPI.saveGeminiApiKey(geminiApiKey);
+        showToast('Gemini API key saved');
+      }
     });
 
+    // Save preferences
     savePreferencesBtn.addEventListener('click', () => {
       const language = preferredLanguageSelect.value;
+      const defaultModel = defaultModelSelect.value;
+      
       window.electronAPI.savePreferences({ preferredLanguage: language });
+      window.electronAPI.saveDefaultModel(defaultModel);
+      
       showToast('Preferences saved');
     });
 
     // Load saved settings
     function loadSettings() {
-      const apiKey = window.electronAPI.getApiKey();
-      if (apiKey) {
-        apiKeyInput.value = apiKey;
-      }
+      // Get OpenAI API key (priority)
+      window.electronAPI.getOpenAIApiKey().then(apiKey => {
+        if (apiKey) {
+          apiKeyInput.value = apiKey;
+          console.log('Loaded OpenAI API key');
+        }
+      });
+      
+      // Get Gemini API key
+      window.electronAPI.getGeminiApiKey().then(geminiApiKey => {
+        if (geminiApiKey) {
+          geminiApiKeyInput.value = geminiApiKey;
+          console.log('Loaded Gemini API key');
+        }
+      });
 
       const preferences = window.electronAPI.getPreferences();
       if (preferences && preferences.preferredLanguage) {
         preferredLanguageSelect.value = preferences.preferredLanguage;
       }
+      
+      window.electronAPI.getDefaultModel().then(defaultModel => {
+        if (defaultModel) {
+          defaultModelSelect.value = defaultModel;
+          
+          // Update UI based on default model
+          if (defaultModel === 'both') {
+            showBothBtn.click();
+          } else if (defaultModel === 'openai') {
+            showOpenAIBtn.click();
+          } else if (defaultModel === 'gemini') {
+            showGeminiBtn.click();
+          }
+        }
+      });
     }
 
     // Update screenshot list
@@ -755,7 +1009,7 @@
 
     window.electronAPI.onProcessScreenshots(() => {
       processScreenshotsBtn.click();
-      showToast('Screenshot processed!');
+      showToast('Processing screenshots with both models...');
     });
 
     window.electronAPI.onScreenshotsCleared(() => {
@@ -772,6 +1026,22 @@
       loadSettings();
       updateScreenshotList();
       tabs[0].click();
+    });
+
+    // Add model change listener
+    window.electronAPI.onModelChanged((model) => {
+      defaultModelSelect.value = model;
+      
+      if (model === 'both') {
+        showBothBtn.click();
+        showToast('Switched to both AI models');
+      } else if (model === 'openai') {
+        showOpenAIBtn.click();
+        showToast('Switched to OpenAI only');
+      } else if (model === 'gemini') {
+        showGeminiBtn.click();
+        showToast('Switched to Gemini only');
+      }
     });
 
     // Keyboard shortcuts

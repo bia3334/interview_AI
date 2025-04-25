@@ -10,12 +10,12 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@google/genai": "^0.10.0",
     "dotenv": "^16.4.7",
     "electron-log": "^5.2.4",
     "electron-store": "^8.1.0",
     "node-fetch": "^2.6.11",
-
-    "openai": "^4.28.0",
+    "openai": "^4.96.0",
     "screenshot-desktop": "^1.15.0",
     "tailwindcss": "^3.4.15"
   },
@@ -40,9 +40,9 @@
       {
         "from": "src",
         "to": "dist",
-        "filter": ["index.html"]
-
-
+        "filter": [
+          "index.html"
+        ]
       }
     ],
     "directories": {
