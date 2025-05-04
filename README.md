@@ -32,7 +32,8 @@ The application works by creating an invisible window that can be toggled on and
 
 ### Prerequisites
 - Node.js (v18.19.0 or higher)
-- OpenAI API Key
+- OpenAI API Key (optional)
+- Google Gemini API Key (optional)
 
 ### Installation Steps
 
@@ -56,26 +57,25 @@ The application works by creating an invisible window that can be toggled on and
    ```bash
    npm start
    ```
-5. Apply your OpenAI API key in settings
+5. Configure your API keys in settings (supports both OpenAI and Google Gemini)
 
 ## Getting Started
 
 1. After starting the application, the window will be invisible by default.
 2. Press `Ctrl+Shift+A` (or `Cmd+Shift+A` on macOS) to toggle the window visibility.
 3. When the window appears, you'll see the main interface with tabs for Prompt, Screenshots, and Shortcuts.
-4. You can now use the application to take screenshots, analyze coding problems, and get solutions.
-
-## Features
+4. Configure your API keys in the settings tab.
+5. You can now use the application to take screenshots, analyze coding problems, and get solutions.
 
 ## Features
 
 - 🎯 Invisibility: Undetectable window that bypasses most screen capture methods
-- 📸 Screenshot Capture: Capture screenshots of coding problems with a simple keyboard shortcut.
-- 🤖 AI-Powered Analysis: Automatically analyzes coding problems
+- 📸 Screenshot Capture: Capture screenshots of coding problems with a simple keyboard shortcut
+- 🤖 Dual AI Integration: Choose between OpenAI, Google Gemini, or both for analysis
 - 💡 Solution Generation: Get detailed explanations and solutions
-- 🔧 Real-time Debugging: Debug your code with AI assistance (GPT for now)
+- 🔧 Real-time Debugging: Debug your code with AI assistance
 - 🎨 Window Management: Freely move and position the window anywhere on screen
-
+- 🔄 Customizable Preferences: Choose your preferred coding language and answer style
 
 ## Keyboard Shortcuts
 
@@ -89,8 +89,10 @@ The application works by creating an invisible window that can be toggled on and
 | Ctrl/Cmd+Shift+← | Move window left |
 | Ctrl/Cmd+Shift+→ | Move window right |
 | Ctrl/Cmd+Shift+Space | Change between tabs |
-| Ctrl/Cmd+Shift+L | Change type of answer |
+| Ctrl/Cmd+Shift+L | Change type of answer (code/explanation) |
 | Ctrl/Cmd+Shift+D | Delete all screenshots |
+| Ctrl/Cmd+Shift+M | Switch AI model (OpenAI/Gemini/Both) |
+| Ctrl/Cmd+Shift+W | Toggle mouse event ignoring |
 
 ## Taking Screenshots
 
@@ -125,6 +127,12 @@ To analyze coding problems from your screenshots:
 
 You can also enter custom prompts in the Prompt tab for specific questions about the problem.
 
+### AI Integration
+The application supports both OpenAI (GPT-4o) and Google Gemini models:
+- Use `Ctrl+Shift+M` to cycle between OpenAI only, Gemini only, or both models
+- Compare solutions from both AI providers side by side
+- Choose your preferred default model in settings
+
 ## Window Management
 
 ### Moving the Window
@@ -146,7 +154,7 @@ To show the window after it's been hidden:
 ## Troubleshooting
 
 ### Application Not Starting
-- Ensure Node.js is installed and is version 18.19.0 
+- Ensure Node.js is installed and is version 18.19.0 or higher
 - Check that all dependencies are installed with `npm install`
 
 ### Screenshots Not Working
@@ -155,9 +163,11 @@ To show the window after it's been hidden:
 - On Windows: No special permissions needed
 - On Linux: May require `xhost` access depending on your distribution
 
-### OpenAI API Errors
-- Check your internet connection
-- Ensure your OpenAI account has available credits
+### AI API Errors
+- Check that you've entered valid API keys in the settings
+- Ensure your internet connection is working
+- For OpenAI: Verify your account has available credits
+- For Gemini: Make sure your API key has the necessary permissions
 
 ### Window Not Invisible in Screen Sharing
 - Some newer versions of screen sharing software may detect the window
