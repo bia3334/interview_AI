@@ -24,7 +24,7 @@ dotenv.config();
 // const model = "gemini-2.5-pro-exp-03-25"
 // const model = "gemini-2.0-flash"
 const model = "gemini-2.0-flash-thinking-exp-01-21"
-const OPENAI_MODEL = "gpt-4o" // Using GPT-4o by default
+const OPENAI_MODEL = "gpt-4.1" // Using gpt-4.1 by default
 
 // Initialize OpenAI client
 function getOpenAIClient() {
@@ -355,7 +355,7 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
     if (answerStyle === 'code') {
       promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
     } else {
-      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Explain the logic and expected result **without writing any code**. Keep it short and clear.`;
+      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Give me the answer and the explanation (remember answer first, explanation second). Keep it short and clear.`;
     }
 
     // Prepare parts array for Gemini
@@ -426,7 +426,7 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
     if (answerStyle === 'code') {
       promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
     } else {
-      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Explain the logic and expected result **without writing any code**. Keep it short and clear.`;
+      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Give me the answer and the explanation (remember answer first, explanation second). Keep it short and clear.`;
     }
 
     // Convert images to base64 and create message content
@@ -454,7 +454,7 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
 
     // Make a request to OpenAI with images
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       messages: [
         {
           role: 'user',
