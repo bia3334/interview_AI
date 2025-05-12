@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both') => 
     ipcRenderer.invoke('saveDefaultModel', defaultModel),
   getDefaultModel: () => ipcRenderer.invoke('getDefaultModel'),
+  
+  // Clipboard functionality
+  copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
 
   // Screenshot management
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
@@ -93,6 +96,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('switch-tab', (_event, direction) => callback(direction));
     return () => {
       ipcRenderer.removeAllListeners('switch-tab');
+    };
+  },
+  
+  // Event listener for clipboard operations
+  onResponseCopied: (callback: () => void) => {
+    ipcRenderer.on('response-copied-to-clipboard', () => callback());
+    return () => {
+      ipcRenderer.removeAllListeners('response-copied-to-clipboard');
     };
   }
 });

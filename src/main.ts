@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, globalShortcut, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, globalShortcut, screen, clipboard } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import * as dotenv from 'dotenv';
@@ -117,6 +117,9 @@ if (!fs.existsSync(tempDir)) {
 // Keep track of the current ignore state
 let isIgnoringMouseEvents = true;
 let isWindowVisible = false;
+
+// Add a variable to store the latest AI response
+let latestAIResponse: string = '';
 
 function hideMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -296,6 +299,9 @@ ipcMain.handle('sendPromptToGemini', async (_event: IpcMainInvokeEvent, prompt: 
     const result = await sendPromptToGemini([prompt])
 
     const assistantReply = result.text || 'No response from Google Gemini.';
+    
+    // Store the latest response
+    latestAIResponse = assistantReply;
 
     log.info('Received response from Google Gemini API');
     return assistantReply;
@@ -313,6 +319,9 @@ ipcMain.handle('sendPromptToOpenAI', async (_event: IpcMainInvokeEvent, prompt: 
 
     // Make a request to OpenAI
     const assistantReply = await sendPromptToOpenAI(prompt);
+    
+    // Store the latest response
+    latestAIResponse = assistantReply;
 
     log.info('Received response from OpenAI API');
     return assistantReply;
@@ -355,7 +364,7 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
     if (answerStyle === 'code') {
       promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
     } else {
-      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Give me the answer and the explanation (remember answer first, explanation second). Keep it short and clear.`;
+      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. If this is a proof question, provide a detailed step-by-step proof with clear logical reasoning. Otherwise, give me the answer and then the explanation. Keep it clear and well-structured.`;
     }
 
     // Prepare parts array for Gemini
@@ -381,6 +390,9 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
     const result = await sendPromptToGemini(parts);
 
     const analysis = result.text || 'Analysis completed, but no specific solution was generated.';
+    
+    // Store the latest response
+    latestAIResponse = analysis;
 
     log.info('Received analysis from Google Gemini API');
     console.log('Received analysis from Google Gemini API');
@@ -426,7 +438,7 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
     if (answerStyle === 'code') {
       promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
     } else {
-      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. Give me the answer and the explanation (remember answer first, explanation second). Keep it short and clear.`;
+      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. If this is a proof question, provide a detailed step-by-step proof with clear logical reasoning. Otherwise, give me the answer and then the explanation. Keep it clear and well-structured.`;
     }
 
     // Convert images to base64 and create message content
@@ -464,6 +476,9 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
     });
 
     const analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
+    
+    // Store the latest response
+    latestAIResponse = analysis;
 
     log.info('Received analysis from OpenAI API');
     console.log('Received analysis from OpenAI API');
@@ -656,6 +671,21 @@ ipcMain.handle('getDefaultModel', () => {
   return store.get('defaultModel') || 'both';
 });
 
+// Add a new IPC handler for copying the latest response to clipboard
+ipcMain.handle('copy-latest-response', () => {
+  try {
+    if (latestAIResponse) {
+      clipboard.writeText(latestAIResponse);
+      return { success: true };
+    }
+    return { success: false, error: 'No response available to copy' };
+  } catch (error) {
+    log.error('Error copying to clipboard:', error);
+    console.error('Error copying to clipboard:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
 // Application initialization
 app.whenReady().then(() => {
   createWindow();
@@ -790,6 +820,26 @@ app.whenReady().then(() => {
   globalShortcut.register('CommandOrControl+Shift+Space', () => {
     if (mainWindow) {
       mainWindow.webContents.send('switch-tab', 'next');
+    }
+  });
+
+  // Add Copy to clipboard: Ctrl+Shift+V
+  globalShortcut.register('CommandOrControl+Shift+V', () => {
+    try {
+      if (latestAIResponse) {
+        clipboard.writeText(latestAIResponse);
+        log.info('Copied latest AI response to clipboard');
+        
+        // Notify renderer
+        if (mainWindow) {
+          mainWindow.webContents.send('response-copied-to-clipboard');
+        }
+      } else {
+        log.warn('No AI response available to copy to clipboard');
+      }
+    } catch (error) {
+      log.error('Error copying to clipboard:', error);
+      console.error('Error copying to clipboard:', error);
     }
   });
 

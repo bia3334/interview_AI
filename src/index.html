@@ -1002,34 +1002,53 @@
     }
 
     // Event listeners from main process
-    window.electronAPI.onScreenshotTaken(() => {
+    const unsubscribeScreenshotTaken = window.electronAPI.onScreenshotTaken(handleScreenshotTaken);
+    const unsubscribeProcessScreenshots = window.electronAPI.onProcessScreenshots(handleProcessScreenshots);
+    const unsubscribeScreenshotsCleared = window.electronAPI.onScreenshotsCleared(handleScreenshotsCleared);
+    const unsubscribeAnswerStyleChanged = window.electronAPI.onAnswerStyleChanged(handleAnswerStyleChanged);
+    const unsubscribeModelChanged = window.electronAPI.onModelChanged(handleModelChanged);
+    const unsubscribeSwitchTab = window.electronAPI.onSwitchTab(handleSwitchTab);
+    const unsubscribeResponseCopied = window.electronAPI.onResponseCopied(handleResponseCopied);
+
+    // Handle screenshot taken
+    function handleScreenshotTaken() {
       showToast('Screenshot taken!');
       updateScreenshotList();
-    });
-
-    window.electronAPI.onProcessScreenshots(() => {
+    }
+    
+    // Handle process screenshots
+    function handleProcessScreenshots() {
       processScreenshotsBtn.click();
       showToast('Processing screenshots with both models...');
-    });
-
-    window.electronAPI.onScreenshotsCleared(() => {
+    }
+    
+    // Handle screenshots cleared
+    function handleScreenshotsCleared() {
       showToast('Screenshots cleared!');
       updateScreenshotList();
-    });
-
-    window.electronAPI.onAnswerStyleChanged((style) => {
+    }
+    
+    // Handle answer style changed
+    function handleAnswerStyleChanged(style) {
       showToast(`Answer style changed to: ${style}`);
-    });
+    }
+    
+    // Handle tab switching
+    function handleSwitchTab(direction) {
+      const currentTab = document.querySelector('.tab.active');
+      const tabs = Array.from(document.querySelectorAll('.tab'));
+      const currentIndex = tabs.indexOf(currentTab);
+      let nextIndex = (currentIndex + 1) % tabs.length;
+      
+      if (direction === 'previous') {
+        nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      }
+      
+      tabs[nextIndex].click();
+    }
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-      loadSettings();
-      updateScreenshotList();
-      tabs[0].click();
-    });
-
-    // Add model change listener
-    window.electronAPI.onModelChanged((model) => {
+    function handleModelChanged(model) {
+      console.log('Model changed to:', model);
       defaultModelSelect.value = model;
       
       if (model === 'both') {
@@ -1042,6 +1061,18 @@
         showGeminiBtn.click();
         showToast('Switched to Gemini only');
       }
+    }
+    
+    // Handle clipboard operations
+    function handleResponseCopied() {
+      showToast('Response copied to clipboard!');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+      updateScreenshotList();
+      tabs[0].click();
     });
 
     // Keyboard shortcuts
