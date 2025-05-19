@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Open Interview Coder</title>
+  <title>Screen Genius</title>
   <!-- Add marked.js for markdown parsing -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- Add highlight.js for code syntax highlighting -->
@@ -365,7 +365,7 @@
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>Open Interview Coder</h1>
+      <h1>Screen Genius</h1>
       <div class="header-controls">
         <button id="minimizeBtn" class="btn">_</button>
         <button id="closeBtn" class="btn">×</button>
@@ -530,15 +530,27 @@
             </div>
           </div>
           <div class="shortcut-item">
-            <span>Change Between Tabs</span>
+            <span>Switch to Next Tab</span>
             <div class="shortcut-key">
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Space</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <span>Switch to Previous Tab</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Tab</span>
             </div>
           </div>
           <div class="shortcut-item">
             <span>Switch AI Model (OpenAI/Gemini/Both)</span>
             <div class="shortcut-key">
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">M</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <span>Copy Response to Clipboard</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">C</span>
             </div>
           </div>
         </div>
@@ -550,7 +562,7 @@
         <div class="status-indicator"></div>
         <span>Ready</span>
       </div>
-      <div>Open Interview Coder v1.0.0</div>
+      <div>Screen Genius v1.0.0</div>
     </div>
   </div>
 
@@ -1038,13 +1050,16 @@
       const currentTab = document.querySelector('.tab.active');
       const tabs = Array.from(document.querySelectorAll('.tab'));
       const currentIndex = tabs.indexOf(currentTab);
-      let nextIndex = (currentIndex + 1) % tabs.length;
+      let nextIndex;
       
       if (direction === 'previous') {
         nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      } else {
+        nextIndex = (currentIndex + 1) % tabs.length;
       }
       
       tabs[nextIndex].click();
+      showToast(`Switched to ${tabs[nextIndex].textContent} tab`);
     }
 
     function handleModelChanged(model) {
@@ -1074,18 +1089,6 @@
       updateScreenshotList();
       tabs[0].click();
     });
-
-    // Keyboard shortcuts
-    window.electronAPI.onSwitchTab((direction) => {
-    if (direction === 'next') {
-      const tabs = Array.from(document.querySelectorAll('.tab'));
-      let currentIndex = tabs.findIndex(tab => tab.classList.contains('active'));
-      if (currentIndex === -1) currentIndex = 0;
-      let newIndex = currentIndex + 1;
-      if (newIndex >= tabs.length) newIndex = 0;
-      tabs[newIndex].click();
-    }});
-    
   </script>
 </body>
 

@@ -93,6 +93,7 @@ The application works by creating an invisible window that can be toggled on and
 | Ctrl/Cmd+Shift+D | Delete all screenshots |
 | Ctrl/Cmd+Shift+M | Switch AI model (OpenAI/Gemini/Both) |
 | Ctrl/Cmd+Shift+W | Toggle mouse event ignoring |
+| Ctrl/Cmd+Shift+C | Copy response to clipboard |
 
 ## Taking Screenshots
 

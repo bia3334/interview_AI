@@ -816,15 +816,22 @@ app.whenReady().then(() => {
     }
   });
 
-  // Switch tabs: Ctrl+Shift+Space
+  // Switch tabs: Ctrl+Shift+Space (forward)
   globalShortcut.register('CommandOrControl+Shift+Space', () => {
     if (mainWindow) {
       mainWindow.webContents.send('switch-tab', 'next');
     }
   });
+  
+  // Switch tabs: Ctrl+Shift+Tab (backward)
+  globalShortcut.register('CommandOrControl+Shift+Tab', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('switch-tab', 'previous');
+    }
+  });
 
-  // Add Copy to clipboard: Ctrl+Shift+V
-  globalShortcut.register('CommandOrControl+Shift+V', () => {
+  // Add Copy to clipboard: Ctrl+Shift+C
+  globalShortcut.register('CommandOrControl+Shift+C', () => {
     try {
       if (latestAIResponse) {
         clipboard.writeText(latestAIResponse);
