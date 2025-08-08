@@ -38,8 +38,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('saveDefaultModel', defaultModel),
   getDefaultModel: () => ipcRenderer.invoke('getDefaultModel'),
   
+  // OpenAI model management
+  saveOpenAIModel: (model: string) => ipcRenderer.invoke('saveOpenAIModel', model),
+  getOpenAIModel: () => ipcRenderer.invoke('getOpenAIModel'),
+  
   // Clipboard functionality
   copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
+  processClipboardPrompt: () => ipcRenderer.invoke('processClipboardPrompt'),
 
   // Screenshot management
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
@@ -81,6 +86,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
+  // Event listener for OpenAI model changes
+  onOpenAIModelChanged: (callback: (model: string) => void) => {
+    ipcRenderer.on('openai-model-changed', (_event, model) => callback(model));
+    return () => {
+      ipcRenderer.removeAllListeners('openai-model-changed');
+    };
+  },
+
   // Event listeners for preferences changes
   onScreenshotsCleared: (callback: () => void) => {
     ipcRenderer.on('screenshots-cleared', () => callback());
@@ -104,6 +117,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('response-copied-to-clipboard', () => callback());
     return () => {
       ipcRenderer.removeAllListeners('response-copied-to-clipboard');
+    };
+  },
+
+  // Event listener for processing clipboard prompt
+  onProcessClipboardPrompt: (callback: () => void) => {
+    ipcRenderer.on('process-clipboard-prompt', () => callback());
+    return () => {
+      ipcRenderer.removeAllListeners('process-clipboard-prompt');
     };
   }
 });

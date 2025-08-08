@@ -384,6 +384,7 @@
         <div class="prompt-container">
           <input type="text" id="userInput" class="prompt-input" placeholder="Enter your prompt here..." />
           <button id="sendBtn" class="btn btn-primary">Send</button>
+          <button id="clipboardPromptBtn" class="btn">Process Clipboard</button>
         </div>
         <div id="responseToggle" style="display: flex; margin-bottom: 0.5rem;">
           <button id="showBothBtn" class="btn btn-primary" style="margin-right: 0.5rem;">Show Both</button>
@@ -458,6 +459,21 @@
                 <option value="both">Both OpenAI and Gemini</option>
                 <option value="openai">OpenAI Only</option>
                 <option value="gemini">Gemini Only</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="openaiModel">OpenAI Model</label>
+              <select id="openaiModel" class="prompt-input">
+                <option value="gpt-o4">GPT-o4</option>
+                <option value="gpt-4.1">GPT-4.1</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="answerStyle">Answer Style</label>
+              <select id="answerStyle" class="prompt-input">
+                <option value="code">Code (with explanation)</option>
+                <option value="explanation">Explanation (detailed)</option>
+                <option value="multiple-choice">Multiple Choice (answer only)</option>
               </select>
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
@@ -548,9 +564,27 @@
             </div>
           </div>
           <div class="shortcut-item">
+            <span>Switch OpenAI Model to GPT-o4</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">1</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <span>Switch OpenAI Model to GPT-4.1</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">2</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
             <span>Copy Response to Clipboard</span>
             <div class="shortcut-key">
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">C</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <span>Process Clipboard Text as Prompt</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Q</span>
             </div>
           </div>
         </div>
@@ -614,6 +648,7 @@
     const closeBtn = document.getElementById('closeBtn');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
+    const clipboardPromptBtn = document.getElementById('clipboardPromptBtn');
     const openaiResponseContainer = document.getElementById('openaiResponseContainer');
     const geminiResponseContainer = document.getElementById('geminiResponseContainer');
     const responsesContainer = document.getElementById('responsesContainer');
@@ -629,6 +664,8 @@
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const preferredLanguageSelect = document.getElementById('preferredLanguage');
     const defaultModelSelect = document.getElementById('defaultModel');
+    const answerStyleSelect = document.getElementById('answerStyle');
+    const openaiModelSelect = document.getElementById('openaiModel');
     const savePreferencesBtn = document.getElementById('savePreferencesBtn');
 
     // Tab switching
@@ -740,6 +777,58 @@
     userInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         sendBtn.click();
+      }
+    });
+
+    // Process clipboard prompt
+    clipboardPromptBtn.addEventListener('click', async () => {
+      try {
+        showToast('Processing clipboard text...');
+        
+        // Show loading in both containers
+        openaiResponseContainer.innerHTML = '<p>Processing clipboard text...</p>';
+        geminiResponseContainer.innerHTML = '<p>Processing clipboard text...</p>';
+        
+        const result = await window.electronAPI.processClipboardPrompt();
+        
+        if (result.success) {
+          // Display the prompt in input for reference
+          userInput.value = result.prompt;
+          
+          // Display responses separately
+          if (result.openaiResponse) {
+            openaiResponseContainer.innerHTML = renderMarkdown(result.openaiResponse);
+          } else {
+            openaiResponseContainer.innerHTML = '<p>OpenAI model not selected or failed</p>';
+          }
+          
+          if (result.geminiResponse) {
+            geminiResponseContainer.innerHTML = renderMarkdown(result.geminiResponse);
+          } else {
+            geminiResponseContainer.innerHTML = '<p>Gemini model not selected or failed</p>';
+          }
+          
+          // Apply syntax highlighting
+          if (isHighlightJsLoaded()) {
+            try {
+              document.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+              });
+            } catch (e) {
+              console.error('Error applying syntax highlighting:', e);
+            }
+          }
+          
+          showToast('Clipboard processed and copied!');
+        } else {
+          openaiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${result.error}`);
+          geminiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${result.error}`);
+          showToast(`Error: ${result.error}`);
+        }
+      } catch (error) {
+        openaiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+        geminiResponseContainer.innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+        showToast(`Error: ${error.message}`);
       }
     });
 
@@ -896,6 +985,23 @@
       }
     });
 
+    // When answer style is changed in the settings, save the preference
+    answerStyleSelect.addEventListener('change', () => {
+      const answerStyle = answerStyleSelect.value;
+      window.electronAPI.savePreferences({ 
+        preferredLanguage: preferredLanguageSelect.value,
+        answerStyle: answerStyle 
+      });
+      showToast(`Answer style changed to: ${answerStyle}`);
+    });
+
+    // When OpenAI model is changed in the settings, save the preference
+    openaiModelSelect.addEventListener('change', () => {
+      const openaiModel = openaiModelSelect.value;
+      window.electronAPI.saveOpenAIModel(openaiModel);
+      showToast(`OpenAI model changed to: ${openaiModel}`);
+    });
+
     // API Key and Preferences
     saveApiKeyBtn.addEventListener('click', () => {
       const apiKey = apiKeyInput.value.trim();
@@ -924,9 +1030,12 @@
     savePreferencesBtn.addEventListener('click', () => {
       const language = preferredLanguageSelect.value;
       const defaultModel = defaultModelSelect.value;
+      const answerStyle = answerStyleSelect.value;
+      const openaiModel = openaiModelSelect.value;
       
-      window.electronAPI.savePreferences({ preferredLanguage: language });
+      window.electronAPI.savePreferences({ preferredLanguage: language, answerStyle: answerStyle });
       window.electronAPI.saveDefaultModel(defaultModel);
+      window.electronAPI.saveOpenAIModel(openaiModel);
       
       showToast('Preferences saved');
     });
@@ -954,6 +1063,17 @@
         preferredLanguageSelect.value = preferences.preferredLanguage;
       }
       
+      if (preferences && preferences.answerStyle) {
+        answerStyleSelect.value = preferences.answerStyle;
+      }
+
+      // Load OpenAI model preference
+      window.electronAPI.getOpenAIModel().then(openaiModel => {
+        if (openaiModel) {
+          openaiModelSelect.value = openaiModel;
+        }
+      });
+
       window.electronAPI.getDefaultModel().then(defaultModel => {
         if (defaultModel) {
           defaultModelSelect.value = defaultModel;
@@ -1019,8 +1139,10 @@
     const unsubscribeScreenshotsCleared = window.electronAPI.onScreenshotsCleared(handleScreenshotsCleared);
     const unsubscribeAnswerStyleChanged = window.electronAPI.onAnswerStyleChanged(handleAnswerStyleChanged);
     const unsubscribeModelChanged = window.electronAPI.onModelChanged(handleModelChanged);
+    const unsubscribeOpenAIModelChanged = window.electronAPI.onOpenAIModelChanged(handleOpenAIModelChanged);
     const unsubscribeSwitchTab = window.electronAPI.onSwitchTab(handleSwitchTab);
     const unsubscribeResponseCopied = window.electronAPI.onResponseCopied(handleResponseCopied);
+    const unsubscribeProcessClipboardPrompt = window.electronAPI.onProcessClipboardPrompt(handleProcessClipboardPrompt);
 
     // Handle screenshot taken
     function handleScreenshotTaken() {
@@ -1043,6 +1165,10 @@
     // Handle answer style changed
     function handleAnswerStyleChanged(style) {
       showToast(`Answer style changed to: ${style}`);
+      // Update the select dropdown to reflect the change
+      if (answerStyleSelect) {
+        answerStyleSelect.value = style;
+      }
     }
     
     // Handle tab switching
@@ -1077,10 +1203,26 @@
         showToast('Switched to Gemini only');
       }
     }
+
+    function handleOpenAIModelChanged(model) {
+      console.log('OpenAI model changed to:', model);
+      openaiModelSelect.value = model;
+      showToast(`OpenAI model changed to: ${model}`);
+    }
     
     // Handle clipboard operations
     function handleResponseCopied() {
       showToast('Response copied to clipboard!');
+    }
+
+    // Handle process clipboard prompt
+    function handleProcessClipboardPrompt() {
+      // Switch to prompt tab to show results
+      switchTab('prompt');
+      
+      // Trigger clipboard processing
+      clipboardPromptBtn.click();
+      showToast('Processing clipboard text...');
     }
 
     // Initialize

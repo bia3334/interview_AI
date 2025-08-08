@@ -20,89 +20,142 @@ const log = electronLog;
 // Load environment variables
 dotenv.config();
 
-// Get model from apiKey
-// const model = "gemini-2.5-pro-exp-03-25"
-// const model = "gemini-2.0-flash"
-const model = "gemini-2.0-flash-thinking-exp-01-21"
-const OPENAI_MODEL = "gpt-4.1" // Using gpt-4.1 by default
-
-// Initialize OpenAI client
-function getOpenAIClient() {
-  const apiKey = getOpenAIApiKey();
-  if (!apiKey) {
-    log.error('OpenAI API key is not configured');
-    throw new Error('OpenAI API key is not configured');
+// AI Models Configuration
+const AI_CONFIG = {
+  gemini: {
+    model: "gemini-2.5-pro"
+  },
+  openai: {
+    models: {
+      'o4-mini': 'o4-mini',
+      'gpt-4.1': 'gpt-4.1'
+    },
+    default: 'o4-mini'
   }
-  log.info('OpenAI client initialized with API key');
-  return new OpenAI({ apiKey });
-}
+};
 
-// Send prompt to Gemini
-function sendPromptToGemini(prompt: string[]) {
-  const ai = new GoogleGenAI({
-    apiKey: getGeminiApiKey(),
-  });
-  return ai.models.generateContent({
-    model: model,
-    contents: [createUserContent(prompt)],
-  });
-}
-
-// Send prompt to OpenAI
-async function sendPromptToOpenAI(prompt: string) {
-  const openai = getOpenAIClient();
-  const response = await openai.chat.completions.create({
-    model: OPENAI_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-  });
-  return response.choices[0]?.message?.content || '';
-}
+// Store Configuration
+const STORE_DEFAULTS = {
+  windowPosition: { x: 100, y: 100 },
+  windowSize: { width: 1600, height: 1200 },
+  preferredLanguage: 'python',
+  answerStyle: 'explanation',
+  defaultModel: 'both',
+  openaiModel: AI_CONFIG.openai.default
+};
 
 // Initialize store for settings
-// Define schema type for TypeScript
 interface StoreSchema {
   windowPosition: { x: number, y: number };
   windowSize: { width: number, height: number };
   preferredLanguage: string;
   geminiApiKey?: string;
   openaiApiKey?: string;
-  answerStyle?: 'code' | 'explanation';
+  answerStyle?: 'code' | 'explanation' | 'multiple-choice';
   defaultModel?: 'openai' | 'gemini' | 'both';
+  openaiModel?: string;
 }
 
-// Create store with schema
-const store = new Store({
-  defaults: {
-    windowPosition: { x: 100, y: 100 },
-    windowSize: { width: 1600, height: 1200 },
-    preferredLanguage: 'python',
-    answerStyle: 'explaination',
-    defaultModel: 'both'
-  }
-});
+const store = new Store({ defaults: STORE_DEFAULTS });
 
-// Rename the existing getApiKey function to getGeminiApiKey
-function getGeminiApiKey() {
-  const key = store.get('geminiApiKey') || process.env.GEMINI_API_KEY || '';
+// API Key Management
+const getApiKey = (type: 'openai' | 'gemini') => {
+  const keys = {
+    openai: store.get('openaiApiKey') || store.get('apiKey') || process.env.OPENAI_API_KEY || '',
+    gemini: store.get('geminiApiKey') || process.env.GEMINI_API_KEY || ''
+  };
+  
+  const key = keys[type];
   if (key) {
-    log.info('Gemini API key found');
+    log.info(`${type.toUpperCase()} API key found`);
   } else {
-    log.warn('No Gemini API key found');
+    log.warn(`No ${type.toUpperCase()} API key found`);
   }
   return key;
-}
+};
 
-// Add a new function for getting OpenAI API key
-function getOpenAIApiKey() {
-  // Check both keys to ensure backward compatibility
-  const apiKey = store.get('openaiApiKey') || store.get('apiKey') || process.env.OPENAI_API_KEY || '';
-  if (apiKey) {
-    log.info('OpenAI API key found');
-  } else {
-    log.warn('No OpenAI API key found');
+// AI Client Management
+const getOpenAIClient = () => {
+  const apiKey = getApiKey('openai');
+  if (!apiKey) {
+    throw new Error('OpenAI API key is not configured');
   }
-  return apiKey;
-}
+  return new OpenAI({ apiKey });
+};
+
+const getGeminiClient = () => {
+  const apiKey = getApiKey('gemini');
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured');
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+// Model Management
+const getCurrentOpenAIModel = () => store.get('openaiModel') || AI_CONFIG.openai.default;
+
+// Prompt Generation
+const generatePrompt = (answerStyle: string, language: string, question?: string) => {
+  const basePrompt = question ? `Question: ${question}` : 'Please analyze these screenshots';
+  
+  const prompts = {
+    code: `I'm taking a coding interview and need help with the following problem. ${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`,
+    
+    'multiple-choice': `I'm taking a multiple choice exam and need the correct answer(s). ${basePrompt} and provide only the answer(s) without any explanation.
+
+Formatting Rules:
+- Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
+- Do not include any explanations, reasoning, or additional text
+- Do not include section headers like "Answer:", "Final Answer:", etc.
+- Keep it simple and direct
+
+If multiple answers are correct, list them separated by commas.
+If only one answer is correct, provide just that letter.`,
+    
+    explanation: `I'm taking an exam and need help with the following problem. ${basePrompt} and provide direct, concise answers.
+
+Formatting Rules:
+- Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
+- Write the answer exactly like a student would during an exam, with a clear and compact style.
+- Avoid teaching tone or instructional language.
+
+If this is a multiple choice question:
+- State the correct answer(s) clearly (e.g., "Answer: a, c")
+- Give brief reasoning for each correct choice
+- Keep explanations short and to the point
+
+If this is an algorithm design or theoretical question:
+- Provide the solution directly without excessive explanation
+- State the approach, key steps, and complexity analysis concisely
+- Write as if you're a student answering an exam question, not teaching
+
+If this is a proof question:
+- Give a direct, step-by-step proof
+- Use clear logic but keep it concise
+
+Format your response to be exam-appropriate: clear, direct, and efficient.`
+  };
+  
+  return prompts[answerStyle as keyof typeof prompts] || prompts.explanation;
+};
+
+// AI Request Functions
+const sendPromptToGemini = (prompt: string[]) => {
+  const ai = getGeminiClient();
+  return ai.models.generateContent({
+    model: AI_CONFIG.gemini.model,
+    contents: [createUserContent(prompt)],
+  });
+};
+
+const sendPromptToOpenAI = async (prompt: string) => {
+  const openai = getOpenAIClient();
+  const response = await openai.chat.completions.create({
+    model: getCurrentOpenAIModel(),
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return response.choices[0]?.message?.content || '';
+};
 
 // Global variables
 let mainWindow: BrowserWindow | null = null;
@@ -120,6 +173,18 @@ let isWindowVisible = false;
 
 // Add a variable to store the latest AI response
 let latestAIResponse: string = '';
+
+// Helper function to notify renderer
+const notifyRenderer = (event: string, data?: any) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(event, data);
+  }
+};
+
+// Helper function to register shortcuts
+const registerShortcut = (key: string, action: () => void) => {
+  globalShortcut.register(key, action);
+};
 
 function hideMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -290,6 +355,33 @@ function imageToBase64(imagePath: string): string {
   }
 }
 
+// Screenshot Management
+const addScreenshot = (path: string) => {
+  screenshotQueue.push(path);
+  if (screenshotQueue.length > 5) {
+    const oldScreenshot = screenshotQueue.shift();
+    if (oldScreenshot && fs.existsSync(oldScreenshot)) {
+      fs.unlinkSync(oldScreenshot);
+    }
+  }
+};
+
+const clearScreenshots = async () => {
+  const screenshotsDir = path.join(os.tmpdir(), 'open-interview-coder');
+  try {
+    const files = await fs.promises.readdir(screenshotsDir);
+    await Promise.all(files.map(file => 
+      fs.promises.unlink(path.join(screenshotsDir, file))
+    ));
+    screenshotQueue = [];
+    log.info('All screenshots deleted');
+    return true;
+  } catch (err) {
+    log.error('Failed to delete screenshots:', err);
+    return false;
+  }
+};
+
 // Handle calls from the renderer to Google Gemini
 ipcMain.handle('sendPromptToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
   try {
@@ -350,22 +442,15 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
   try {
     log.info('Analyzing screenshots with Google Gemini API');
 
-    const ai = new GoogleGenAI({
-      apiKey: getGeminiApiKey(),
-    });
+    const ai = getGeminiClient();
 
     // Prepare screenshots for analysis
     const screenshots = [...screenshotQueue];
     const language = options.language || store.get('preferredLanguage') || 'python';
-
-    // Build prompt for Gemini
     const answerStyle = store.get('answerStyle', 'code');
-    let promptText = ``;
-    if (answerStyle === 'code') {
-      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
-    } else {
-      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. If this is a proof question, provide a detailed step-by-step proof with clear logical reasoning. Otherwise, give me the answer and then the explanation. Keep it clear and well-structured.`;
-    }
+
+    // Generate prompt using centralized function
+    const promptText = generatePrompt(answerStyle, language);
 
     // Prepare parts array for Gemini
     const parts = [promptText];
@@ -436,9 +521,43 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
     const answerStyle = store.get('answerStyle', 'code');
     let promptText = ``;
     if (answerStyle === 'code') {
-      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data strcture or algorithm you want to use or how you gonna solve this, then provide the code.`;
+      promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`;
+    } else if (answerStyle === 'multiple-choice') {
+      promptText += `
+      I'm taking a multiple choice exam and need the correct answer(s). Please analyze these screenshots and provide only the answer(s) without any explanation.
+
+      Formatting Rules:
+      - Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
+      - Do not include any explanations, reasoning, or additional text
+      - Do not include section headers like "Answer:", "Final Answer:", etc.
+      - Keep it simple and direct
+
+      If multiple answers are correct, list them separated by commas.
+      If only one answer is correct, provide just that letter.`;
     } else {
-      promptText += `I'm taking an exam and need help with the following problem. Please analyze these screenshots. If this is a proof question, provide a detailed step-by-step proof with clear logical reasoning. Otherwise, give me the answer and then the explanation. Keep it clear and well-structured.`;
+      promptText += `
+      I'm taking an exam and need help with the following problem. Please analyze these screenshots and provide direct, concise answers.
+
+      Formatting Rules:
+      - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
+      - Write the answer exactly like a student would during an exam, with a clear and compact style.
+      - Avoid teaching tone or instructional language.
+
+      If this is a multiple choice question:
+      - State the correct answer(s) clearly (e.g., "Answer: a, c")
+      - Give brief reasoning for each correct choice
+      - Keep explanations short and to the point
+
+      If this is an algorithm design or theoretical question:
+      - Provide the solution directly without excessive explanation
+      - State the approach, key steps, and complexity analysis concisely
+      - Write as if you're a student answering an exam question, not teaching
+
+      If this is a proof question:
+      - Give a direct, step-by-step proof
+      - Use clear logic but keep it concise
+
+      Format your response to be exam-appropriate: clear, direct, and efficient.`;
     }
 
     // Convert images to base64 and create message content
@@ -537,23 +656,26 @@ ipcMain.handle('saveOpenAIApiKey', (_event: IpcMainInvokeEvent, apiKey: string) 
 });
 
 ipcMain.handle('getGeminiApiKey', () => {
-  return getGeminiApiKey();
+  return getApiKey('gemini');
 });
 
 ipcMain.handle('getOpenAIApiKey', () => {
-  return getOpenAIApiKey();
+  return getApiKey('openai');
 });
 
 // For backward compatibility
 ipcMain.handle('get-api-key', () => {
   // Prioritize OpenAI API key for backward compatibility
-  return getOpenAIApiKey() || getGeminiApiKey();
+  return getApiKey('openai') || getApiKey('gemini');
 });
 
-ipcMain.handle('save-preferences', (_event: IpcMainInvokeEvent, preferences: { preferredLanguage: string }) => {
+ipcMain.handle('save-preferences', (_event: IpcMainInvokeEvent, preferences: { preferredLanguage: string, answerStyle?: string }) => {
   try {
     if (preferences.preferredLanguage) {
       store.set('preferredLanguage', preferences.preferredLanguage);
+    }
+    if (preferences.answerStyle) {
+      store.set('answerStyle', preferences.answerStyle);
     }
     return { success: true };
   } catch (error) {
@@ -565,7 +687,8 @@ ipcMain.handle('save-preferences', (_event: IpcMainInvokeEvent, preferences: { p
 
 ipcMain.handle('get-preferences', () => {
   return {
-    preferredLanguage: store.get('preferredLanguage') || 'python'
+    preferredLanguage: store.get('preferredLanguage') || 'python',
+    answerStyle: store.get('answerStyle') || 'explanation'
   };
 });
 
@@ -637,16 +760,12 @@ ipcMain.on('move-window', (_event, direction) => {
 ipcMain.handle('take-screenshot', async () => {
   try {
     const screenshotPath = await takeScreenshot();
-    screenshotQueue.push(screenshotPath);
+    addScreenshot(screenshotPath);
 
-    // Keep only the last 5 screenshots
-    if (screenshotQueue.length > 5) {
-      const oldScreenshot = screenshotQueue.shift();
-      if (oldScreenshot && fs.existsSync(oldScreenshot)) {
-        fs.unlinkSync(oldScreenshot);
-      }
+    // Notify renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('screenshot-taken', { path: screenshotPath });
     }
-
     return { success: true, path: screenshotPath };
   } catch (error) {
     log.error('Error taking screenshot via API:', error);
@@ -671,6 +790,22 @@ ipcMain.handle('getDefaultModel', () => {
   return store.get('defaultModel') || 'both';
 });
 
+// Add handlers for OpenAI model
+ipcMain.handle('getOpenAIModel', () => {
+  return getCurrentOpenAIModel();
+});
+
+ipcMain.handle('saveOpenAIModel', (_event: IpcMainInvokeEvent, model: string) => {
+  try {
+    store.set('openaiModel', model);
+    return { success: true };
+  } catch (error) {
+    log.error('Error saving OpenAI model preference:', error);
+    console.error('Error saving OpenAI model preference:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
 // Add a new IPC handler for copying the latest response to clipboard
 ipcMain.handle('copy-latest-response', () => {
   try {
@@ -682,6 +817,145 @@ ipcMain.handle('copy-latest-response', () => {
   } catch (error) {
     log.error('Error copying to clipboard:', error);
     console.error('Error copying to clipboard:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// Add handler for processing clipboard text (separate from global shortcut)
+ipcMain.handle('processClipboardPrompt', async (_event: IpcMainInvokeEvent) => {
+  try {
+    const clipboardText = clipboard.readText().trim();
+    console.log('Clipboard text:', clipboardText);
+    
+    if (!clipboardText) {
+      return { success: false, error: 'No text found in clipboard' };
+    }
+
+    log.info('Processing clipboard text as prompt via IPC');
+    console.log('Processing clipboard text as prompt via IPC');
+    
+    const defaultModel = store.get('defaultModel') || 'both';
+    const answerStyle = store.get('answerStyle', 'explanation');
+    const language = store.get('preferredLanguage') || 'python';
+    
+    console.log('Settings:', { defaultModel, answerStyle, language });
+    
+    // Build the same prompt as screenshot analysis
+    let promptText = ``;
+    if (answerStyle === 'code') {
+      promptText = `I'm taking a coding interview and need help with the following problem. Please analyze this question and provide a solution in ${language}. 
+      First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.
+      
+      Question: ${clipboardText}`;
+    } else if (answerStyle === 'multiple-choice') {
+      promptText = `
+      I'm taking a multiple choice exam and need the correct answer(s). Please analyze this question and provide only the answer(s) without any explanation.
+
+      Formatting Rules:
+      - Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
+      - Do not include any explanations, reasoning, or additional text
+      - Do not include section headers like "Answer:", "Final Answer:", etc.
+      - Keep it simple and direct
+
+      If multiple answers are correct, list them separated by commas.
+      If only one answer is correct, provide just that letter.
+
+      Question: ${clipboardText}`;
+    } else {
+      promptText = `
+      I'm taking an exam and need help with the following problem. Please analyze this question and provide direct, concise answers.
+
+      Formatting Rules:
+      - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
+      - Write the answer exactly like a student would during an exam, with a clear and compact style.
+      - Avoid teaching tone or instructional language.
+
+      If this is a multiple choice question:
+      - State the correct answer(s) clearly (e.g., "Answer: a, c")
+      - Give brief reasoning for each correct choice
+      - Keep explanations short and to the point
+
+      If this is an algorithm design or theoretical question:
+      - Provide the solution directly without excessive explanation
+      - State the approach, key steps, and complexity analysis concisely
+      - Write as if you're a student answering an exam question, not teaching
+
+      If this is a proof question:
+      - Give a direct, step-by-step proof
+      - Use clear logic but keep it concise
+
+      Format your response to be exam-appropriate: clear, direct, and efficient.
+
+      Question: ${clipboardText}`;
+    }
+    
+    // Send to selected models
+    const promises = [];
+    let openaiResponse = '';
+    let geminiResponse = '';
+    
+    if (defaultModel === 'both' || defaultModel === 'openai') {
+      promises.push(
+        sendPromptToOpenAI(promptText)
+          .then(response => {
+            openaiResponse = response;
+            latestAIResponse = response;
+            log.info('OpenAI response received from clipboard prompt');
+            console.log('OpenAI response:', response.substring(0, 100) + '...');
+            return response;
+          })
+          .catch((error: Error) => {
+            openaiResponse = `OpenAI Error: ${error.message}`;
+            log.error('OpenAI error from clipboard prompt:', error);
+            console.log('OpenAI error:', error.message);
+            return openaiResponse;
+          })
+      );
+    }
+    
+    if (defaultModel === 'both' || defaultModel === 'gemini') {
+      promises.push(
+        sendPromptToGemini([promptText])
+          .then((result: any) => {
+            const response = result.text || 'No response from Gemini';
+            geminiResponse = response;
+            latestAIResponse = response;
+            log.info('Gemini response received from clipboard prompt');
+            console.log('Gemini response:', response.substring(0, 100) + '...');
+            return response;
+          })
+          .catch((error: Error) => {
+            geminiResponse = `Gemini Error: ${error.message}`;
+            log.error('Gemini error from clipboard prompt:', error);
+            console.log('Gemini error:', error.message);
+            return geminiResponse;
+          })
+      );
+    }
+
+    // Wait for all requests to complete
+    await Promise.allSettled(promises);
+    
+    console.log('Final responses:', { openaiResponse: openaiResponse.substring(0, 50), geminiResponse: geminiResponse.substring(0, 50) });
+
+    // Get the best response for automatic clipboard copy
+    let finalResponse = latestAIResponse || openaiResponse || geminiResponse || 'No response received';
+
+    // Automatically copy the latest response back to clipboard
+    if (finalResponse && finalResponse !== 'No response received') {
+      clipboard.writeText(finalResponse);
+      log.info('AI response automatically copied to clipboard');
+    }
+
+    return {
+      success: true,
+      prompt: clipboardText,
+      openaiResponse: openaiResponse,
+      geminiResponse: geminiResponse
+    };
+
+  } catch (error) {
+    log.error('Error processing clipboard prompt via IPC:', error);
     return { success: false, error: (error as Error).message };
   }
 });
@@ -698,52 +972,44 @@ app.whenReady().then(() => {
   });
 
   // Change answer type: Ctrl+Shift+L
-  globalShortcut.register('CommandOrControl+Shift+L', () => {
-    const current = store.get('answerStyle') === 'code' ? 'explanation' : 'code';
-    store.set('answerStyle', current);
-    log.info(`Switched answer style to: ${current}`);
-    if (mainWindow) {
-      mainWindow.webContents.send('answer-style-changed', current);
-    }
+  registerShortcut('CommandOrControl+Shift+L', () => {
+    const styles = ['code', 'explanation', 'multiple-choice'];
+    const current = store.get('answerStyle') || 'explanation';
+    const currentIndex = styles.indexOf(current);
+    const newStyle = styles[(currentIndex + 1) % styles.length];
+    
+    store.set('answerStyle', newStyle);
+    log.info(`Switched answer style to: ${newStyle}`);
+    notifyRenderer('answer-style-changed', newStyle);
   });
 
   // Switch AI model: Ctrl+Shift+M
-  globalShortcut.register('CommandOrControl+Shift+M', () => {
-    // Get current model setting and cycle to next
+  registerShortcut('CommandOrControl+Shift+M', () => {
+    const models = ['both', 'openai', 'gemini'];
     const currentModel = store.get('defaultModel') || 'both';
-    let newModel;
+    const currentIndex = models.indexOf(currentModel);
+    const newModel = models[(currentIndex + 1) % models.length];
     
-    if (currentModel === 'both') {
-      newModel = 'openai';
-    } else if (currentModel === 'openai') {
-      newModel = 'gemini';
-    } else {
-      newModel = 'both';
-    }
-    
-    // Save new model setting
     store.set('defaultModel', newModel);
     log.info(`Switched AI model to: ${newModel}`);
-    
-    // Notify renderer
-    if (mainWindow) {
-      mainWindow.webContents.send('model-changed', newModel);
-    }
+    notifyRenderer('model-changed', newModel);
+  });
+
+  // Switch OpenAI models: Ctrl+Shift+1,2
+  const openaiModels = ['o4-mini', 'gpt-4.1'];
+  openaiModels.forEach((model, index) => {
+    registerShortcut(`CommandOrControl+Shift+${index + 1}`, () => {
+      store.set('openaiModel', model);
+      log.info(`Switched OpenAI model to: ${model}`);
+      notifyRenderer('openai-model-changed', model);
+    });
   });
 
   // Take screenshot: Ctrl+Shift+S
   globalShortcut.register('CommandOrControl+Shift+S', async () => {
     try {
       const screenshotPath = await takeScreenshot();
-      screenshotQueue.push(screenshotPath);
-
-      // Keep only the last 5 screenshots
-      if (screenshotQueue.length > 5) {
-        const oldScreenshot = screenshotQueue.shift();
-        if (oldScreenshot && fs.existsSync(oldScreenshot)) {
-          fs.unlinkSync(oldScreenshot);
-        }
-      }
+      addScreenshot(screenshotPath);
 
       // Notify renderer
       if (mainWindow) {
@@ -757,24 +1023,9 @@ app.whenReady().then(() => {
 
   // Delete Screenshots: Ctrl+Shift+D
   globalShortcut.register('CommandOrControl+Shift+D', async () => {
-    const screenshotsDir = path.join(os.tmpdir(), 'open-interview-coder');
-
-    try {
-      const files = await fs.promises.readdir(screenshotsDir);
-      for (const file of files) {
-        const filePath = path.join(screenshotsDir, file);
-        await fs.promises.unlink(filePath);
-      }
-
-      // Clear the screenshot queue in memory
-      screenshotQueue = [];
-
-      log.info('All screenshots deleted via shortcut.');
-      if (mainWindow) {
-        mainWindow.webContents.send('screenshots-cleared');
-      }
-    } catch (err) {
-      log.error('Failed to delete screenshots:', err);
+    await clearScreenshots();
+    if (mainWindow) {
+      mainWindow.webContents.send('screenshots-cleared');
     }
   });
 
@@ -847,6 +1098,28 @@ app.whenReady().then(() => {
     } catch (error) {
       log.error('Error copying to clipboard:', error);
       console.error('Error copying to clipboard:', error);
+    }
+  });
+
+  // Process clipboard text as prompt: Ctrl+Shift+Q
+  globalShortcut.register('CommandOrControl+Shift+Q', async () => {
+    try {
+      const clipboardText = clipboard.readText().trim();
+      if (!clipboardText) {
+        log.warn('No text found in clipboard');
+        return;
+      }
+
+      log.info('Processing clipboard text as prompt - showing UI');
+      
+      // Send event to renderer to process clipboard
+      if (mainWindow) {
+        mainWindow.webContents.send('process-clipboard-prompt');
+      }
+
+    } catch (error) {
+      log.error('Error processing clipboard prompt:', error);
+      console.error('Error processing clipboard prompt:', error);
     }
   });
 
