@@ -355,10 +355,12 @@
       transition: all 0.3s;
     }
 
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
+            .toast.show {
+          transform: translateY(0);
+          opacity: 1;
+        }
+
+
   </style>
 </head>
 
@@ -384,7 +386,12 @@
         <div class="prompt-container">
           <input type="text" id="userInput" class="prompt-input" placeholder="Enter your prompt here..." />
           <button id="sendBtn" class="btn btn-primary">Send</button>
-          <button id="clipboardPromptBtn" class="btn">Process Clipboard</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="clipboardPromptBtn" class="btn">📋 Process Clipboard</button>
+            <button id="fullScreenshotBtn" class="btn btn-primary" style="background: linear-gradient(45deg, #3b82f6, #6366f1);">📸 Full Screenshot</button>
+            <button id="regionScreenshotBtn" class="btn btn-primary" style="background: linear-gradient(45deg, #ff6b6b, #feca57);">🎯 Region Screenshot</button>
+            <button id="extractTextBtn" class="btn btn-primary" style="background: linear-gradient(45deg, #10b981, #059669);">📝 Extract Text</button>
+          </div>
         </div>
         <div id="responseToggle" style="display: flex; margin-bottom: 0.5rem;">
           <button id="showBothBtn" class="btn btn-primary" style="margin-right: 0.5rem;">Show Both</button>
@@ -406,8 +413,7 @@
       <div class="tab-content" data-tab-content="screenshots">
         <div class="screenshots-container">
           <div class="screenshot-controls">
-            <button id="takeScreenshotBtn" class="btn btn-primary">Take Screenshot</button>
-            <button id="processScreenshotsBtn" class="btn">Process Screenshots</button>
+            <button id="processScreenshotsBtn" class="btn btn-primary">Process Screenshots</button>
           </div>
           <div id="screenshotList" class="screenshot-list">
             <div class="screenshot-item empty">
@@ -464,7 +470,7 @@
             <div class="form-group">
               <label for="openaiModel">OpenAI Model</label>
               <select id="openaiModel" class="prompt-input">
-                <option value="gpt-o4">GPT-o4</option>
+                <option value="gpt-5">GPT-5</option>
                 <option value="gpt-4.1">GPT-4.1</option>
               </select>
             </div>
@@ -497,12 +503,7 @@
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">W</span>
             </div>
           </div>
-          <div class="shortcut-item">
-            <span>Take Screenshot</span>
-            <div class="shortcut-key">
-              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">S</span>
-            </div>
-          </div>
+
           <div class="shortcut-item">
             <span>Process Screenshots</span>
             <div class="shortcut-key">
@@ -564,7 +565,7 @@
             </div>
           </div>
           <div class="shortcut-item">
-            <span>Switch OpenAI Model to GPT-o4</span>
+            <span>Switch OpenAI Model to GPT-5</span>
             <div class="shortcut-key">
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">1</span>
             </div>
@@ -587,6 +588,25 @@
               <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Q</span>
             </div>
           </div>
+          <div class="shortcut-item">
+            <span>📸 Take Full Screenshot</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">S</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <span>🎯 Take Region Screenshot</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">Z</span>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <span>📝 Extract Text from Screenshots</span>
+            <div class="shortcut-key">
+              <span class="key">Ctrl/Cmd</span>+<span class="key">Shift</span>+<span class="key">X</span>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -649,6 +669,9 @@
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const clipboardPromptBtn = document.getElementById('clipboardPromptBtn');
+    const fullScreenshotBtn = document.getElementById('fullScreenshotBtn');
+    const regionScreenshotBtn = document.getElementById('regionScreenshotBtn');
+    const extractTextBtn = document.getElementById('extractTextBtn');
     const openaiResponseContainer = document.getElementById('openaiResponseContainer');
     const geminiResponseContainer = document.getElementById('geminiResponseContainer');
     const responsesContainer = document.getElementById('responsesContainer');
@@ -832,13 +855,24 @@
       }
     });
 
-    // Screenshot functionality
-    takeScreenshotBtn.addEventListener('click', async () => {
+    // Full screenshot functionality
+    fullScreenshotBtn.addEventListener('click', async () => {
       try {
         const result = await window.electronAPI.takeScreenshot();
         if (result.success) {
-          showToast('Screenshot taken');
-          await updateScreenshotList(); // Add await here
+          await updateScreenshotList();
+        }
+      } catch (error) {
+        showToast(`Error: ${error.message}`);
+      }
+    });
+
+    // Extract text functionality
+    extractTextBtn.addEventListener('click', async () => {
+      try {
+        const result = await window.electronAPI.extractTextFromScreenshots();
+        if (result.success) {
+          userInput.value = result.extractedText.substring(0, 100) + '...';
         } else {
           showToast(`Error: ${result.error}`);
         }
@@ -1144,6 +1178,9 @@
     const unsubscribeResponseCopied = window.electronAPI.onResponseCopied(handleResponseCopied);
     const unsubscribeProcessClipboardPrompt = window.electronAPI.onProcessClipboardPrompt(handleProcessClipboardPrompt);
 
+    const unsubscribeTriggerRegionScreenshot = window.electronAPI.onTriggerRegionScreenshot(handleTriggerRegionScreenshot);
+    const unsubscribeExtractTextFromScreenshots = window.electronAPI.onExtractTextFromScreenshots(handleExtractTextFromScreenshots);
+
     // Handle screenshot taken
     function handleScreenshotTaken() {
       showToast('Screenshot taken!');
@@ -1223,6 +1260,33 @@
       // Trigger clipboard processing
       clipboardPromptBtn.click();
       showToast('Processing clipboard text...');
+    }
+
+
+
+    // Handle trigger region screenshot
+    function handleTriggerRegionScreenshot() {
+      window.electronAPI.takeRegionScreenshot().then(result => {
+        if (result.success) {
+          updateScreenshotList();
+        }
+      }).catch(error => {
+        // no toast for invisible flow
+      });
+    }
+
+    // Handle extract text from screenshots
+    function handleExtractTextFromScreenshots() {
+      // Trigger text extraction directly
+      window.electronAPI.extractTextFromScreenshots().then(result => {
+        if (result.success) {
+          userInput.value = result.extractedText.substring(0, 100) + '...';
+        } else {
+          showToast(`Error: ${result.error}`);
+        }
+      }).catch(error => {
+        showToast(`Error: ${error.message}`);
+      });
     }
 
     // Initialize

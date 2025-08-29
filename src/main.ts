@@ -27,10 +27,10 @@ const AI_CONFIG = {
   },
   openai: {
     models: {
-      'o4-mini': 'o4-mini',
+      'gpt-5': 'gpt-5',
       'gpt-4.1': 'gpt-4.1'
     },
-    default: 'o4-mini'
+    default: 'gpt-5'
   }
 };
 
@@ -170,6 +170,60 @@ if (!fs.existsSync(tempDir)) {
 // Keep track of the current ignore state
 let isIgnoringMouseEvents = true;
 let isWindowVisible = false;
+
+// Helper function to check if file is in use
+const isFileInUse = (filePath: string): boolean => {
+  try {
+    if (!fs.existsSync(filePath)) return false;
+    
+    // Try to open file for writing (exclusive access)
+    const fd = fs.openSync(filePath, 'r+');
+    fs.closeSync(fd);
+    return false; // File is not in use
+  } catch (error) {
+    return true; // File is in use
+  }
+};
+
+// Helper function to safely delete files on Windows
+const safeDeleteFile = (filePath: string, retryCount = 0) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      // Check if file is in use
+      if (isFileInUse(filePath)) {
+        if (retryCount < 3) {
+          const delay = (retryCount + 1) * 1000;
+          log.warn(`File is in use (attempt ${retryCount + 1}), retrying in ${delay}ms...`);
+          setTimeout(() => {
+            safeDeleteFile(filePath, retryCount + 1);
+          }, delay);
+          return;
+        } else {
+          log.error(`File still in use after ${retryCount + 1} attempts: ${filePath}`);
+          pendingDeletes.add(filePath);
+          return;
+        }
+      }
+      
+      fs.unlinkSync(filePath);
+      log.info(`Successfully deleted file: ${filePath}`);
+    }
+  } catch (error) {
+    if (retryCount < 3) {
+      const delay = (retryCount + 1) * 1000;
+      log.warn(`Failed to delete file (attempt ${retryCount + 1}), retrying in ${delay}ms...`);
+      setTimeout(() => {
+        safeDeleteFile(filePath, retryCount + 1);
+      }, delay);
+    } else {
+      log.error(`Failed to delete file after ${retryCount + 1} attempts: ${filePath}`);
+      pendingDeletes.add(filePath);
+    }
+  }
+};
+
+// Track files that couldn't be deleted for cleanup later
+const pendingDeletes = new Set<string>();
 
 // Add a variable to store the latest AI response
 let latestAIResponse: string = '';
@@ -360,8 +414,8 @@ const addScreenshot = (path: string) => {
   screenshotQueue.push(path);
   if (screenshotQueue.length > 5) {
     const oldScreenshot = screenshotQueue.shift();
-    if (oldScreenshot && fs.existsSync(oldScreenshot)) {
-      fs.unlinkSync(oldScreenshot);
+    if (oldScreenshot) {
+      safeDeleteFile(oldScreenshot);
     }
   }
 };
@@ -371,7 +425,7 @@ const clearScreenshots = async () => {
   try {
     const files = await fs.promises.readdir(screenshotsDir);
     await Promise.all(files.map(file => 
-      fs.promises.unlink(path.join(screenshotsDir, file))
+      safeDeleteFile(path.join(screenshotsDir, file))
     ));
     screenshotQueue = [];
     log.info('All screenshots deleted');
@@ -464,12 +518,10 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
         parts.push(createPartFromUri(image.uri, image.mimeType));
       } catch (error) {
         log.error(`Error processing image ${screenshotPath}:`, error);
-        console.error(`Error processing image ${screenshotPath}:`, error);
       }
     }
 
     log.info('Sending request to Google Gemini API with images');
-    console.log('Sending request to Google Gemini API with images');
 
     // Make a request to Gemini with images
     const result = await sendPromptToGemini(parts);
@@ -480,7 +532,6 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
     latestAIResponse = analysis;
 
     log.info('Received analysis from Google Gemini API');
-    console.log('Received analysis from Google Gemini API');
 
     return {
       success: true,
@@ -524,40 +575,40 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
       promptText += `I'm taking a coding interview and need help with the following problem. Please analyze these screenshots and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`;
     } else if (answerStyle === 'multiple-choice') {
       promptText += `
-      I'm taking a multiple choice exam and need the correct answer(s). Please analyze these screenshots and provide only the answer(s) without any explanation.
+I'm taking a multiple choice exam and need the correct answer(s). Please analyze these screenshots and provide only the answer(s) without any explanation.
 
-      Formatting Rules:
-      - Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
-      - Do not include any explanations, reasoning, or additional text
-      - Do not include section headers like "Answer:", "Final Answer:", etc.
-      - Keep it simple and direct
+Formatting Rules:
+- Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
+- Do not include any explanations, reasoning, or additional text
+- Do not include section headers like "Answer:", "Final Answer:", etc.
+- Keep it simple and direct
 
-      If multiple answers are correct, list them separated by commas.
-      If only one answer is correct, provide just that letter.`;
+If multiple answers are correct, list them separated by commas.
+If only one answer is correct, provide just that letter.`;
     } else {
       promptText += `
-      I'm taking an exam and need help with the following problem. Please analyze these screenshots and provide direct, concise answers.
+I'm taking an exam and need help with the following problem. Please analyze these screenshots and provide direct, concise answers.
 
-      Formatting Rules:
-      - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
-      - Write the answer exactly like a student would during an exam, with a clear and compact style.
-      - Avoid teaching tone or instructional language.
+Formatting Rules:
+- Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
+- Write the answer exactly like a student would during an exam, with a clear and compact style.
+- Avoid teaching tone or instructional language.
 
-      If this is a multiple choice question:
-      - State the correct answer(s) clearly (e.g., "Answer: a, c")
-      - Give brief reasoning for each correct choice
-      - Keep explanations short and to the point
+If this is a multiple choice question:
+- State the correct answer(s) clearly (e.g., "Answer: a, c")
+- Give brief reasoning for each correct choice
+- Keep explanations short and to the point
 
-      If this is an algorithm design or theoretical question:
-      - Provide the solution directly without excessive explanation
-      - State the approach, key steps, and complexity analysis concisely
-      - Write as if you're a student answering an exam question, not teaching
+If this is an algorithm design or theoretical question:
+- Provide the solution directly without excessive explanation
+- State the approach, key steps, and complexity analysis concisely
+- Write as if you're a student answering an exam question, not teaching
 
-      If this is a proof question:
-      - Give a direct, step-by-step proof
-      - Use clear logic but keep it concise
+If this is a proof question:
+- Give a direct, step-by-step proof
+- Use clear logic but keep it concise
 
-      Format your response to be exam-appropriate: clear, direct, and efficient.`;
+Format your response to be exam-appropriate: clear, direct, and efficient.`;
     }
 
     // Convert images to base64 and create message content
@@ -576,12 +627,10 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
         } as ChatCompletionContentPart);
       } catch (error) {
         log.error(`Error processing image ${screenshotPath}:`, error);
-        console.error(`Error processing image ${screenshotPath}:`, error);
       }
     }
 
     log.info('Sending request to OpenAI API with images');
-    console.log('Sending request to OpenAI API with images');
 
     // Make a request to OpenAI with images
     const response = await openai.chat.completions.create({
@@ -600,7 +649,6 @@ ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event: IpcMainInvokeEvent
     latestAIResponse = analysis;
 
     log.info('Received analysis from OpenAI API');
-    console.log('Received analysis from OpenAI API');
 
     return {
       success: true,
@@ -701,10 +749,7 @@ ipcMain.handle('remove-screenshot', (_event: IpcMainInvokeEvent, index: number) 
     if (index >= 0 && index < screenshotQueue.length) {
       const screenshotPath = screenshotQueue[index];
       screenshotQueue.splice(index, 1);
-
-      if (fs.existsSync(screenshotPath)) {
-        fs.unlinkSync(screenshotPath);
-      }
+      safeDeleteFile(screenshotPath);
 
       return { success: true };
     }
@@ -774,6 +819,339 @@ ipcMain.handle('take-screenshot', async () => {
   }
 });
 
+// Add text extraction handler
+ipcMain.handle('extractTextFromScreenshots', async () => {
+  if (screenshotQueue.length === 0) {
+    const errorMsg = 'No screenshots available to extract text from';
+    log.error(errorMsg);
+    console.error(errorMsg);
+    return { success: false, error: errorMsg };
+  }
+
+  try {
+    log.info('Extracting text from screenshots');
+
+    const openai = getOpenAIClient();
+    
+    // Prepare screenshots for text extraction
+    const screenshots = [...screenshotQueue];
+
+    // Simple prompt for text extraction only
+    const extractPrompt = `Please extract and list all the text you can see in these screenshots. Only return the extracted text, no analysis or explanation.
+
+[EXTRACTED TEXT]`;
+
+    // Convert images to base64 and create message content
+    const content: ChatCompletionContentPart[] = [
+      { type: "text", text: extractPrompt }
+    ];
+
+    for (const screenshotPath of screenshots) {
+      try {
+        const base64Image = imageToBase64(screenshotPath);
+        const dataUrl = `data:image/png;base64,${base64Image}`;
+        
+        content.push({
+          type: "image_url",
+          image_url: { url: dataUrl }
+        } as ChatCompletionContentPart);
+      } catch (error) {
+        log.error(`Error processing image ${screenshotPath}:`, error);
+        console.error(`Error processing image ${screenshotPath}:`, error);
+      }
+    }
+
+    log.info('Sending text extraction request to OpenAI API');
+
+    // Make a request to OpenAI for text extraction only
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4.1',
+      messages: [
+        {
+          role: 'user',
+          content: content
+        }
+      ],
+    });
+
+    const extractedText = response.choices[0]?.message?.content || 'No text extracted';
+    
+    // Copy extracted text to clipboard
+    clipboard.writeText(extractedText);
+    
+    log.info('Text extracted and copied to clipboard');
+
+    return {
+      success: true,
+      extractedText: extractedText
+    };
+  } catch (error) {
+    log.error('Error extracting text from screenshots:', error);
+    console.error('Error extracting text from screenshots:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// Add region screenshot handler
+ipcMain.handle('take-region-screenshot', async () => {
+  try {
+    log.info('Starting region screenshot capture');
+    
+    // Hide main window temporarily
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.hide();
+    }
+    
+    // Wait a bit for window to hide
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Take full screenshot first
+    const fullScreenshotPath = await takeScreenshot();
+    
+    // Create region selection window (INVINCIBLE)
+    const regionWindow = new BrowserWindow({
+      fullscreen: true,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      focusable: false,           // Prevent focus stealing
+      closable: false,            // Prevent window close
+      minimizable: false,         // Prevent minimize
+      maximizable: false,         // Prevent maximize
+      resizable: false,           // Prevent resize
+      movable: false,             // Prevent move
+      show: false,                // Don't show until ready
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'preload.js')
+      }
+    });
+
+    // Make it truly invincible
+    regionWindow.setAlwaysOnTop(true, 'screen-saver');  // Highest priority
+    regionWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    
+    // Prevent any window management
+    regionWindow.on('close', (e: Electron.Event) => {
+      e.preventDefault();
+      log.warn('Region window close attempt prevented');
+    });
+    
+    regionWindow.on('minimize', (e: Electron.Event) => {
+      e.preventDefault();
+      log.warn('Region window minimize attempt prevented');
+    });
+    
+    regionWindow.on('maximize', (e: Electron.Event) => {
+      e.preventDefault();
+      log.warn('Region window maximize attempt prevented');
+    });
+    
+    regionWindow.on('restore', (e: Electron.Event) => {
+      e.preventDefault();
+      log.warn('Region window restore attempt prevented');
+    });
+    
+    regionWindow.on('move', (e: Electron.Event) => {
+      e.preventDefault();
+      log.warn('Region window move attempt prevented');
+    });
+    
+    regionWindow.on('resize', (e: Electron.Event) => {
+      e.preventDefault();
+      log.warn('Region window resize attempt prevented');
+    });
+    
+    // Show window after setup
+    regionWindow.show();
+    
+    // Load region selection HTML (invisible overlay - no visible UI)
+    const regionSelectionHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body {
+            margin: 0;
+            padding: 0;
+            cursor: crosshair;
+            user-select: none;
+            background: transparent;
+            overflow: hidden;
+            -webkit-app-region: no-drag; /* Prevent window dragging */
+          }
+          
+          /* Prevent context menu */
+          * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+          }
+          
+          .selection-box {
+            position: absolute;
+            border: none;
+            background: transparent;
+            display: none; /* keep fully invisible */
+            z-index: 1000;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="selection-box" id="selectionBox"></div>
+        
+        <script>
+          // Prevent all keyboard shortcuts and context menu
+          document.addEventListener('contextmenu', (e) => e.preventDefault());
+          document.addEventListener('keydown', (e) => {
+            // Only allow ESC key
+            if (e.key !== 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          });
+          
+          // Prevent window focus loss
+          window.addEventListener('blur', () => {
+            window.focus();
+          });
+          
+          let isSelecting = false;
+          let startX, startY, endX, endY;
+          const selectionBox = document.getElementById('selectionBox');
+          
+          document.addEventListener('mousedown', (e) => {
+            isSelecting = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            // invisible flow: do not show selection box
+          });
+          
+          document.addEventListener('mousemove', (e) => {
+            if (!isSelecting) return;
+            
+            endX = e.clientX;
+            endY = e.clientY;
+            
+            const left = Math.min(startX, endX);
+            const top = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+            
+            // invisible flow: do not update selection box visuals
+          });
+          
+          document.addEventListener('mouseup', (e) => {
+            if (!isSelecting) return;
+            isSelecting = false;
+            
+            endX = e.clientX;
+            endY = e.clientY;
+            
+            const left = Math.min(startX, endX);
+            const top = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+            
+            if (width > 10 && height > 10) {
+              window.electronAPI.captureRegion({
+                x: left,
+                y: top,
+                width: width,
+                height: height
+              });
+            }
+          });
+          
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+              window.electronAPI.cancelRegionScreenshot();
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `;
+    
+    await regionWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(regionSelectionHTML));
+    
+    return new Promise((resolve, reject) => {
+      // Handle region capture
+      ipcMain.once('capture-region', async (event, region) => {
+        try {
+          regionWindow.destroy();
+          
+          // Crop the screenshot
+          const sharp = require('sharp');
+          const croppedPath = path.join(tempDir, `region-screenshot-${Date.now()}.png`);
+          
+          await sharp(fullScreenshotPath)
+            .extract({
+              left: Math.round(region.x),
+              top: Math.round(region.y),
+              width: Math.round(region.width),
+              height: Math.round(region.height)
+            })
+            .png()
+            .toFile(croppedPath);
+          
+          // Clean up full screenshot with delay to ensure AI processing is complete
+          setTimeout(() => {
+            safeDeleteFile(fullScreenshotPath);
+          }, 2000); // Wait 2 seconds before attempting deletion
+          
+          addScreenshot(croppedPath);
+          
+          // Show main window again
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+          }
+          
+          // Notify renderer
+          if (mainWindow) {
+            mainWindow.webContents.send('screenshot-taken', { path: croppedPath });
+          }
+          
+          resolve({ success: true, path: croppedPath });
+        } catch (error) {
+          regionWindow.destroy();
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+          }
+          reject(error);
+        }
+      });
+      
+      // Handle cancel
+      ipcMain.once('cancel-region-screenshot', () => {
+        regionWindow.destroy();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+        }
+        // Clean up full screenshot with delay
+        setTimeout(() => {
+          safeDeleteFile(fullScreenshotPath);
+        }, 1000);
+        resolve({ success: false, cancelled: true });
+      });
+    });
+    
+  } catch (error) {
+    log.error('Error taking region screenshot:', error);
+    console.error('Error taking region screenshot:', error);
+    
+    // Make sure main window is shown again
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    }
+    
+    return { success: false, error: (error as Error).message };
+  }
+});
+
 // Add handler for saving default model preference
 ipcMain.handle('saveDefaultModel', (_event: IpcMainInvokeEvent, defaultModel: 'openai' | 'gemini' | 'both') => {
   try {
@@ -821,72 +1199,70 @@ ipcMain.handle('copy-latest-response', () => {
   }
 });
 
+
+
+
+
 // Add handler for processing clipboard text (separate from global shortcut)
 ipcMain.handle('processClipboardPrompt', async (_event: IpcMainInvokeEvent) => {
   try {
     const clipboardText = clipboard.readText().trim();
-    console.log('Clipboard text:', clipboardText);
-    
     if (!clipboardText) {
       return { success: false, error: 'No text found in clipboard' };
     }
 
     log.info('Processing clipboard text as prompt via IPC');
-    console.log('Processing clipboard text as prompt via IPC');
     
     const defaultModel = store.get('defaultModel') || 'both';
     const answerStyle = store.get('answerStyle', 'explanation');
     const language = store.get('preferredLanguage') || 'python';
     
-    console.log('Settings:', { defaultModel, answerStyle, language });
-    
-    // Build the same prompt as screenshot analysis
+    // Build prompt for clipboard text analysis
     let promptText = ``;
     if (answerStyle === 'code') {
-      promptText = `I'm taking a coding interview and need help with the following problem. Please analyze this question and provide a solution in ${language}. 
-      First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.
-      
-      Question: ${clipboardText}`;
+      promptText = `I'm taking a coding interview and need help with the following problem. Please analyze this question and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.
+
+Question: ${clipboardText}`;
     } else if (answerStyle === 'multiple-choice') {
       promptText = `
-      I'm taking a multiple choice exam and need the correct answer(s). Please analyze this question and provide only the answer(s) without any explanation.
+I'm taking a multiple choice exam and need the correct answer(s). Please analyze this question and provide only the answer(s) without any explanation.
 
-      Formatting Rules:
-      - Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
-      - Do not include any explanations, reasoning, or additional text
-      - Do not include section headers like "Answer:", "Final Answer:", etc.
-      - Keep it simple and direct
+Formatting Rules:
+- Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
+- Do not include any explanations, reasoning, or additional text
+- Do not include section headers like "Answer:", "Final Answer:", etc.
+- Keep it simple and direct
 
-      If multiple answers are correct, list them separated by commas.
-      If only one answer is correct, provide just that letter.
+If multiple answers are correct, list them separated by commas.
+If only one answer is correct, provide just that letter.
 
-      Question: ${clipboardText}`;
+Question: ${clipboardText}`;
     } else {
       promptText = `
-      I'm taking an exam and need help with the following problem. Please analyze this question and provide direct, concise answers.
+I'm taking an exam and need help with the following problem. Please analyze this question and provide direct, concise answers.
 
-      Formatting Rules:
-      - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
-      - Write the answer exactly like a student would during an exam, with a clear and compact style.
-      - Avoid teaching tone or instructional language.
+Formatting Rules:
+- Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
+- Write the answer exactly like a student would during an exam, with a clear and compact style.
+- Avoid teaching tone or instructional language.
 
-      If this is a multiple choice question:
-      - State the correct answer(s) clearly (e.g., "Answer: a, c")
-      - Give brief reasoning for each correct choice
-      - Keep explanations short and to the point
+If this is a multiple choice question:
+- State the correct answer(s) clearly (e.g., "Answer: a, c")
+- Give brief reasoning for each correct choice
+- Keep explanations short and to the point
 
-      If this is an algorithm design or theoretical question:
-      - Provide the solution directly without excessive explanation
-      - State the approach, key steps, and complexity analysis concisely
-      - Write as if you're a student answering an exam question, not teaching
+If this is an algorithm design or theoretical question:
+- Provide the solution directly without excessive explanation
+- State the approach, key steps, and complexity analysis concisely
+- Write as if you're a student answering an exam question, not teaching
 
-      If this is a proof question:
-      - Give a direct, step-by-step proof
-      - Use clear logic but keep it concise
+If this is a proof question:
+- Give a direct, step-by-step proof
+- Use clear logic but keep it concise
 
-      Format your response to be exam-appropriate: clear, direct, and efficient.
+Format your response to be exam-appropriate: clear, direct, and efficient.
 
-      Question: ${clipboardText}`;
+Question: ${clipboardText}`;
     }
     
     // Send to selected models
@@ -901,13 +1277,11 @@ ipcMain.handle('processClipboardPrompt', async (_event: IpcMainInvokeEvent) => {
             openaiResponse = response;
             latestAIResponse = response;
             log.info('OpenAI response received from clipboard prompt');
-            console.log('OpenAI response:', response.substring(0, 100) + '...');
             return response;
           })
           .catch((error: Error) => {
             openaiResponse = `OpenAI Error: ${error.message}`;
             log.error('OpenAI error from clipboard prompt:', error);
-            console.log('OpenAI error:', error.message);
             return openaiResponse;
           })
       );
@@ -921,13 +1295,11 @@ ipcMain.handle('processClipboardPrompt', async (_event: IpcMainInvokeEvent) => {
             geminiResponse = response;
             latestAIResponse = response;
             log.info('Gemini response received from clipboard prompt');
-            console.log('Gemini response:', response.substring(0, 100) + '...');
             return response;
           })
           .catch((error: Error) => {
             geminiResponse = `Gemini Error: ${error.message}`;
             log.error('Gemini error from clipboard prompt:', error);
-            console.log('Gemini error:', error.message);
             return geminiResponse;
           })
       );
@@ -935,8 +1307,6 @@ ipcMain.handle('processClipboardPrompt', async (_event: IpcMainInvokeEvent) => {
 
     // Wait for all requests to complete
     await Promise.allSettled(promises);
-    
-    console.log('Final responses:', { openaiResponse: openaiResponse.substring(0, 50), geminiResponse: geminiResponse.substring(0, 50) });
 
     // Get the best response for automatic clipboard copy
     let finalResponse = latestAIResponse || openaiResponse || geminiResponse || 'No response received';
@@ -996,7 +1366,7 @@ app.whenReady().then(() => {
   });
 
   // Switch OpenAI models: Ctrl+Shift+1,2
-  const openaiModels = ['o4-mini', 'gpt-4.1'];
+  const openaiModels = ['gpt-5', 'gpt-4.1'];
   openaiModels.forEach((model, index) => {
     registerShortcut(`CommandOrControl+Shift+${index + 1}`, () => {
       store.set('openaiModel', model);
@@ -1005,9 +1375,10 @@ app.whenReady().then(() => {
     });
   });
 
-  // Take screenshot: Ctrl+Shift+S
+  // Full screenshot: Ctrl+Shift+S
   globalShortcut.register('CommandOrControl+Shift+S', async () => {
     try {
+      log.info('Taking full screenshot via shortcut');
       const screenshotPath = await takeScreenshot();
       addScreenshot(screenshotPath);
 
@@ -1016,8 +1387,34 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('screenshot-taken', { path: screenshotPath });
       }
     } catch (error) {
-      log.error('Error taking screenshot via shortcut:', error);
-      console.error('Error taking screenshot via shortcut:', error);
+      log.error('Error taking full screenshot via shortcut:', error);
+      console.error('Error taking full screenshot via shortcut:', error);
+    }
+  });
+
+  // Region screenshot: Ctrl+Shift+Z
+  globalShortcut.register('CommandOrControl+Shift+Z', async () => {
+    try {
+      log.info('Taking region screenshot via shortcut');
+      if (mainWindow) {
+        mainWindow.webContents.send('trigger-region-screenshot');
+      }
+    } catch (error) {
+      log.error('Error taking region screenshot via shortcut:', error);
+      console.error('Error taking region screenshot via shortcut:', error);
+    }
+  });
+
+  // Extract text from screenshots: Ctrl+Shift+X
+  globalShortcut.register('CommandOrControl+Shift+X', async () => {
+    try {
+      log.info('Extracting text from screenshots via shortcut');
+      if (mainWindow) {
+        mainWindow.webContents.send('extract-text-from-screenshots');
+      }
+    } catch (error) {
+      log.error('Error extracting text via shortcut:', error);
+      console.error('Error extracting text via shortcut:', error);
     }
   });
 
@@ -1101,6 +1498,10 @@ app.whenReady().then(() => {
     }
   });
 
+
+
+
+
   // Process clipboard text as prompt: Ctrl+Shift+Q
   globalShortcut.register('CommandOrControl+Shift+Q', async () => {
     try {
@@ -1141,8 +1542,25 @@ app.on('will-quit', () => {
   // Clean up temp screenshots
   try {
     for (const screenshot of screenshotQueue) {
-      if (fs.existsSync(screenshot)) {
-        fs.unlinkSync(screenshot);
+      try {
+        if (fs.existsSync(screenshot)) {
+          fs.unlinkSync(screenshot);
+          log.info(`Cleaned up screenshot: ${screenshot}`);
+        }
+      } catch (error) {
+        log.warn(`Couldn't delete screenshot on exit: ${screenshot}`, error);
+      }
+    }
+    
+    // Clean up pending deletes
+    for (const pendingFile of pendingDeletes) {
+      try {
+        if (fs.existsSync(pendingFile)) {
+          fs.unlinkSync(pendingFile);
+          log.info(`Cleaned up pending file: ${pendingFile}`);
+        }
+      } catch (error) {
+        log.warn(`Still couldn't delete file on exit: ${pendingFile}`, error);
       }
     }
   } catch (error) {

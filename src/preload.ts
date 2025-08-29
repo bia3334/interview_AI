@@ -17,12 +17,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Screenshot functionality
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
+  takeRegionScreenshot: () => ipcRenderer.invoke('take-region-screenshot'),
+  captureRegion: (region: {x: number, y: number, width: number, height: number}) => 
+    ipcRenderer.send('capture-region', region),
+  cancelRegionScreenshot: () => ipcRenderer.send('cancel-region-screenshot'),
   analyzeScreenshots: (options: { language?: string }) =>
     ipcRenderer.invoke('analyze-screenshots', options),
   analyzeScreenshotsWithOpenAI: (options: { language?: string }) =>
     ipcRenderer.invoke('analyzeScreenshotsWithOpenAI', options),
   analyzeScreenshotsWithGemini: (options: { language?: string }) =>
     ipcRenderer.invoke('analyzeScreenshotsWithGemini', options),
+  extractTextFromScreenshots: () => ipcRenderer.invoke('extractTextFromScreenshots'),
 
   // API Key and Preferences management
   saveApiKey: (apiKey: string) => ipcRenderer.invoke('save-api-key', apiKey),
@@ -94,6 +99,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
+  // Event listener for extract text from screenshots
+  onExtractTextFromScreenshots: (callback: () => void) => {
+    ipcRenderer.on('extract-text-from-screenshots', () => callback());
+    return () => {
+      ipcRenderer.removeAllListeners('extract-text-from-screenshots');
+    };
+  },
+
   // Event listeners for preferences changes
   onScreenshotsCleared: (callback: () => void) => {
     ipcRenderer.on('screenshots-cleared', () => callback());
@@ -125,6 +138,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('process-clipboard-prompt', () => callback());
     return () => {
       ipcRenderer.removeAllListeners('process-clipboard-prompt');
+    };
+  },
+
+  // Event listener for triggering region screenshot from shortcut
+  onTriggerRegionScreenshot: (callback: () => void) => {
+    ipcRenderer.on('trigger-region-screenshot', () => callback());
+    return () => {
+      ipcRenderer.removeAllListeners('trigger-region-screenshot');
     };
   }
 });

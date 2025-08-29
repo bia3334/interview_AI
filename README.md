@@ -5,9 +5,13 @@ An Electron application designed to assist with exams and programming interviews
 ## Key Features
 
 ### 1. Screenshot Capture and Analysis
-- Quick screenshot capture with `Ctrl+Shift+S` shortcut
-- AI-powered screenshot analysis (OpenAI GPT-4 and Google Gemini)
+- **📸 Full Screenshot**: `Ctrl+Shift+S` shortcut
+- **🎯 Region Screenshot**: `Ctrl+Shift+Z` shortcut  
+- **Interactive selection**: Drag to select area, ESC to cancel
+- **AI-powered analysis**: OpenAI GPT-5 and Google Gemini Vision
 - Support for up to 5 screenshots simultaneously
+
+
 
 ### 2. Three Answer Modes
 
@@ -32,11 +36,12 @@ An Electron application designed to assist with exams and programming interviews
 | Shortcut | Function |
 |----------|----------|
 | `Ctrl+Shift+A` | Show/hide window |
-| `Ctrl+Shift+S` | Take screenshot |
+| `Ctrl+Shift+S` | 📸 Take full screenshot |
+| `Ctrl+Shift+Z` | 🎯 Take region screenshot |
 | `Ctrl+Shift+P` | Analyze screenshots |
 | `Ctrl+Shift+L` | Switch answer mode (Code ↔ Explanation ↔ Multiple Choice) |
 | `Ctrl+Shift+M` | Switch AI model (OpenAI ↔ Gemini ↔ Both) |
-| `Ctrl+Shift+1` | Switch OpenAI model to GPT-4o |
+| `Ctrl+Shift+1` | Switch OpenAI model to GPT-5 |
 | `Ctrl+Shift+2` | Switch OpenAI model to GPT-4.1 |
 | `Ctrl+Shift+Q` | Process clipboard text |
 | `Ctrl+Shift+C` | Copy response to clipboard |
@@ -59,6 +64,47 @@ An Electron application designed to assist with exams and programming interviews
 2. **Or use shortcut**: `Ctrl+Shift+L` to switch modes
 3. **Take screenshot**: Capture the multiple choice question
 4. **Analyze**: AI will return only the correct answer(s) (e.g., "a" or "a, c")
+
+## How to Use Smart Capture (Recommended) 🧠
+
+### Setup (One-time only):
+1. **Install Tampermonkey** browser extension
+2. **Install our bypass script**: `copy-protection-bypass.js`
+3. **Script auto-runs** on all websites to bypass copy protection
+
+### One-Click Solution:
+1. **Navigate** to the page with the question/problem
+2. **Press** `Ctrl+Shift+Z` or click "🧠 Smart Capture" button
+3. **Automatically** tries all methods in sequence:
+   - 🌐 **Text Extraction** (bypasses copy protection via userscript)
+   - 📋 **Clipboard** (if you copied text manually)
+   - 📸 **Screenshot** (AI vision analysis as fallback)
+4. **AI processes** and **auto-copies** the best response!
+
+### Manual Copy Protection Bypass:
+- **Auto-bypass**: Script runs automatically on page load
+- **Manual trigger**: `Ctrl+Shift+B` to manually bypass protection
+- **Extract & Copy**: `Ctrl+Shift+X` to extract text and copy to clipboard
+
+## How to Bypass Copy Protection (Manual) ⭐
+
+### Method 1: Text Extraction (Recommended)
+1. **Navigate** to the website with protected text
+2. **Press** `Ctrl+Shift+E` or click "🌐" button
+3. **AI automatically** extracts and processes the text
+4. **Result** appears instantly in both OpenAI and Gemini responses
+
+### Method 2: Screenshot Analysis (Fallback)
+1. **Take screenshot** with `Ctrl+Shift+S` when text extraction fails
+2. **Process** with `Ctrl+Shift+P` for AI analysis
+3. **Works with** images, PDFs, and complex layouts
+
+### What Copy Protections are Bypassed:
+- ✅ CSS `user-select: none`
+- ✅ JavaScript right-click disable
+- ✅ Text selection blocking
+- ✅ Overlay elements preventing selection
+- ✅ Most exam platform protections
 
 ## Notes
 
