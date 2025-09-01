@@ -23,7 +23,7 @@ dotenv.config();
 // AI Models Configuration
 const AI_CONFIG = {
   gemini: {
-    model: "gemini-2.5-pro"
+    model: "gemini-2.5-flash"
   },
   openai: {
     models: {
@@ -1199,10 +1199,6 @@ ipcMain.handle('copy-latest-response', () => {
   }
 });
 
-
-
-
-
 // Add handler for processing clipboard text (separate from global shortcut)
 ipcMain.handle('processClipboardPrompt', async (_event: IpcMainInvokeEvent) => {
   try {
@@ -1497,10 +1493,6 @@ app.whenReady().then(() => {
       console.error('Error copying to clipboard:', error);
     }
   });
-
-
-
-
 
   // Process clipboard text as prompt: Ctrl+Shift+Q
   globalShortcut.register('CommandOrControl+Shift+Q', async () => {
