@@ -147,5 +147,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => {
       ipcRenderer.removeAllListeners('trigger-region-screenshot');
     };
+  },
+
+  // Overlay window updates
+  onOverlayUpdate: (callback: (text: string) => void) => {
+    ipcRenderer.on('overlay-update', (_event, text: string) => callback(text));
+    return () => {
+      ipcRenderer.removeAllListeners('overlay-update');
+    };
   }
 });

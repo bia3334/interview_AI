@@ -159,6 +159,9 @@ const sendPromptToOpenAI = async (prompt: string) => {
 
 // Global variables
 let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
+let overlayPinned: boolean = false;
+let overlayAutoHideTimer: NodeJS.Timeout | null = null;
 let screenshotQueue: string[] = [];
 const tempDir = path.join(os.tmpdir(), 'open-interview-coder');
 
@@ -234,6 +237,142 @@ const notifyRenderer = (event: string, data?: any) => {
     mainWindow.webContents.send(event, data);
   }
 };
+
+// Helper to create/update a tiny overlay window showing latest answer
+function createOrGetOverlayWindow(): BrowserWindow {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    return overlayWindow;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+  const overlayWidth = 600;
+  const overlayHeight = 220;
+  const margin = 16;
+
+  overlayWindow = new BrowserWindow({
+    width: overlayWidth,
+    height: overlayHeight,
+    x: width - overlayWidth - margin,
+    y: height - overlayHeight - margin,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    show: false,
+    focusable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // Make it click-through
+  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  overlayWindow.setContentProtection(true);
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver', 2);
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  const overlayHTML = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset=\"utf-8\" />
+        <style>
+          html, body { margin: 0; padding: 0; background: transparent; }
+          .wrap {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            pointer-events: none;
+          }
+          .bubble {
+            pointer-events: none;
+            max-width: 100%;
+            color: #ffffff;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\";
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 12px 14px;
+            margin: 0 0 0 0;
+            backdrop-filter: blur(6px);
+            background: rgba(0,0,0,0.55);
+            border-radius: 10px;
+            box-shadow: 0 4px 22px rgba(0,0,0,0.35);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+          }
+        </style>
+      </head>
+      <body>
+        <div class=\"wrap\">
+          <div id=\"text\" class=\"bubble\"></div>
+        </div>
+        <script>
+          const update = (t) => {
+            const el = document.getElementById('text');
+            el.textContent = (t || '').trim();
+          };
+          if (window.electronAPI && window.electronAPI.onOverlayUpdate) {
+            window.electronAPI.onOverlayUpdate((t) => update(t));
+          }
+          // Set initial empty
+          update('');
+        </script>
+      </body>
+    </html>
+  `;
+
+  overlayWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(overlayHTML));
+
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+  });
+
+  return overlayWindow;
+}
+
+function updateOverlay(text?: string) {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  overlayWindow.webContents.send('overlay-update', text ?? latestAIResponse);
+}
+
+function showOverlay(text?: string) {
+  const win = createOrGetOverlayWindow();
+  if (!win.isVisible()) {
+    win.showInactive();
+  }
+  updateOverlay(text);
+}
+
+function hideOverlay() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.hide();
+  }
+}
+
+function autoShowOverlay(text?: string, durationMs: number = 2000) {
+  showOverlay(text);
+  if (overlayAutoHideTimer) {
+    clearTimeout(overlayAutoHideTimer);
+    overlayAutoHideTimer = null;
+  }
+  if (!overlayPinned) {
+    overlayAutoHideTimer = setTimeout(() => {
+      if (!overlayPinned) {
+        hideOverlay();
+      }
+    }, durationMs);
+  }
+}
 
 // Helper function to register shortcuts
 const registerShortcut = (key: string, action: () => void) => {
@@ -448,6 +587,7 @@ ipcMain.handle('sendPromptToGemini', async (_event: IpcMainInvokeEvent, prompt: 
     
     // Store the latest response
     latestAIResponse = assistantReply;
+    autoShowOverlay(assistantReply, 2000);
 
     log.info('Received response from Google Gemini API');
     return assistantReply;
@@ -468,6 +608,7 @@ ipcMain.handle('sendPromptToOpenAI', async (_event: IpcMainInvokeEvent, prompt: 
     
     // Store the latest response
     latestAIResponse = assistantReply;
+    autoShowOverlay(assistantReply, 2000);
 
     log.info('Received response from OpenAI API');
     return assistantReply;
@@ -530,6 +671,7 @@ async function analyzeScreenshotsWithGemini(options: { language?: string }) {
     
     // Store the latest response
     latestAIResponse = analysis;
+    autoShowOverlay(analysis, 2000);
 
     log.info('Received analysis from Google Gemini API');
 
@@ -647,6 +789,7 @@ Format your response to be exam-appropriate: clear, direct, and efficient.`;
     
     // Store the latest response
     latestAIResponse = analysis;
+    autoShowOverlay(analysis, 2000);
 
     log.info('Received analysis from OpenAI API');
 
@@ -880,6 +1023,16 @@ ipcMain.handle('extractTextFromScreenshots', async () => {
     clipboard.writeText(extractedText);
     
     log.info('Text extracted and copied to clipboard');
+
+    // Automatically trigger processing clipboard prompt (same as Ctrl+Shift+Q)
+    if (mainWindow) {
+      try {
+        mainWindow.webContents.send('process-clipboard-prompt');
+        log.info('Triggered processing of clipboard prompt after text extraction');
+      } catch (e) {
+        log.error('Failed to trigger clipboard prompt processing:', e);
+      }
+    }
 
     return {
       success: true,
@@ -1272,6 +1425,7 @@ Question: ${clipboardText}`;
           .then(response => {
             openaiResponse = response;
             latestAIResponse = response;
+            autoShowOverlay(response, 2000);
             log.info('OpenAI response received from clipboard prompt');
             return response;
           })
@@ -1290,6 +1444,7 @@ Question: ${clipboardText}`;
             const response = result.text || 'No response from Gemini';
             geminiResponse = response;
             latestAIResponse = response;
+            autoShowOverlay(response, 2000);
             log.info('Gemini response received from clipboard prompt');
             return response;
           })
@@ -1335,6 +1490,29 @@ app.whenReady().then(() => {
 
   globalShortcut.register('CommandOrControl+Shift+A', () => {
     toggleMainWindow();
+  });
+
+  // Toggle minimal answer overlay: Ctrl+Shift+O
+  globalShortcut.register('CommandOrControl+Shift+O', () => {
+    try {
+      if (overlayWindow && overlayWindow.isVisible()) {
+        hideOverlay();
+        overlayPinned = false;
+        if (overlayAutoHideTimer) {
+          clearTimeout(overlayAutoHideTimer);
+          overlayAutoHideTimer = null;
+        }
+      } else {
+        showOverlay(latestAIResponse);
+        overlayPinned = true;
+        if (overlayAutoHideTimer) {
+          clearTimeout(overlayAutoHideTimer);
+          overlayAutoHideTimer = null;
+        }
+      }
+    } catch (e) {
+      log.error('Error toggling overlay window:', e);
+    }
   });
 
   // Change answer type: Ctrl+Shift+L
