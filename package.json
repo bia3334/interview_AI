@@ -4,9 +4,9 @@
   "description": "An invisible desktop application to help you pass your technical interviews.",
   "main": "dist/main.js",
   "scripts": {
-    "start": "electron dist/main.js",
-    "dev": "tsc && cp src/index.html dist/ && electron dist/main.js",
-    "build": "tsc && copy src\\index.html dist\\ && electron-builder",
+    "start": "tsc && copy src\\index.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
+    "dev": "tsc && copy src\\index.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
+    "build": "tsc && copy src\\index.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron-builder",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -14,8 +14,11 @@
     "dotenv": "^16.4.7",
     "electron-log": "^5.2.4",
     "electron-store": "^8.1.0",
+    "jszip": "^3.10.1",
     "node-fetch": "^2.6.11",
     "openai": "^4.96.0",
+    "pdf-parse": "1.1.1",
+    "pdfjs-dist": "3.11.174",
     "screenshot-desktop": "^1.15.0",
     "sharp": "^0.33.0",
     "tailwindcss": "^3.4.15"
@@ -30,12 +33,22 @@
     "rimraf": "^6.0.1",
     "typescript": "^5.0.4"
   },
+  "overrides": {
+    "pdfjs-dist": "3.11.174",
+    "pdf-parse": "1.1.1"
+  },
   "build": {
     "appId": "com.openinterviewcoder.app",
     "productName": "Open Interview Coder",
     "files": [
       "dist/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/pdf-parse/**",
+      "**/node_modules/pdfjs-dist/**",
+      "**/node_modules/jszip/**",
+      "**/node_modules/sharp/**"
     ],
     "extraResources": [
       {
