@@ -10,6 +10,10 @@
   <!-- Add highlight.js for code syntax highlighting -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.8.0/styles/atom-one-dark.min.css">
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.8.0/lib/highlight.min.js"></script>
+  <!-- Add KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   <link rel="stylesheet" href="./styles/app.css" />
 </head>
 
@@ -304,7 +308,28 @@
     // Function to safely render markdown with code highlighting
     function renderMarkdown(text) {
       try {
-        return marked.parse(text);
+        // Parse markdown first
+        const html = marked.parse(text);
+        
+        // Create a temporary container to render math
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Render math expressions with KaTeX if available
+        if (typeof renderMathInElement !== 'undefined') {
+          renderMathInElement(tempDiv, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\[', right: '\\]', display: true},
+              {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false,
+            trust: true
+          });
+        }
+        
+        return tempDiv.innerHTML;
       } catch (e) {
         console.error('Markdown parsing error:', e);
         return `<p>Error rendering markdown: ${e.message}</p><pre>${text}</pre>`;

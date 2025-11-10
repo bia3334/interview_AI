@@ -100,7 +100,7 @@ const getCurrentOpenAIModel = () => store.get('openaiModel') || AI_CONFIG.openai
 // Active Document Context (set after user uploads a file for Q&A)
 let activeDocContext: string | null = null;
 let activeDocPath: string | null = null;
-const DOC_CONTEXT_MAX_CHARS = 10000; // safety limit to avoid blowing prompt tokens
+const DOC_CONTEXT_MAX_CHARS = 1000000000000; // safety limit to avoid blowing prompt tokens
 
 // Keep a list of imported documents for the UI
 type ImportedDoc = { filePath: string; fileName: string; length: number; addedAt: number; context: string };
@@ -171,7 +171,13 @@ const generatePrompt = (answerStyle: string, language: string, question?: string
   const docPrefix = buildDocContextPrefix();
 
   const prompts = {
-    code: `I'm taking a coding interview and need help with the following problem. ${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`,
+    code: `I'm taking a coding interview and need help with the following problem. ${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.
+
+      **IMPORTANT:** For any mathematical expressions, formulas, or equations:
+      - Use inline math with single dollar signs: $expression$
+      - Use display math (centered, on its own line) with double dollar signs: $$expression$$
+      - Example: The height is $h \\geq \\lceil \\log_{2t}(N+1) \\rceil - 1$
+      - For complex derivations, use display mode with aligned equations`,
     
     'multiple-choice': `I'm taking a multiple choice exam and need the correct answer(s). ${basePrompt} and provide only the answer(s) without any explanation.
 
@@ -186,10 +192,35 @@ const generatePrompt = (answerStyle: string, language: string, question?: string
           
       explanation: `I'm taking an exam and need help with the following problem. ${basePrompt} and provide direct, concise answers.
 
+      Notes:
+      - KMP was not taught in class, so do not use it.
+      - Pattern matching: prefer Z-algorithm or Boyer–Moore unless the question provides otherwise.
+      - Character coding: use Huffman (merge two least-frequent; prefix-free); present final codewords succinctly.
+      - Integer coding: Minimal Binary; Elias Omega = … binary(Lk)…binary(L1) binary(N), with Li = len(binary(Li-1)) − 1; flip the leading 1→0 in each length component.
+      - Dictionary compression: LZ77 with ⟨offset, length, next-char⟩; choose longest match in window; list tuples directly.
+      - Complexity: give one-line asymptotic bound (e.g., O(m+n), O(n log n)); keep answers short, exam-style.
+      - Proof style: numbered, compact steps (1–2 lines each); minimal prose; no section headers.
+      - B-tree bounds: for height questions, assume maximally full nodes to get N_max=(2t)^(h+1)-1 ⇒ (final bound stated once at the end).
+      - Amortized analysis: allow Aggregate/Accounting/Potential; for binary counter use potential = # of 1-bits; conclude amortized increment = O(1).
+      - Pseudocode: concise; inline comments on key lines; finish with a single complexity line.
+
       Formatting Rules:
       - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
       - Write the answer exactly like a student would during an exam, with a clear and compact style.
       - Avoid teaching tone or instructional language.
+
+      **IMPORTANT:** For any mathematical expressions, formulas, or equations:
+      - Use inline math with single dollar signs: $expression$
+      - Use display math (centered, on its own line) with double dollar signs: $$expression$$
+      - Example inline: The number of keys is $N \\leq (2t)^{h+1} - 1$
+      - Example display for derivations:
+        $$
+        \\begin{aligned}
+        N + 1 &\\leq (2t)^{h+1} \\\\
+        h &\\geq \\log_{2t}(N+1) - 1
+        \\end{aligned}
+        $$
+      - Use proper LaTeX syntax: \\log, \\leq, \\geq, \\lceil, \\rceil, \\sum, \\prod, \\int, etc.
 
       If this is a multiple choice question:
       - State the correct answer(s) clearly (e.g., "Answer: a, c")
@@ -200,6 +231,7 @@ const generatePrompt = (answerStyle: string, language: string, question?: string
       - Provide the solution directly without excessive explanation
       - State the approach, key steps, and complexity analysis concisely
       - Write as if you're a student answering an exam question, not teaching
+      - It should have inline comments explaining key parts of the code
 
       If this is a proof question:
       - Give a direct, step-by-step proof
@@ -476,14 +508,14 @@ function createOrGetOverlayWindow(): BrowserWindow {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
   const overlayWidth = 600;
-  const overlayHeight = 220;
+  const overlayMaxHeight = 400; // Allow more height for wrapped content
   const margin = 16;
 
   overlayWindow = new BrowserWindow({
     width: overlayWidth,
-    height: overlayHeight,
+    height: overlayMaxHeight,
     x: width - overlayWidth - margin,
-    y: height - overlayHeight - margin,
+    y: height - overlayMaxHeight - margin,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -509,6 +541,9 @@ function createOrGetOverlayWindow(): BrowserWindow {
     <html>
       <head>
         <meta charset=\"utf-8\" />
+        <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css\">
+        <script src=\"https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js\"></script>
+        <script src=\"https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js\"></script>
         <style>
           html, body { margin: 0; padding: 0; background: transparent; }
           .wrap {
@@ -536,9 +571,10 @@ function createOrGetOverlayWindow(): BrowserWindow {
             backdrop-filter: blur(12px);
             background: rgba(100, 100, 100, 0.42);
             border-radius: 10px;
-            white-space: pre; /* prevent wrapping so one physical line = one display line */
-            overflow-wrap: normal;
-            overflow-y: hidden; /* always hidden — we scroll programmatically */
+            white-space: pre-wrap; /* Allow text wrapping while preserving line breaks */
+            word-wrap: break-word; /* Break long words if needed */
+            overflow-wrap: break-word;
+            overflow-y: auto; /* Allow scrolling if content exceeds max height */
             overflow-x: hidden;
             /* hide scrollbars in Chromium */
           }
@@ -550,6 +586,9 @@ function createOrGetOverlayWindow(): BrowserWindow {
             -ms-overflow-style: none; /* IE/Edge */
             scrollbar-width: none;    /* Firefox */
           }
+          /* KaTeX styling for overlay */
+          .katex { color: #ffffff !important; }
+          .katex-display { margin: 0.5em 0; }
         </style>
       </head>
       <body>
@@ -577,10 +616,28 @@ function createOrGetOverlayWindow(): BrowserWindow {
             el.scrollTop = 0;
           };
 
+          const renderMath = () => {
+            if (window.renderMathInElement) {
+              try {
+                renderMathInElement(el, {
+                  delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                  ],
+                  throwOnError: false
+                });
+              } catch (e) {
+                console.error('KaTeX rendering error:', e);
+              }
+            }
+          };
+
           const update = (t) => {
             el.textContent = (t || '').trim();
+            renderMath();
             setSingleLineViewport();
           };
+          
           if (window.electronAPI && window.electronAPI.onOverlayUpdate) {
             window.electronAPI.onOverlayUpdate((t) => update(t));
           }
@@ -666,6 +723,28 @@ function setOverlayInteractive(enabled: boolean) {
   try {
     overlayWindow.setIgnoreMouseEvents(!enabled, { forward: true });
   } catch {}
+}
+
+// Move overlay to different corner
+function moveOverlayToCorner(corner: 'bottom-left' | 'bottom-right') {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+  const overlayWidth = 600;
+  const overlayMaxHeight = 400;
+  const margin = 16;
+  
+  let x: number;
+  const y = height - overlayMaxHeight - margin;
+  
+  if (corner === 'bottom-left') {
+    x = margin;
+  } else {
+    x = width - overlayWidth - margin;
+  }
+  
+  overlayWindow.setBounds({ x, y, width: overlayWidth, height: overlayMaxHeight });
 }
 
 // Helper function to register shortcuts
@@ -1243,8 +1322,6 @@ ipcMain.handle('extractTextFromScreenshots', async () => {
 
   try {
     log.info('Extracting text from screenshots');
-
-    const openai = getOpenAIClient();
     
     // Prepare screenshots for text extraction
     const screenshots = [...screenshotQueue];
@@ -1254,40 +1331,56 @@ ipcMain.handle('extractTextFromScreenshots', async () => {
 
 [EXTRACTED TEXT]`;
 
-    // Convert images to base64 and create message content
-    const content: ChatCompletionContentPart[] = [
-      { type: "text", text: extractPrompt }
-    ];
+    // Check which API to use (prefer Gemini, fallback to OpenAI)
+    const geminiKey = getApiKey('gemini');
+    const openaiKey = getApiKey('openai');
+    
+    let extractedText = '';
 
-    for (const screenshotPath of screenshots) {
+    if (geminiKey) {
+      // Use Gemini for text extraction
       try {
-        const base64Image = imageToBase64(screenshotPath);
-        const dataUrl = `data:image/png;base64,${base64Image}`;
+        log.info('Using Gemini API for text extraction');
+        const ai = getGeminiClient();
         
-        content.push({
-          type: "image_url",
-          image_url: { url: dataUrl }
-        } as ChatCompletionContentPart);
-      } catch (error) {
-        log.error(`Error processing image ${screenshotPath}:`, error);
-        console.error(`Error processing image ${screenshotPath}:`, error);
-      }
-    }
+        // Prepare parts array for Gemini
+        const parts = [extractPrompt];
 
-    log.info('Sending text extraction request to OpenAI API');
-
-    // Make a request to OpenAI for text extraction only
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4.1',
-      messages: [
-        {
-          role: 'user',
-          content: content
+        // Add images to the parts
+        for (const screenshotPath of screenshots) {
+          try {
+            const image = await ai.files.upload({
+              file: screenshotPath,
+            });
+            parts.push(createPartFromUri(image.uri, image.mimeType));
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
         }
-      ],
-    });
 
-    const extractedText = response.choices[0]?.message?.content || 'No text extracted';
+        log.info('Sending text extraction request to Gemini API');
+
+        // Make a request to Gemini for text extraction
+        const result = await sendPromptToGemini(parts);
+        extractedText = result.text || 'No text extracted';
+        
+        log.info('Text extracted via Gemini API');
+      } catch (geminiError) {
+        log.warn('Gemini extraction failed, falling back to OpenAI:', geminiError);
+        
+        // Fallback to OpenAI if Gemini fails
+        if (openaiKey) {
+          extractedText = await extractWithOpenAI(screenshots, extractPrompt);
+        } else {
+          throw new Error('Gemini extraction failed and no OpenAI API key available');
+        }
+      }
+    } else if (openaiKey) {
+      // Use OpenAI for text extraction
+      extractedText = await extractWithOpenAI(screenshots, extractPrompt);
+    } else {
+      throw new Error('No API key configured. Please set either Gemini or OpenAI API key in Settings.');
+    }
     
     // Copy extracted text to clipboard
     clipboard.writeText(extractedText);
@@ -1314,6 +1407,50 @@ ipcMain.handle('extractTextFromScreenshots', async () => {
     return { success: false, error: (error as Error).message };
   }
 });
+
+// Helper function for OpenAI text extraction
+async function extractWithOpenAI(screenshots: string[], extractPrompt: string): Promise<string> {
+  log.info('Using OpenAI API for text extraction');
+  const openai = getOpenAIClient();
+  
+  // Convert images to base64 and create message content
+  const content: ChatCompletionContentPart[] = [
+    { type: "text", text: extractPrompt }
+  ];
+
+  for (const screenshotPath of screenshots) {
+    try {
+      const base64Image = imageToBase64(screenshotPath);
+      const dataUrl = `data:image/png;base64,${base64Image}`;
+      
+      content.push({
+        type: "image_url",
+        image_url: { url: dataUrl }
+      } as ChatCompletionContentPart);
+    } catch (error) {
+      log.error(`Error processing image ${screenshotPath}:`, error);
+      console.error(`Error processing image ${screenshotPath}:`, error);
+    }
+  }
+
+  log.info('Sending text extraction request to OpenAI API');
+
+  // Make a request to OpenAI for text extraction only
+  const response = await openai.chat.completions.create({
+    model: getCurrentOpenAIModel(),
+    messages: [
+      {
+        role: 'user',
+        content: content
+      }
+    ],
+  });
+
+  const extractedText = response.choices[0]?.message?.content || 'No text extracted';
+  log.info('Text extracted via OpenAI API');
+  
+  return extractedText;
+}
 
 // Add region screenshot handler
 ipcMain.handle('take-region-screenshot', async () => {
@@ -1826,6 +1963,19 @@ app.whenReady().then(() => {
   globalShortcut.register('CommandOrControl+Down', () => {
     if (mainWindow) {
       mainWindow.webContents.send('scroll-content', { direction: 'down' });
+    }
+  });
+
+  // Move overlay: Ctrl+Left/Right (when overlay is visible)
+  globalShortcut.register('CommandOrControl+Left', () => {
+    if (overlayWindow && overlayWindow.isVisible()) {
+      moveOverlayToCorner('bottom-left');
+    }
+  });
+
+  globalShortcut.register('CommandOrControl+Right', () => {
+    if (overlayWindow && overlayWindow.isVisible()) {
+      moveOverlayToCorner('bottom-right');
     }
   });
 

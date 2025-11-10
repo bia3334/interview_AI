@@ -1,7 +1,6 @@
 ---
 title: "AGENT_GUIDE — Development & Agent Rules"
 project: "Electron AI Assistant"
-owner: "Binh Phu"
 language: "en"
 version: "1.0"
 last_updated: "2025-10-21"
@@ -124,6 +123,7 @@ index.html
 
 # Rules for Agents (Output Contract)
 Agents **must** follow:
+0. Read-first requirement: Before any change, read `AGENT_GUIDE_EN.md` and `agent.config.en.yaml` and confirm constraints (invariants, constraints, output contract, priority paths). Do not proceed if unsure; ask clarifying questions.
 1. **Propose → Apply**: briefly describe changes, then **return full file contents** as code blocks.
 2. Each file block must start with:  
    `// path: <relative/file/path>`  

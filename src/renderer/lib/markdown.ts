@@ -32,8 +32,28 @@ export function renderMarkdown(text: string): string {
         gfm: true,
       });
 
-      // NOTE: This is not sanitized. Add DOMPurify if possible.
-      return (window as any).marked.parse(text);
+      // Parse markdown first
+      const html = (window as any).marked.parse(text);
+      
+      // Create a temporary container to render math
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      
+      // Render math expressions with KaTeX if available
+      if (typeof (window as any).renderMathInElement !== 'undefined') {
+        (window as any).renderMathInElement(tempDiv, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false,
+          trust: true
+        });
+      }
+      
+      return tempDiv.innerHTML;
     }
     return text;
   } catch (e: any) {

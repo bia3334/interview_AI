@@ -9,6 +9,23 @@ function isHighlightJsLoaded() {
 function renderMarkdown(text: string): string {
   try {
     if (typeof (window as any).marked !== 'undefined') {
+      // Protect math blocks with unique markers that won't be escaped
+      const mathBlocks: Array<{original: string, isDisplay: boolean}> = [];
+      
+      // Extract display math blocks ($$...$$) first (greedy for multiline)
+      let processedText = text.replace(/\$\$([\s\S]+?)\$\$/g, (match) => {
+        const index = mathBlocks.length;
+        mathBlocks.push({original: match, isDisplay: true});
+        return `<span class="math-placeholder" data-math-id="${index}"></span>`;
+      });
+      
+      // Extract inline math ($...$) - non-greedy, no newlines
+      processedText = processedText.replace(/\$([^\$\n]+?)\$/g, (match) => {
+        const index = mathBlocks.length;
+        mathBlocks.push({original: match, isDisplay: false});
+        return `<span class="math-placeholder" data-math-id="${index}"></span>`;
+      });
+      
       (window as any).marked.setOptions({
         highlight: function (code: string, lang: string) {
           if (!isHighlightJsLoaded()) {
@@ -30,8 +47,46 @@ function renderMarkdown(text: string): string {
         breaks: true,
         gfm: true,
       });
-      // TODO: Sanitize with DOMPurify when added
-      return (window as any).marked.parse(text);
+      
+      // Parse markdown
+      let html = (window as any).marked.parse(processedText);
+      
+      // Create a temporary container
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      
+      // Restore math blocks by replacing placeholders
+      const placeholders = tempDiv.querySelectorAll('.math-placeholder');
+      placeholders.forEach((placeholder) => {
+        const mathId = placeholder.getAttribute('data-math-id');
+        if (mathId !== null) {
+          const index = parseInt(mathId);
+          const mathBlock = mathBlocks[index];
+          if (mathBlock) {
+            const mathSpan = document.createElement('span');
+            mathSpan.textContent = mathBlock.original; // Set as text to preserve $ characters
+            placeholder.replaceWith(mathSpan);
+          }
+        }
+      });
+      
+      // Now render math with KaTeX
+      if (typeof (window as any).renderMathInElement !== 'undefined') {
+        try {
+          (window as any).renderMathInElement(tempDiv, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false,
+            trust: true
+          });
+        } catch (e) {
+          console.warn('KaTeX rendering failed:', e);
+        }
+      }
+      
+      return tempDiv.innerHTML;
     }
     return text;
   } catch (e: any) {

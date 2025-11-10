@@ -32,8 +32,8 @@ output_contract:
   full_file_content_only: true                   # no fragmented diffs, no pseudo-code
   include_migration_notes_on_api_change: true
   update_docs:
-    - "AGENT_GUIDE.md"
-    - "agent.config.yaml"
+    - "AGENT_GUIDE_EN.md"
+    - "agent.config.en.yaml"
     - "docs/adr/*"  # when architecture decisions change
 
 # Quality & security
@@ -55,6 +55,9 @@ ux_rules:
 
 # Paths agents should prioritize reading
 priority_paths:
+  # Always read the agent guide first
+  - "AGENT_GUIDE_EN.md"
+  - "agent.config.en.yaml"
   - "src/main/**"
   - "src/preload/**"
   - "src/renderer/**"
