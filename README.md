@@ -41,8 +41,6 @@ An Electron application designed to assist with exams and programming interviews
 | `Ctrl+Shift+P` | Analyze screenshots |
 | `Ctrl+Shift+L` | Switch answer mode (Code ↔ Explanation ↔ Multiple Choice) |
 | `Ctrl+Shift+M` | Switch AI model (OpenAI ↔ Gemini ↔ Both) |
-| `Ctrl+Shift+1` | Switch OpenAI model to GPT-5 |
-| `Ctrl+Shift+2` | Switch OpenAI model to GPT-4.1 |
 | `Ctrl+Shift+Q` | Process clipboard text |
 | `Ctrl+Shift+C` | Copy response to clipboard |
 | `Ctrl+Shift+D` | Delete all screenshots |

@@ -38,8 +38,8 @@ body {
 .tab { padding: 0.5rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; }
 .tab.active { border-bottom: 2px solid var(--primary); font-weight: 500; }
 
-.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.tab-content { display: none; flex: 1; overflow: hidden; }
+.content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+.tab-content { display: none; flex: 1; overflow: auto; }
 .tab-content.active { display: flex; flex-direction: column; }
 
 .prompt-container { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
