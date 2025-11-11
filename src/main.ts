@@ -1874,16 +1874,6 @@ app.whenReady().then(() => {
     notifyRenderer('model-changed', newModel);
   });
 
-  // Switch OpenAI models: Ctrl+Shift+1,2
-  const openaiModels = ['gpt-5', 'gpt-4.1'];
-  openaiModels.forEach((model, index) => {
-    registerShortcut(`CommandOrControl+Shift+${index + 1}`, () => {
-      store.set('openaiModel', model);
-      log.info(`Switched OpenAI model to: ${model}`);
-      notifyRenderer('openai-model-changed', model);
-    });
-  });
-
   // Full screenshot: Ctrl+Shift+S
   globalShortcut.register('CommandOrControl+Shift+S', async () => {
     try {
