@@ -194,7 +194,13 @@ const generatePrompt = (answerStyle: string, language: string, question?: string
 
       Notes:
       - KMP was not taught in class, so do not use it.
+      - Do **not use the Knuth-Morris-Pratt algorithm** or refer to it anywhere, even for contrast.
       - Pattern matching: prefer Z-algorithm or Boyer–Moore unless the question provides otherwise.
+      - When explaining or applying Boyer–Moore, your answer must incorporate:
+        • Good Suffix Rule (including Zsuffix and gs(i) computation via reversed Z-algorithm)
+        • Matched Prefix fallback if no good suffix alignment is possible
+        • Galil’s Optimization (i.e., avoid re-checking verified matches; maintain match window invariants)
+      - Emphasize preprocessing techniques: use Z-algorithm on reversed pattern to derive $Z_{suffix}$, compute $gs(i)$, and handle $mp(i)$ (matched prefix) logic.
       - Character coding: use Huffman (merge two least-frequent; prefix-free); present final codewords succinctly.
       - Integer coding: Minimal Binary; Elias Omega = … binary(Lk)…binary(L1) binary(N), with Li = len(binary(Li-1)) − 1; flip the leading 1→0 in each length component.
       - Dictionary compression: LZ77 with ⟨offset, length, next-char⟩; choose longest match in window; list tuples directly.
