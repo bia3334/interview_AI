@@ -202,7 +202,7 @@ const generatePrompt = (answerStyle: string, language: string, question?: string
         • Galil’s Optimization (i.e., avoid re-checking verified matches; maintain match window invariants)
       - Emphasize preprocessing techniques: use Z-algorithm on reversed pattern to derive $Z_{suffix}$, compute $gs(i)$, and handle $mp(i)$ (matched prefix) logic.
       - Character coding: use Huffman (merge two least-frequent; prefix-free); present final codewords succinctly.
-      - Integer coding: Minimal Binary; Elias Omega = … binary(Lk)…binary(L1) binary(N), with Li = len(binary(Li-1)) − 1; flip the leading 1→0 in each length component.
+      - Integer coding: Use **MSB-zeroed Elias–Omega**: write lengths L1..Lk in binary where Li = len(binary(Li−1)) − 1; **force each length’s MSB to 0** (final L=1 ⇒ '0'); then append binary(N). 
       - Dictionary compression: LZ77 with ⟨offset, length, next-char⟩; choose longest match in window; list tuples directly.
       - Complexity: give one-line asymptotic bound (e.g., O(m+n), O(n log n)); keep answers short, exam-style.
       - Proof style: numbered, compact steps (1–2 lines each); minimal prose; no section headers.
