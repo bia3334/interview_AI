@@ -4,9 +4,9 @@
   "description": "An invisible desktop application to help you pass your technical interviews.",
   "main": "dist/main.js",
   "scripts": {
-    "start": "tsc && copy src\\index.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
-    "dev": "tsc && copy src\\index.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
-    "build": "tsc && copy src\\index.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron-builder",
+    "start": "tsc && copy src\\index.html dist\\ && copy src\\overlay.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
+    "dev": "tsc && copy src\\index.html dist\\ && copy src\\overlay.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
+    "build": "tsc && copy src\\index.html dist\\ && copy src\\overlay.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron-builder",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -55,7 +55,8 @@
         "from": "src",
         "to": "dist",
         "filter": [
-          "index.html"
+          "index.html",
+          "overlay.html"
         ]
       }
     ],

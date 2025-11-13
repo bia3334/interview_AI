@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <style>
+      html, body { margin: 0; padding: 0; background: transparent; }
+      .wrap {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
+        pointer-events: none; /* container remains non-interactive; we toggle window interactivity from main */
+      }
+      .bubble {
+        pointer-events: auto; /* allow interactions when window interactivity is enabled */
+        max-width: 100%;
+        max-height: 100%;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        font-size: 16px;
+        line-height: 1.5;
+        /* extra top padding for more breathing room */
+        padding: 18px 14px 12px 14px;
+        margin: 10px;
+        backdrop-filter: blur(12px);
+        background: rgba(100, 100, 100, 0.42);
+        border-radius: 10px;
+        white-space: pre-wrap; /* Allow text wrapping while preserving line breaks */
+        word-wrap: break-word; /* Break long words if needed */
+        overflow-wrap: break-word;
+        overflow-y: auto; /* Allow scrolling if content exceeds max height */
+        overflow-x: hidden;
+        /* hide scrollbars in Chromium */
+      }
+      .bubble::-webkit-scrollbar {
+        width: 0px;
+        height: 0px;
+      }
+      .bubble {
+        -ms-overflow-style: none; /* IE/Edge */
+        scrollbar-width: none;    /* Firefox */
+      }
+      /* KaTeX styling for overlay */
+      .katex { color: #ffffff !important; }
+      .katex-display { margin: 0.5em 0; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div id="text" class="bubble"></div>
+    </div>
+    <script>
+      const el = document.getElementById('text');
+
+      const getLineHeightPx = () => {
+        const cs = window.getComputedStyle(el);
+        const lh = parseFloat(cs.lineHeight);
+        if (!isNaN(lh) && lh > 0) return lh;
+        const fs = parseFloat(cs.fontSize) || 16;
+        return fs * 1.5; // fallback if line-height is 'normal'
+      };
+
+      const setSingleLineViewport = () => {
+        const lh = getLineHeightPx();
+        // lock line-height and height to exactly one line in pixels
+        el.style.lineHeight = lh + 'px';
+        el.style.height = lh + 'px'; // viewport exactly one line
+        el.style.overflowY = 'hidden';
+        // snap to top when content updates
+        el.scrollTop = 0;
+      };
+
+      const renderMath = () => {
+        if (window.renderMathInElement) {
+          try {
+            renderMathInElement(el, {
+              delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+              ],
+              throwOnError: false
+            });
+          } catch (e) {
+            console.error('KaTeX rendering error:', e);
+          }
+        }
+      };
+
+      const update = (t) => {
+        el.textContent = (t || '').trim();
+        renderMath();
+        setSingleLineViewport();
+      };
+      
+      if (window.electronAPI && window.electronAPI.onOverlayUpdate) {
+        window.electronAPI.onOverlayUpdate((t) => update(t));
+      }
+      // Set initial empty
+      update('');
+
+      // Support Ctrl + mouse wheel scrolling when content exceeds bounds
+      let hideOverflowTimer = null;
+      window.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey) return; // only scroll when Ctrl is held
+        e.preventDefault();
+        e.stopPropagation();
+        const lh = getLineHeightPx();
+        if (!lh || lh <= 0) return;
+        const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+        const step = (e.deltaY || 0) > 0 ? lh : -lh; // one line per wheel tick
+        let nextTop = el.scrollTop + step;
+        if (nextTop < 0) nextTop = 0;
+        if (nextTop > maxTop) nextTop = maxTop;
+        // snap to line boundary
+        nextTop = Math.round(nextTop / lh) * lh;
+        el.scrollTop = nextTop;
+        // auto-disable overflow after a short idle
+        if (hideOverflowTimer) clearTimeout(hideOverflowTimer);
+        hideOverflowTimer = setTimeout(() => {
+          el.style.overflowY = 'hidden';
+        }, 400);
+      }, { passive: false });
+
+      // Recompute viewport on resize
+      window.addEventListener('resize', setSingleLineViewport);
+    </script>
+  </body>
+</html>
