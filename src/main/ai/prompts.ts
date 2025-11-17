@@ -12,13 +12,7 @@ export const generatePrompt = (
   const basePrompt = question ? `Question: ${question}` : 'Please analyze these screenshots';
 
   const prompts = {
-    code: `I'm taking a coding interview and need help with the following problem. ${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.
-
-      **IMPORTANT:** For any mathematical expressions, formulas, or equations:
-      - Use inline math with single dollar signs: $expression$
-      - Use display math (centered, on its own line) with double dollar signs: $$expression$$
-      - Example: The height is $h \\geq \\lceil \\log_{2t}(N+1) \\rceil - 1$
-      - For complex derivations, use display mode with aligned equations`,
+    code: `I'm taking a coding interview and need help with the following problem. ${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`,
     
     'multiple-choice': `I'm taking a multiple choice exam and need the correct answer(s). ${basePrompt} and provide only the answer(s) without any explanation.
 
@@ -34,23 +28,6 @@ export const generatePrompt = (
     explanation: `I'm taking an exam and need help with the following problem. ${basePrompt} and provide direct, concise answers.
 
       Notes:
-      - KMP was not taught in class, so do not use it.
-      - Do **not use the Knuth-Morris-Pratt algorithm** or refer to it anywhere, even for contrast.
-      - Pattern matching: prefer Z-algorithm or Boyer–Moore unless the question provides otherwise.
-      - When explaining or applying Boyer–Moore, your answer must incorporate:
-        • Good Suffix Rule (including Zsuffix and gs(i) computation via reversed Z-algorithm)
-        • Matched Prefix fallback if no good suffix alignment is possible
-        • Galil's Optimization (i.e., avoid re-checking verified matches; maintain match window invariants)
-      - Emphasize preprocessing techniques: use Z-algorithm on reversed pattern to derive $Z_{suffix}$, compute $gs(i)$, and handle $mp(i)$ (matched prefix) logic.
-      - Character coding: use Huffman (merge two least-frequent; prefix-free); present final codewords succinctly.
-      - Integer coding: Use **MSB-zeroed Elias–Omega**: write lengths L1..Lk in binary where Li = len(binary(Li−1)) − 1; **force each length's MSB to 0** (final L=1 ⇒ '0'); then append binary(N). 
-      - Dictionary compression: LZ77 with ⟨offset, length, next-char⟩; choose longest match in window; list tuples directly.
-      - Complexity: give one-line asymptotic bound (e.g., O(m+n), O(n log n)); keep answers short, exam-style.
-      - Proof style: numbered, compact steps (1–2 lines each); minimal prose; no section headers.
-      - B-tree bounds: for height questions, assume maximally full nodes to get N_max=(2t)^(h+1)-1 ⇒ (final bound stated once at the end).
-      - Amortized analysis: allow Aggregate/Accounting/Potential; for binary counter use potential = # of 1-bits; conclude amortized increment = O(1).
-      - Pseudocode: concise; inline comments on key lines; finish with a single complexity line.
-      - For simplex method questions: prefer tableau updates.
 
       Formatting Rules:
       - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.

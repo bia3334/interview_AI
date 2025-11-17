@@ -3,12 +3,12 @@ const { GoogleGenAI } = require('@google/genai');
 
 // AI Models Configuration
 export const AI_CONFIG = {
+  default: 'openai', // Default AI provider
   gemini: {
     model: "gemini-2.5-flash"
   },
   openai: {
-    models: { 'gpt-5': 'gpt-5' },
-    default: 'gpt-5'
+    model: "gpt-5.1"
   }
 };
 
@@ -47,14 +47,17 @@ export const getGeminiClient = (store: any) => {
 
 // Model Management
 export const getCurrentOpenAIModel = (store: any) => 
-  store.get('openaiModel') || AI_CONFIG.openai.default;
+  store.get('openaiModel') || AI_CONFIG.openai.model;
+
+export const getCurrentGeminiModel = (store: any) => 
+  store.get('geminiModel') || AI_CONFIG.gemini.model;
 
 // AI Request Functions
 export const sendPromptToGemini = (prompt: string[], store: any) => {
   const ai = getGeminiClient(store);
   const { createUserContent } = require('@google/genai');
   return ai.models.generateContent({
-    model: AI_CONFIG.gemini.model,
+    model: getCurrentGeminiModel(store),
     contents: [createUserContent(prompt)],
   });
 };

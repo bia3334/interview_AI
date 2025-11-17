@@ -35,7 +35,7 @@ const STORE_DEFAULTS = {
   preferredLanguage: 'python',
   answerStyle: 'explanation',
   defaultModel: 'both',
-  openaiModel: AI_CONFIG.openai.default
+  openaiModel: AI_CONFIG.openai.model
 };
 
 const store = new Store({ defaults: STORE_DEFAULTS });
