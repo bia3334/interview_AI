@@ -344,7 +344,6 @@
     const preferredLanguageSelect = document.getElementById('preferredLanguage');
     const defaultModelSelect = document.getElementById('defaultModel');
     const answerStyleSelect = document.getElementById('answerStyle');
-    const openaiModelSelect = document.getElementById('openaiModel');
     const savePreferencesBtn = document.getElementById('savePreferencesBtn');
 
     // Tab switching
@@ -685,13 +684,6 @@
       showToast(`Answer style changed to: ${answerStyle}`);
     });
 
-    // When OpenAI model is changed in the settings, save the preference
-    openaiModelSelect.addEventListener('change', () => {
-      const openaiModel = openaiModelSelect.value;
-      window.electronAPI.saveOpenAIModel(openaiModel);
-      showToast(`OpenAI model changed to: ${openaiModel}`);
-    });
-
     // API Key and Preferences
     saveApiKeyBtn.addEventListener('click', () => {
       const apiKey = apiKeyInput.value.trim();
@@ -721,11 +713,9 @@
       const language = preferredLanguageSelect.value;
       const defaultModel = defaultModelSelect.value;
       const answerStyle = answerStyleSelect.value;
-      const openaiModel = openaiModelSelect.value;
       
       window.electronAPI.savePreferences({ preferredLanguage: language, answerStyle: answerStyle });
       window.electronAPI.saveDefaultModel(defaultModel);
-      window.electronAPI.saveOpenAIModel(openaiModel);
       
       showToast('Preferences saved');
     });
@@ -756,13 +746,6 @@
       if (preferences && preferences.answerStyle) {
         answerStyleSelect.value = preferences.answerStyle;
       }
-
-      // Load OpenAI model preference
-      window.electronAPI.getOpenAIModel().then(openaiModel => {
-        if (openaiModel) {
-          openaiModelSelect.value = openaiModel;
-        }
-      });
 
       window.electronAPI.getDefaultModel().then(defaultModel => {
         if (defaultModel) {
@@ -829,7 +812,6 @@
     const unsubscribeScreenshotsCleared = window.electronAPI.onScreenshotsCleared(handleScreenshotsCleared);
     const unsubscribeAnswerStyleChanged = window.electronAPI.onAnswerStyleChanged(handleAnswerStyleChanged);
     const unsubscribeModelChanged = window.electronAPI.onModelChanged(handleModelChanged);
-    const unsubscribeOpenAIModelChanged = window.electronAPI.onOpenAIModelChanged(handleOpenAIModelChanged);
     const unsubscribeSwitchTab = window.electronAPI.onSwitchTab(handleSwitchTab);
     const unsubscribeResponseCopied = window.electronAPI.onResponseCopied(handleResponseCopied);
     const unsubscribeProcessClipboardPrompt = window.electronAPI.onProcessClipboardPrompt(handleProcessClipboardPrompt);
@@ -895,12 +877,6 @@
         showGeminiBtn.click();
         showToast('Switched to Gemini only');
       }
-    }
-
-    function handleOpenAIModelChanged(model) {
-      console.log('OpenAI model changed to:', model);
-      openaiModelSelect.value = model;
-      showToast(`OpenAI model changed to: ${model}`);
     }
     
     // Handle clipboard operations
