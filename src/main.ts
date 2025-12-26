@@ -26,7 +26,23 @@ electronLog.transports.file.level = 'info';
 const log = electronLog;
 
 // Load environment variables
-dotenv.config();
+// Load base .env first, then override with environment-specific files
+try {
+  const cwd = process.cwd();
+  const files: string[] = ['.env'];
+  const env = process.env.NODE_ENV || 'development';
+  if (env === 'development') files.push('.env.local');
+  if (env === 'production') files.push('.env.production');
+
+  for (const fname of files) {
+    const fpath = path.join(cwd, fname);
+    if (fs.existsSync(fpath)) {
+      dotenv.config({ path: fpath, override: true });
+    }
+  }
+} catch (e) {
+  log.warn('dotenv loading warning:', e);
+}
 
 // Store Configuration
 const STORE_DEFAULTS = {
