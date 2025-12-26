@@ -1,0 +1,34 @@
+<div class="app-container">
+  <div class="header">
+    <h1>Screen Genius</h1>
+    <div class="header-controls">
+      <button id="minimizeBtn" class="btn" (click)="hideWindow()">_</button>
+      <button id="closeBtn" class="btn" (click)="closeWindow()">×</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab" [class.active]="activeTab === 'prompt'" (click)="switchTab('prompt')" data-tab="prompt">Prompt</div>
+    <div class="tab" [class.active]="activeTab === 'history'" (click)="switchTab('history')" data-tab="history">History</div>
+    <div class="tab" [class.active]="activeTab === 'settings'" (click)="switchTab('settings')" data-tab="settings">Settings</div>
+    <div class="tab" [class.active]="activeTab === 'shortcuts'" (click)="switchTab('shortcuts')" data-tab="shortcuts">Shortcuts</div>
+  </div>
+
+  <div class="content">
+    <app-prompt-tab *ngIf="activeTab === 'prompt'" [continuedItem]="continuedItem" (itemLoaded)="continuedItem = null"></app-prompt-tab>
+    <app-history-tab *ngIf="activeTab === 'history'" (continueItem)="onContinueItem($event)"></app-history-tab>
+    <app-settings-tab *ngIf="activeTab === 'settings'"></app-settings-tab>
+    <app-shortcuts-tab *ngIf="activeTab === 'shortcuts'"></app-shortcuts-tab>
+  </div>
+
+  <div class="footer">
+    <div class="status">
+      <div class="status-indicator"></div>
+      <span>Ready</span>
+    </div>
+    <div>Screen Genius v1.0.0</div>
+  </div>
+</div>
+
+<app-toast></app-toast>
+

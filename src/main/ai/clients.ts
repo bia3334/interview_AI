@@ -70,3 +70,35 @@ export const sendPromptToOpenAI = async (prompt: string, store: any) => {
   });
   return response.choices[0]?.message?.content || '';
 };
+
+// Conversation-aware prompt (with history)
+export const sendConversationToOpenAI = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+) => {
+  const openai = getOpenAIClient(store);
+  const response = await openai.chat.completions.create({
+    model: getCurrentOpenAIModel(store),
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+  });
+  return response.choices[0]?.message?.content || '';
+};
+
+export const sendConversationToGemini = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+) => {
+  const ai = getGeminiClient(store);
+  // Convert messages to Gemini format
+  const contents = messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+  
+  const response = await ai.models.generateContent({
+    model: getCurrentGeminiModel(store),
+    contents: contents,
+  });
+  
+  return response.text || '';
+};

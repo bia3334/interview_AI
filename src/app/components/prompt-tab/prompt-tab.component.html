@@ -1,0 +1,85 @@
+<div class="tab-content active" data-tab-content="prompt">
+  <!-- Conversation Mode Indicator -->
+  <div *ngIf="isConversationMode" class="conversation-indicator" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: linear-gradient(45deg, #6366f1, #8b5cf6); border-radius: 6px;">
+    <span style="font-size: 0.9rem;">💬 Continuing conversation ({{conversationHistory.length}} messages)</span>
+    <button class="btn" style="margin-left: auto; background: rgba(255,255,255,0.2); color: white; padding: 0.25rem 0.5rem; font-size: 0.8rem;" (click)="clearConversation()">
+      ✕ New Conversation
+    </button>
+  </div>
+
+  <!-- Screenshots Preview Section -->
+  <div *ngIf="screenshots.length > 0" class="screenshots-preview">
+    <div class="screenshots-header">
+      <span class="screenshots-count">📷 {{screenshots.length}} screenshot{{screenshots.length > 1 ? 's' : ''}} ready</span>
+      <div class="screenshots-actions">
+        <button class="btn btn-small btn-primary" (click)="processScreenshots()">🔍 Analyze</button>
+        <button class="btn btn-small btn-danger" (click)="clearScreenshots()">🗑️ Clear</button>
+      </div>
+    </div>
+    <div class="screenshots-list">
+      <div *ngFor="let screenshot of screenshots; let i = index" class="screenshot-thumbnail">
+        <img [src]="screenshot" alt="Screenshot {{i + 1}}" />
+      </div>
+    </div>
+  </div>
+  
+  <div class="prompt-container">
+    <input 
+      type="text" 
+      [(ngModel)]="userInput" 
+      class="prompt-input" 
+      [placeholder]="isConversationMode ? 'Continue the conversation...' : 'Enter your prompt here...'" 
+      (keydown)="onKeyDown($event)"
+    />
+    <button class="btn btn-primary" (click)="sendPrompt()">Send</button>
+    <div style="display: flex; gap: 0.5rem;">
+      <button class="btn" (click)="processClipboardPrompt()">📋 Process Clipboard</button>
+      <button class="btn btn-primary" style="background: linear-gradient(45deg, #3b82f6, #6366f1);" (click)="takeFullScreenshot()">📸 Full Screenshot</button>
+      <button class="btn btn-primary" style="background: linear-gradient(45deg, #ff6b6b, #feca57);" (click)="takeRegionScreenshot()">🎯 Region Screenshot</button>
+      <button class="btn btn-primary" style="background: linear-gradient(45deg, #10b981, #059669);" (click)="extractText()">📝 Extract Text</button>
+    </div>
+  </div>
+  <div id="responseToggle" style="display: flex; margin-bottom: 0.5rem;">
+    <button 
+      class="btn" 
+      [class.btn-primary]="defaultModel === 'both'"
+      (click)="showBothModels()" 
+      style="margin-right: 0.5rem;"
+    >
+      Show Both
+    </button>
+    <button 
+      class="btn" 
+      [class.btn-primary]="defaultModel === 'openai'"
+      (click)="showOpenAIOnly()"
+    >
+      OpenAI
+    </button>
+    <button 
+      class="btn" 
+      [class.btn-primary]="defaultModel === 'gemini'"
+      (click)="showGeminiOnly()"
+    >
+      Gemini
+    </button>
+  </div>
+  <div id="responsesContainer" style="display: flex; gap: 1rem; flex: 1;">
+    <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="(showBoth || defaultModel === 'openai') ? 'flex' : 'none'">
+      <div style="font-weight: bold; margin-bottom: 0.5rem;">OpenAI</div>
+      <div 
+        #openaiResponseContainer 
+        class="response-container" 
+        [innerHTML]="openaiResponse"
+      ></div>
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="(showBoth || defaultModel === 'gemini') ? 'flex' : 'none'">
+      <div style="font-weight: bold; margin-bottom: 0.5rem;">Gemini</div>
+      <div 
+        #geminiResponseContainer 
+        class="response-container" 
+        [innerHTML]="geminiResponse"
+      ></div>
+    </div>
+  </div>
+</div>
+

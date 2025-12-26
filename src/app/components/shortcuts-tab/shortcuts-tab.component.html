@@ -1,0 +1,11 @@
+<div class="shortcuts-container">
+  <div class="shortcut-item" *ngFor="let shortcut of shortcuts">
+    <span>{{ shortcut.action }}</span>
+    <div class="shortcut-key">
+      <span *ngFor="let key of shortcut.keys; let last = last" class="key">
+        {{ key }}<span *ngIf="!last">+</span>
+      </span>
+    </div>
+  </div>
+</div>
+

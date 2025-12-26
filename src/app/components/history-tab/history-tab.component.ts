@@ -1,0 +1,119 @@
+import { Component, OnInit, ChangeDetectorRef, NgZone, Output, EventEmitter, AfterViewChecked, ViewChild, ElementRef } from '@angular/core';
+import { ElectronService } from '../../services/electron.service';
+import { MarkdownService } from '../../services/markdown.service';
+
+export interface HistoryItem {
+  id: string;
+  timestamp: Date;
+  prompt: string;
+  screenshotCount: number;
+  openaiResponse?: string;
+  geminiResponse?: string;
+}
+
+@Component({
+  selector: 'app-history-tab',
+  templateUrl: './history-tab.component.html',
+  styleUrls: ['./history-tab.component.css'],
+  standalone: false
+})
+export class HistoryTabComponent implements OnInit, AfterViewChecked {
+  history: HistoryItem[] = [];
+  selectedItem: HistoryItem | null = null;
+
+  @Output() continueItem = new EventEmitter<HistoryItem>();
+
+  @ViewChild('openaiResponseContent') openaiResponseContent!: ElementRef;
+  @ViewChild('geminiResponseContent') geminiResponseContent!: ElementRef;
+
+  constructor(
+    private electronService: ElectronService,
+    private markdownService: MarkdownService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
+
+  ngOnInit() {
+    this.loadHistory();
+    this.setupEventListeners();
+  }
+
+  ngAfterViewChecked() {
+    // Render math in response containers using KaTeX auto-render
+    if (this.openaiResponseContent?.nativeElement) {
+      this.markdownService.renderMathInElement(this.openaiResponseContent.nativeElement);
+    }
+    if (this.geminiResponseContent?.nativeElement) {
+      this.markdownService.renderMathInElement(this.geminiResponseContent.nativeElement);
+    }
+  }
+
+  async loadHistory() {
+    try {
+      const stored = await this.electronService.getHistory();
+      this.ngZone.run(() => {
+        this.history = stored || [];
+        this.cdr.detectChanges();
+      });
+    } catch (error) {
+      console.error('Error loading history:', error);
+      this.ngZone.run(() => {
+        this.history = [];
+        this.cdr.detectChanges();
+      });
+    }
+  }
+
+  setupEventListeners() {
+    // Listen for new history items
+    this.electronService.onHistoryUpdated().subscribe(() => {
+      this.loadHistory();
+    });
+  }
+
+  selectItem(item: HistoryItem) {
+    this.selectedItem = item;
+  }
+
+  closeDetail() {
+    this.selectedItem = null;
+  }
+
+  async deleteItem(item: HistoryItem, event: Event) {
+    event.stopPropagation();
+    await this.electronService.deleteHistoryItem(item.id);
+    if (this.selectedItem?.id === item.id) {
+      this.selectedItem = null;
+    }
+    await this.loadHistory();
+  }
+
+  async clearAllHistory() {
+    if (this.history.length === 0) return;
+    await this.electronService.clearHistory();
+    this.history = [];
+    this.selectedItem = null;
+  }
+
+  formatDate(date: Date | string): string {
+    const d = new Date(date);
+    return d.toLocaleString();
+  }
+
+  truncateText(text: string, maxLength: number = 100): string {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  }
+
+  copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      this.electronService.showToast('Copied to clipboard!');
+    });
+  }
+
+  continueSession(item: HistoryItem) {
+    // Emit event to parent to switch to prompt tab and load this item
+    this.continueItem.emit(item);
+  }
+}

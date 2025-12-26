@@ -1,0 +1,121 @@
+<div class="settings-container">
+    <!-- Documents Section -->
+    <div class="settings-group">
+      <h3>Documents</h3>
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <button class="btn btn-primary" (click)="importDocument()">Import document…</button>
+        <button class="btn" (click)="clearActiveDoc()">Clear active</button>
+      </div>
+      <div style="font-size: 12px; opacity: 0.8; margin-bottom:8px;">
+        <span *ngIf="activeDocInfo.hasContext">
+          Active: {{ activeDocInfo.fileName || 'document' }} ({{ activeDocInfo.length }} chars)
+        </span>
+        <span *ngIf="!activeDocInfo.hasContext">No active document</span>
+      </div>
+      <div class="screenshot-list">
+        <div *ngIf="documents.length === 0" style="opacity:.7">No documents imported yet</div>
+        <div 
+          *ngFor="let doc of documents" 
+          class="screenshot-item" 
+          [attr.data-path]="doc.filePath"
+          style="height:auto; padding:8px; display:flex; align-items:center; justify-content:space-between;"
+        >
+          <div>
+            <div class="highlighted-text">{{ doc.fileName }}{{ doc.active ? ' • (active)' : '' }}</div>
+            <div style="font-size:12px; opacity:.8">{{ doc.length }} chars · {{ doc.addedAt | date:'short' }}</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button 
+              class="btn" 
+              [class.btn-primary]="doc.active"
+              (click)="setActiveDoc(doc.filePath)"
+            >
+              {{ doc.active ? 'Active' : 'Set active' }}
+            </button>
+            <button class="btn btn-danger" (click)="removeDoc(doc.filePath)">Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Settings -->
+    <div class="settings-group">
+      <h3>API Settings</h3>
+      <div class="form-group">
+        <label for="apiKey">OpenAI API Key</label>
+        <input 
+          type="password" 
+          id="apiKey" 
+          [(ngModel)]="openaiApiKey"
+          class="prompt-input" 
+          placeholder="sk-..." 
+        />
+        <small style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">
+          Your API key is stored locally and never sent to our servers.
+        </small>
+      </div>
+      <div class="form-group">
+        <label for="geminiApiKey">Gemini API Key</label>
+        <input 
+          type="password" 
+          id="geminiApiKey" 
+          [(ngModel)]="geminiApiKey"
+          class="prompt-input" 
+          placeholder="AIza..." 
+        />
+        <small style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">
+          Your Gemini API key is stored locally and never sent to our servers.
+        </small>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+        <button class="btn btn-primary" (click)="saveApiKeys()">Save API Keys</button>
+      </div>
+    </div>
+
+    <!-- Preferences -->
+    <div class="settings-group">
+      <h3>Preferences</h3>
+      <div class="form-group">
+        <label for="preferredLanguage">Preferred Programming Language</label>
+        <select 
+          id="preferredLanguage" 
+          [(ngModel)]="preferredLanguage"
+          class="prompt-input"
+        >
+          <option value="python">Python</option>
+          <option value="javascript">JavaScript</option>
+          <option value="java">Java</option>
+          <option value="csharp">C#</option>
+          <option value="cpp">C++</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="defaultModel">Default AI Model</label>
+        <select 
+          id="defaultModel" 
+          [(ngModel)]="defaultModel"
+          class="prompt-input"
+        >
+          <option value="both">Both OpenAI and Gemini</option>
+          <option value="openai">OpenAI Only</option>
+          <option value="gemini">Gemini Only</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="answerStyle">Answer Style</label>
+        <select 
+          id="answerStyle" 
+          [(ngModel)]="answerStyle"
+          class="prompt-input"
+        >
+          <option value="code">Code (with explanation)</option>
+          <option value="explanation">Explanation (detailed)</option>
+          <option value="multiple-choice">Multiple Choice (answer only)</option>
+        </select>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+        <button class="btn btn-primary" (click)="savePreferences()">Save Preferences</button>
+      </div>
+    </div>
+  </div>
+

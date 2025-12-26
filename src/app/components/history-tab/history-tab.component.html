@@ -1,0 +1,83 @@
+<div class="history-container">
+  <div class="history-header">
+    <h3>📜 Q&A History</h3>
+    <button 
+      class="btn btn-danger btn-small" 
+      (click)="clearAllHistory()" 
+      *ngIf="history.length > 0"
+    >
+      🗑️ Clear All
+    </button>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="history.length === 0 && !selectedItem">
+    <div class="empty-icon">📝</div>
+    <p>No history yet</p>
+    <small>Your questions and AI responses will appear here</small>
+  </div>
+
+  <!-- History List -->
+  <div class="history-content" *ngIf="history.length > 0 || selectedItem">
+    <!-- List View -->
+    <div class="history-list" *ngIf="!selectedItem">
+      <div 
+        *ngFor="let item of history" 
+        class="history-item" 
+        (click)="selectItem(item)"
+      >
+        <div class="history-item-header">
+          <span class="history-date">{{ formatDate(item.timestamp) }}</span>
+          <button class="btn-icon delete-btn" (click)="deleteItem(item, $event)" title="Delete">×</button>
+        </div>
+        <div class="history-prompt">{{ truncateText(item.prompt, 150) }}</div>
+        <div class="history-meta">
+          <span *ngIf="item.screenshotCount > 0" class="meta-badge">📷 {{ item.screenshotCount }}</span>
+          <span *ngIf="item.openaiResponse" class="meta-badge openai">OpenAI ✓</span>
+          <span *ngIf="item.geminiResponse" class="meta-badge gemini">Gemini ✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail View -->
+    <div class="history-detail" *ngIf="selectedItem">
+      <div class="detail-header">
+        <button class="btn btn-small" (click)="closeDetail()">← Back</button>
+        <div class="detail-actions">
+          <button class="btn btn-small btn-primary" (click)="continueSession(selectedItem)" title="Continue this conversation">
+            ▶️ Continue
+          </button>
+          <button class="btn btn-small btn-danger" (click)="deleteItem(selectedItem, $event)" title="Delete this item">
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+      
+      <div class="detail-section">
+        <div class="detail-label">Question / Prompt</div>
+        <div class="detail-prompt">
+          {{ selectedItem.prompt || '(Screenshot analysis)' }}
+          <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.prompt)" title="Copy">📋</button>
+        </div>
+      </div>
+
+      <div class="detail-responses">
+        <div class="response-section" *ngIf="selectedItem.openaiResponse">
+          <div class="response-label">
+            <span>OpenAI Response</span>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.openaiResponse || '')" title="Copy">📋</button>
+          </div>
+          <div #openaiResponseContent class="response-content" [innerHTML]="selectedItem.openaiResponse"></div>
+        </div>
+
+        <div class="response-section" *ngIf="selectedItem.geminiResponse">
+          <div class="response-label">
+            <span>Gemini Response</span>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.geminiResponse || '')" title="Copy">📋</button>
+          </div>
+          <div #geminiResponseContent class="response-content" [innerHTML]="selectedItem.geminiResponse"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

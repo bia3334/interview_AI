@@ -46,6 +46,11 @@ body {
 .prompt-input { flex: 1; background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border); border-radius: 0.25rem; padding: 0.5rem; color: var(--text); font-size: 0.875rem; }
 .prompt-input:focus { outline: none; border-color: var(--primary); }
 
+/* Select dropdown styling for dark theme */
+select.prompt-input { cursor: pointer; }
+select.prompt-input option { background: #1e1e2e; color: #ffffff; padding: 0.5rem; }
+select.prompt-input option:hover, select.prompt-input option:checked { background: #3b82f6; color: #ffffff; }
+
 .response-container { flex: 1; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: 0.25rem; padding: 1rem; overflow: auto; font-size: 0.875rem; line-height: 1.5; }
 .response-container p { margin-bottom: 1rem; }
 .response-container pre { background: rgba(0, 0, 0, 0.3); border-radius: 0.25rem; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
@@ -53,6 +58,11 @@ body {
 .response-container pre code { display: block; }
 .response-container h1, .response-container h2, .response-container h3, .response-container h4 { margin-top: 1.5rem; margin-bottom: 1rem; }
 .response-container ul, .response-container ol { margin-left: 2rem; margin-bottom: 1rem; }
+
+/* KaTeX math styling for dark theme - same as overlay */
+.response-container .katex { color: #ffffff !important; }
+.response-container .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
+.response-container .katex-html { color: #ffffff; }
 
 .screenshots-container { display: flex; flex-direction: column; gap: 1rem; }
 .screenshot-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }

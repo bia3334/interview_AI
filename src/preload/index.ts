@@ -6,6 +6,8 @@ const api: ElectronAPI = {
   sendPrompt: (prompt) => ipcRenderer.invoke('chatgpt-request', prompt),
   sendPromptToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptToOpenAI', prompt),
   sendPromptToGemini: (prompt) => ipcRenderer.invoke('sendPromptToGemini', prompt),
+  sendConversationToOpenAI: (messages) => ipcRenderer.invoke('sendConversationToOpenAI', messages),
+  sendConversationToGemini: (messages) => ipcRenderer.invoke('sendConversationToGemini', messages),
 
   closeWindow: () => ipcRenderer.send('close-window'),
   hideWindow: () => ipcRenderer.send('hide-window'),
@@ -64,6 +66,6 @@ const api: ElectronAPI = {
   onTriggerRegionScreenshot: (callback) => { ipcRenderer.on('trigger-region-screenshot', () => callback()); return () => ipcRenderer.removeAllListeners('trigger-region-screenshot'); },
   onOverlayUpdate: (callback) => { ipcRenderer.on('overlay-update', (_e, t) => callback(t)); return () => ipcRenderer.removeAllListeners('overlay-update'); },
   onToast: (callback) => { ipcRenderer.on('toast', (_e, m: string) => callback(m)); return () => ipcRenderer.removeAllListeners('toast'); },
+  onWindowShown: (callback) => { ipcRenderer.on('window-shown', () => callback()); return () => ipcRenderer.removeAllListeners('window-shown'); },
 };
-
 contextBridge.exposeInMainWorld('electronAPI', api);

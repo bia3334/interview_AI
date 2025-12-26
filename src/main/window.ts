@@ -4,7 +4,7 @@ import * as url from 'url';
 
 let mainWindow: BrowserWindow | null = null;
 let isIgnoringMouseEvents = true;
-let isWindowVisible = false;
+let isWindowVisible = true; // Changed to true so window shows by default
 
 /**
  * Get main window instance
@@ -56,10 +56,12 @@ export function showMainWindow(store: any) {
     mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
     mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     mainWindow.setContentProtection(true);
-    mainWindow.setOpacity(0);
-    mainWindow.showInactive();
     mainWindow.setOpacity(1);
+    mainWindow.show();
     isWindowVisible = true;
+    
+    // Notify renderer to refresh screenshots when window becomes visible
+    mainWindow.webContents.send('window-shown');
   }
 }
 
@@ -157,9 +159,27 @@ export function createWindow(store: any, preloadPath: string) {
   mainWindow.webContents.setBackgroundThrottling(false);
   mainWindow.webContents.setFrameRate(60);
 
+  // Suppress cache warnings (optional - these are harmless)
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    if (errorCode !== -3) { // -3 is ERR_ABORTED, which we can ignore
+      console.error('Failed to load:', errorCode, errorDescription, validatedURL);
+    }
+  });
+
+  // Log when page loads
+  mainWindow.webContents.once('did-finish-load', () => {
+    console.log('Window: Page loaded successfully');
+    console.log('Window: URL:', mainWindow?.webContents.getURL());
+  });
+
+  // Log console messages from renderer
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    console.log(`[Renderer ${level}]:`, message);
+  });
+
   mainWindow.loadURL(
     url.format({
-      pathname: path.join(__dirname, '..', 'index.html'),
+      pathname: path.join(__dirname, '..', 'angular', 'index.html'),
       protocol: 'file:',
       slashes: true
     })

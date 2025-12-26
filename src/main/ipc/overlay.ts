@@ -45,7 +45,7 @@ function createOrGetOverlayWindow(preloadPath: string): BrowserWindow {
   overlayWindow.setAlwaysOnTop(true, 'screen-saver', 2);
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  overlayWindow.loadFile(path.join(__dirname, '..', '..', 'overlay.html'));
+  overlayWindow.loadFile(path.join(__dirname, '..', '..', 'angular', 'overlay.html'));
 
   overlayWindow.on('closed', () => {
     overlayWindow = null;

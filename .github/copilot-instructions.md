@@ -1,57 +1,65 @@
-## Quick orientation — Open Interview Coder
+# AI Coding Agent Instructions
 
-This file is a compact, actionable guide for AI coding agents working on this repository. It focuses on facts you can verify in the codebase and small, safe edits you can make without human approval.
+This project is an Electron + Angular desktop app that runs invisibly over your screen to capture screenshots and ask AI (OpenAI or Gemini) for help. Focus your changes on the Electron main process (IPC, screenshots, overlay), the Angular renderer (UI + service calls), and the preload bridge.
 
-1) Big picture
-- Electron app with 4 logical layers: UI (`index.html` + `styles/`), renderer (`src/renderer/**`), preload bridge (`src/preload/**`), and main process (`src/main.ts`, `src/main/ipc/**`).
-- Renderer calls the app via a type‑safe bridge exposed as `window.electronAPI` (see `src/preload/index.ts` and `src/preload/types.d.ts`).
-- All privileged I/O and network access happens in the main process. Network calls to LLMs (OpenAI/Gemini) live in `src/main.ts` and helper IPC modules in `src/main/ipc/`.
+## Build & Run
+- Dev: `npm start` (or `npm run dev`) builds Angular → compiles TS → copies `src/overlay.html` → launches Electron.
+- Angular only: `npm run ng:build` (dev) or `npm run ng:build:prod`.
+- Package: `npm run build` builds Angular (prod) → compiles TS → copies overlay → runs `electron-builder` (outputs to `release/`).
+- Windows paths: the overlay copy step uses `copy src\overlay.html dist\angular\`.
 
-2) Primary integration points and patterns (how to change things safely)
-- IPC pattern: channels are domain‑style (e.g. `docs:list`, `take-screenshot`, `analyzeScreenshotsWithOpenAI`). Add new functionality by:
-  - adding a handler in `src/main/**` (or an IPC module under `src/main/ipc/`),
-  - exposing a convenience method in `src/preload/index.ts` and updating `preload/types.d.ts` (this file is the public API contract),
-  - using it from `src/renderer/**`.
-- Public API invariants: `agent.config.en.yaml` lists protected files and invariants (notably `src/preload/types.d.ts` and `index.html`). Preserve backward compatibility when changing `electronAPI`.
-- File Q&A flow: `src/main/ipc/files.ts` uses `askAboutFileWithOpenAI` (main uses text extraction then calls OpenAI). Use this pattern when adding file-based features.
+## Architecture
+- **Main Process**: screenshot pipeline, AI requests, global shortcuts, overlay.
+  - Entry: [src/main.ts](src/main.ts)
+  - Window + state: [src/main/window.ts](src/main/window.ts)
+  - IPC modules: [src/main/ipc/files.ts](src/main/ipc/files.ts), [src/main/ipc/preferences.ts](src/main/ipc/preferences.ts), [src/main/ipc/overlay.ts](src/main/ipc/overlay.ts), [src/main/ipc/documents.ts](src/main/ipc/documents.ts)
+  - AI clients & prompts: [src/main/ai/clients.ts](src/main/ai/clients.ts), [src/main/ai/prompts.ts](src/main/ai/prompts.ts)
+  - File utils: [src/main/utils/files.ts](src/main/utils/files.ts)
+- **Renderer (Angular)**: tabs for Prompt, History, Settings.
+  - Bootstrap: [src/angular-main.ts](src/angular-main.ts), shell: [src/index.html](src/index.html)
+  - App module: [src/app/app.module.ts](src/app/app.module.ts)
+  - Core service: [src/app/services/electron.service.ts](src/app/services/electron.service.ts) (all IPC calls + Observables)
+  - UI examples: [Prompt](src/app/components/prompt-tab/prompt-tab.component.ts), [History](src/app/components/history-tab/history-tab.component.ts), [Settings](src/app/components/settings-tab/settings-tab.component.ts)
+- **Preload Bridge**: exposes the safe API to renderer with contextIsolation.
+  - API surface: [src/preload/types.d.ts](src/preload/types.d.ts)
+  - Implementation: [src/preload/index.ts](src/preload/index.ts)
+- **Overlay Bubble**: single-line, KaTeX-enabled display.
+  - HTML: [src/overlay.html](src/overlay.html)
+  - Manager: [src/main/ipc/overlay.ts](src/main/ipc/overlay.ts)
 
-3) Security and rendering notes (important)
-- Markdown rendering currently uses global `marked` without sanitization (see `src/renderer/lib/markdown.ts` and inline renderer code in `src/renderer/index.ts`). If you add any HTML injection path, sanitize with DOMPurify before assigning to innerHTML.
-- API keys and secrets are stored locally via `electron-store` in the main process. Do not print secrets to logs.
+## Key Patterns & Conventions
+- **IPC shape**: handlers usually return `{ success: boolean, ... }` and log via `electron-log`.
+- **Bridge-first**: never call Node APIs from Angular; add methods to preload, then use them via `ElectronService`.
+- **Events → Observables**: UI subscribes once in `ElectronService` (shared `Subject`s) and exposes `onX()` observables.
+- **Document Context**: set via [documents.ts](src/main/ipc/documents.ts); `buildDocContextPrefix()` auto-injects context into prompts.
+- **Screenshots**: kept in `tempDir`, max 5 entries; region captures apply DPI scale factor; cleanup uses `safeDeleteFile()`.
+- **AI routing**: current models from store; OpenAI uses `chat.completions`; Gemini uses `models.generateContent` with `createPartFromUri` for images.
+- **Security**: `contextIsolation: true`, `nodeIntegration: false`, `setContentProtection(true)`; keep renderer sandboxed.
 
-4) Shortcuts and UX behaviors (quick lookup)
-- Global keyboard shortcuts / behaviors live in `src/main.ts` (search for `globalShortcut.register`). Common keys: toggle window (Ctrl+Shift+A), full screenshot (Ctrl+Shift+S), region screenshot (Ctrl+Shift+Z), process screenshots (Ctrl+Shift+P), process clipboard (Ctrl+Shift+Q), copy response (Ctrl+Shift+C), delete screenshots (Ctrl+Shift+D).
-- Overlay UI: a small transparent overlay window is created/updated in `createOrGetOverlayWindow()` in `src/main.ts`. The overlay is click‑through by default and is made interactive when pinned.
+## Developer Workflows
+- Add a new IPC:
+  1) Main: register in `[src/main.ts](src/main.ts)` or a module under `src/main/ipc/`.
+  2) Preload: declare in [src/preload/types.d.ts](src/preload/types.d.ts), expose via [src/preload/index.ts](src/preload/index.ts).
+  3) Renderer: call through `ElectronService` and wire up UI.
+- Modify AI behavior:
+  - Models & keys: [src/main/ai/clients.ts](src/main/ai/clients.ts); defaults use store keys (`openaiModel`, `geminiModel`).
+  - Prompt styles: [src/main/ai/prompts.ts](src/main/ai/prompts.ts); answerStyle switches via shortcuts or settings.
+- Overlay usage:
+  - Update latest response with `overlayManager.setLatestResponse(text)` then show via `overlayManager.autoShow(text, 2000, preloadPath)`.
 
-5) Build & developer workflows
-- Primary scripts in `package.json`: 
-  - `npm install` — install deps
-  - `npm run build` — compiles TypeScript, copies `src/index.html` and `styles`, then runs `electron-builder` (packaging)
-  - `npm run start` / `npm run dev` — compile and run `electron dist/main.js` (both run the same series of steps)
-- Note: repository doesn't include `lint` or `test` scripts. The `agent.config.en.yaml` references lint/test commands as quality gates — if you add them, update the config.
+## Shortcuts & UX (Main)
+- Visibility toggle: `Ctrl+Shift+A`
+- Full/Region screenshot: `Ctrl+Shift+S` / `Ctrl+Shift+Z`
+- Analyze screenshots: `Ctrl+Shift+P`; Extract text: `Ctrl+Shift+X`
+- Switch answer style: `Ctrl+Shift+L`; Switch model: `Ctrl+Shift+M`
+- Process clipboard prompt: `Ctrl+Shift+Q`; Copy latest: `Ctrl+Shift+C`
 
-6) Conventions / gotchas to follow in PRs
-- Always update `src/preload/types.d.ts` when you add or change `electronAPI` methods. This file is the canonical public API.
-- Prefer creating a new `src/main/ipc/<domain>.ts` file for grouped IPC handlers (see `files.ts` and `preferences.ts`). Register them from `src/main.ts` (pattern: import and call `registerXxxIPC(ipcMain, deps)`).
-- Avoid adding new top-level Node APIs directly in renderer code. Network & fs should remain in main or behind preload methods.
-- When introducing a new dependency, check `agent.config.en.yaml` allowed/banned list. For security sensitive libraries (HTML sanitizers, crypto), include a short security rationale in the PR.
+## Integration Notes
+- Preferences & API keys: stored via `electron-store` (see defaults in [src/main.ts](src/main.ts)).
+- History: stored in `localStorage` via `ElectronService`; notify UI with `historyUpdated$`.
+- Angular builds to `dist/angular`; main loads `file://.../dist/angular/index.html` per [src/main/window.ts](src/main/window.ts).
 
-7) Useful examples to copy/paste
-- Expose a new method to renderer (pattern):
-  - add an `ipcMain.handle('my:action', ...)` in `src/main/**` or an IPC module under `src/main/ipc/` and register it from `src/main.ts`.
-  - add a wrapper in `src/preload/index.ts` and update `preload/types.d.ts`.
-  - call `await window.electronAPI.myAction(args)` from renderer.
-
-8) Files & paths you should read first (priority)
-- `AGENT_GUIDE_EN.md` and `agent.config.en.yaml` — project constraints and agent rules.
-- `src/main.ts` — master orchestration for shortcuts, windows, AI calls and temp file lifecycle.
-- `src/preload/index.ts` and `src/preload/types.d.ts` — public API contract.
-- `src/renderer/index.ts` and `src/renderer/lib/markdown.ts` — renderer behavior and markdown rendering.
-- `src/main/ipc/*.ts` — examples of domain IPC modules (`files.ts`, `preferences.ts`).
-
-9) Minimal change checklist for agents
-- Read `AGENT_GUIDE_EN.md` and `agent.config.en.yaml` before coding.
-- Make one small, well-scoped change per PR. Update `preload/types.d.ts` for API changes. Add a short migration note if you change public API.
-- Avoid touching files listed in `agent.config.en.yaml`'s `file_globs_protected` unless explicitly requested.
-
-If anything is unclear or you'd like this trimmed or expanded (e.g., include an example PR template or a checklist for packaging), tell me which section to change and I will iterate.
+## Gotchas
+- Windows file locking: use `safeDeleteFile()` and retry when deleting screenshots.
+- DPI scaling: region selection coordinates must be scaled using `screen.getPrimaryDisplay().scaleFactor`.
+- Keep preload API in sync with types; missing methods will break Angular at runtime.

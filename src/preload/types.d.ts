@@ -3,6 +3,8 @@ export interface ElectronAPI {
   sendPrompt: (prompt: string) => Promise<string>;
   sendPromptToOpenAI: (prompt: string) => Promise<string>;
   sendPromptToGemini: (prompt: string) => Promise<string>;
+  sendConversationToOpenAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
+  sendConversationToGemini: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
 
   closeWindow: () => void;
   hideWindow: () => void;
@@ -61,6 +63,7 @@ export interface ElectronAPI {
   onTriggerRegionScreenshot: (callback: () => void) => () => void;
   onOverlayUpdate: (callback: (text: string) => void) => () => void;
   onToast: (callback: (msg: string) => void) => () => void;
+  onWindowShown: (callback: () => void) => () => void;
 }
 
 declare global {

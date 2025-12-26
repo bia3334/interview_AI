@@ -4,17 +4,23 @@
   "description": "An invisible desktop application to help you pass your technical interviews.",
   "main": "dist/main.js",
   "scripts": {
-    "start": "tsc && copy src\\index.html dist\\ && copy src\\overlay.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
-    "dev": "tsc && copy src\\index.html dist\\ && copy src\\overlay.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron dist/main.js",
-    "build": "tsc && copy src\\index.html dist\\ && copy src\\overlay.html dist\\ && xcopy /E /I /Y styles dist\\styles\\ && electron-builder",
+    "ng:build": "ng build --configuration development",
+    "ng:build:prod": "ng build --configuration production",
+    "start": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && electron dist/main.js",
+    "dev": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && electron dist/main.js",
+    "build": "npm run ng:build:prod && tsc && copy src\\overlay.html dist\\angular\\ && set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder",
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@angular/forms": "^21.0.6",
     "@google/genai": "^0.10.0",
     "dotenv": "^16.4.7",
     "electron-log": "^5.2.4",
     "electron-store": "^8.1.0",
+    "highlight.js": "^11.11.1",
     "jszip": "^3.10.1",
+    "katex": "^0.16.27",
+    "marked": "^17.0.1",
     "node-fetch": "^2.6.11",
     "openai": "^4.96.0",
     "pdf-parse": "1.1.1",
@@ -24,6 +30,15 @@
     "tailwindcss": "^3.4.15"
   },
   "devDependencies": {
+    "@angular-devkit/build-angular": "^21.0.4",
+    "@angular/cli": "^21.0.4",
+    "@angular/common": "^21.0.6",
+    "@angular/compiler": "^21.0.6",
+    "@angular/core": "^21.0.6",
+    "@angular/platform-browser": "^21.0.6",
+    "@angular/platform-browser-dynamic": "^21.0.6",
+    "@angular/router": "^21.0.6",
+    "@types/katex": "^0.16.7",
     "@types/node-fetch": "^2.6.2",
     "@types/screenshot-desktop": "^1.12.3",
     "autoprefixer": "^10.4.20",
@@ -31,7 +46,9 @@
     "electron-builder": "^24.13.3",
     "postcss": "^8.4.49",
     "rimraf": "^6.0.1",
-    "typescript": "^5.0.4"
+    "rxjs": "^7.8.2",
+    "typescript": "^5.0.4",
+    "zone.js": "^0.16.0"
   },
   "overrides": {
     "pdfjs-dist": "3.11.174",
@@ -40,6 +57,15 @@
   "build": {
     "appId": "com.openinterviewcoder.app",
     "productName": "Open Interview Coder",
+    "win": {
+      "target": [
+        "dir"
+      ],
+      "icon": "assets/icons/win/icon.ico",
+      "sign": false,
+      "signingHashAlgorithms": [],
+      "verifyUpdateCodeSignature": false
+    },
     "files": [
       "dist/**/*",
       "package.json"
@@ -52,10 +78,9 @@
     ],
     "extraResources": [
       {
-        "from": "src",
-        "to": "dist",
+        "from": "src/angular",
+        "to": "dist/angular",
         "filter": [
-          "index.html",
           "overlay.html"
         ]
       }
@@ -75,12 +100,6 @@
         }
       ],
       "icon": "assets/icons/mac/icon.icns"
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "assets/icons/win/icon.ico"
     },
     "linux": {
       "target": [

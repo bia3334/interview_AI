@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, globalShortcut, clipboard, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, globalShortcut, clipboard, dialog, screen } from 'electron';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import screenshot from 'screenshot-desktop';
@@ -13,7 +13,7 @@ import { registerPreferencesIPC } from './main/ipc/preferences';
 import { overlayManager, registerOverlayIPC } from './main/ipc/overlay';
 import { registerDocumentsIPC, buildDocContextPrefix, setActiveDocContext } from './main/ipc/documents';
 import { createWindow, getMainWindow, toggleMainWindow, hideMainWindow, showMainWindow, toggleMouseEvents, moveWindow, notifyRenderer } from './main/window';
-import { getApiKey, sendPromptToGemini, sendPromptToOpenAI, getOpenAIClient, getGeminiClient, getCurrentOpenAIModel, AI_CONFIG } from './main/ai/clients';
+import { getApiKey, sendPromptToGemini, sendPromptToOpenAI, sendConversationToOpenAI, sendConversationToGemini, getOpenAIClient, getGeminiClient, getCurrentOpenAIModel, AI_CONFIG } from './main/ai/clients';
 import { generatePrompt } from './main/ai/prompts';
 import { safeDeleteFile, imageToBase64 } from './main/utils/files';
 
@@ -154,6 +154,41 @@ ipcMain.handle('sendPromptToOpenAI', async (_event: IpcMainInvokeEvent, prompt: 
   } catch (error) {
     log.error('Failed to fetch from OpenAI:', error);
     throw new Error(`Failed to fetch from OpenAI: ${(error as Error).message}`);
+  }
+});
+
+// Conversation-aware prompts (with history)
+ipcMain.handle('sendConversationToOpenAI', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+  try {
+    log.info('Sending conversation request to OpenAI API');
+    const assistantReply = await sendConversationToOpenAI(messages, store);
+    
+    latestAIResponse = assistantReply;
+    overlayManager.setLatestResponse(assistantReply);
+    overlayManager.autoShow(assistantReply, 2000, path.join(__dirname, 'preload', 'index.js'));
+
+    log.info('Received conversation response from OpenAI API');
+    return assistantReply;
+  } catch (error) {
+    log.error('Failed to fetch conversation from OpenAI:', error);
+    throw new Error(`Failed to fetch conversation from OpenAI: ${(error as Error).message}`);
+  }
+});
+
+ipcMain.handle('sendConversationToGemini', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+  try {
+    log.info('Sending conversation request to Gemini API');
+    const assistantReply = await sendConversationToGemini(messages, store);
+    
+    latestAIResponse = assistantReply;
+    overlayManager.setLatestResponse(assistantReply);
+    overlayManager.autoShow(assistantReply, 2000, path.join(__dirname, 'preload', 'index.js'));
+
+    log.info('Received conversation response from Gemini API');
+    return assistantReply;
+  } catch (error) {
+    log.error('Failed to fetch conversation from Gemini:', error);
+    throw new Error(`Failed to fetch conversation from Gemini: ${(error as Error).message}`);
   }
 });
 
@@ -362,7 +397,15 @@ ipcMain.handle('extractTextFromScreenshots', async () => {
 });
 
 // Region screenshot handler
+let isRegionScreenshotInProgress = false;
 ipcMain.handle('take-region-screenshot', async () => {
+  // Prevent multiple simultaneous region screenshots
+  if (isRegionScreenshotInProgress) {
+    log.warn('Region screenshot already in progress, ignoring duplicate request');
+    return { success: false, error: 'Already in progress' };
+  }
+  isRegionScreenshotInProgress = true;
+  
   try {
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -371,6 +414,10 @@ ipcMain.handle('take-region-screenshot', async () => {
     
     await new Promise(resolve => setTimeout(resolve, 200));
     const fullScreenshotPath = await takeScreenshot();
+    
+    // Get the primary display's scale factor for DPI scaling
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const scaleFactor = primaryDisplay.scaleFactor;
     
     const regionWindow = new BrowserWindow({
       fullscreen: true,
@@ -402,7 +449,7 @@ ipcMain.handle('take-region-screenshot', async () => {
     
     regionWindow.show();
 
-    const regionSelectionHTML = `<!DOCTYPE html><html><head><style>body{margin:0;padding:0;cursor:crosshair;user-select:none;background:transparent;overflow:hidden;-webkit-app-region:no-drag}*{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.selection-box{position:absolute;border:none;background:transparent;display:none;z-index:1000}</style></head><body><div class="selection-box" id="selectionBox"></div><script>document.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('keydown',e=>{if(e.key!=='Escape'){e.preventDefault();e.stopPropagation()}});window.addEventListener('blur',()=>window.focus());let isSelecting=false,startX,startY;document.addEventListener('mousedown',e=>{isSelecting=true;startX=e.clientX;startY=e.clientY});document.addEventListener('mousemove',e=>{if(!isSelecting)return});document.addEventListener('mouseup',e=>{if(!isSelecting)return;isSelecting=false;const left=Math.min(startX,e.clientX),top=Math.min(startY,e.clientY),width=Math.abs(e.clientX-startX),height=Math.abs(e.clientY-startY);if(width>10&&height>10)window.electronAPI.captureRegion({x:left,y:top,width,height})});document.addEventListener('keydown',e=>{if(e.key==='Escape')window.electronAPI.cancelRegionScreenshot()})</script></body></html>`;
+    const regionSelectionHTML = `<!DOCTYPE html><html><head><style>body{margin:0;padding:0;cursor:crosshair;user-select:none;background:transparent;overflow:hidden;-webkit-app-region:no-drag}*{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.selection-box{position:absolute;border:none;background:transparent;display:none;z-index:1000}</style></head><body><div class="selection-box" id="selectionBox"></div><script>document.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('keydown',e=>{if(e.key!=='Escape'){e.preventDefault();e.stopPropagation()}});window.addEventListener('blur',()=>window.focus());let isSelecting=false,captured=false,startX,startY;document.addEventListener('mousedown',e=>{if(captured)return;isSelecting=true;startX=e.clientX;startY=e.clientY});document.addEventListener('mousemove',e=>{if(!isSelecting)return});document.addEventListener('mouseup',e=>{if(!isSelecting||captured)return;isSelecting=false;captured=true;const left=Math.min(startX,e.clientX),top=Math.min(startY,e.clientY),width=Math.abs(e.clientX-startX),height=Math.abs(e.clientY-startY);if(width>10&&height>10)window.electronAPI.captureRegion({x:left,y:top,width,height});else captured=false});document.addEventListener('keydown',e=>{if(e.key==='Escape')window.electronAPI.cancelRegionScreenshot()})</script></body></html>`;
     
     await regionWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(regionSelectionHTML));
     
@@ -412,12 +459,36 @@ ipcMain.handle('take-region-screenshot', async () => {
           regionWindow.destroy();
           const sharp = require('sharp');
           const croppedPath = path.join(tempDir, `region-${Date.now()}.png`);
-          await sharp(fullScreenshotPath)
-            .extract({ left: region.x, top: region.y, width: region.width, height: region.height })
+          
+          // Read file into buffer first to avoid file locking issues on Windows
+          const imageBuffer = fs.readFileSync(fullScreenshotPath);
+          
+          // Apply scale factor for high DPI displays
+          // Mouse coordinates are in logical pixels, screenshot is in physical pixels
+          const scaledRegion = {
+            left: Math.round(region.x * scaleFactor),
+            top: Math.round(region.y * scaleFactor),
+            width: Math.round(region.width * scaleFactor),
+            height: Math.round(region.height * scaleFactor)
+          };
+          
+          log.info(`Region capture: logical=${JSON.stringify(region)}, scaleFactor=${scaleFactor}, physical=${JSON.stringify(scaledRegion)}`);
+          
+          // Process from buffer instead of file path
+          await sharp(imageBuffer)
+            .extract(scaledRegion)
             .toFile(croppedPath);
           
           addScreenshot(croppedPath);
-          setTimeout(() => safeDeleteFile(fullScreenshotPath, 0, log), 1000);
+          
+          // Delete immediately since we read the file into memory
+          try {
+            fs.unlinkSync(fullScreenshotPath);
+            log.info(`Deleted temporary full screenshot: ${fullScreenshotPath}`);
+          } catch (deleteErr) {
+            log.warn(`Could not delete temporary file immediately, will retry: ${fullScreenshotPath}`);
+            setTimeout(() => safeDeleteFile(fullScreenshotPath, 0, log), 3000);
+          }
           
           const mainWindow = getMainWindow();
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -425,9 +496,11 @@ ipcMain.handle('take-region-screenshot', async () => {
             mainWindow.webContents.send('screenshot-taken', { path: croppedPath, source: 'region' });
           }
           
+          isRegionScreenshotInProgress = false;
           resolve({ success: true, path: croppedPath });
         } catch (error) {
           regionWindow.destroy();
+          isRegionScreenshotInProgress = false;
           resolve({ success: false, error: (error as Error).message });
         }
       });
@@ -438,7 +511,13 @@ ipcMain.handle('take-region-screenshot', async () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.show();
         }
-        setTimeout(() => safeDeleteFile(fullScreenshotPath, 0, log), 1000);
+        try {
+          fs.unlinkSync(fullScreenshotPath);
+          log.info(`Deleted cancelled screenshot: ${fullScreenshotPath}`);
+        } catch (deleteErr) {
+          setTimeout(() => safeDeleteFile(fullScreenshotPath, 0, log), 2000);
+        }
+        isRegionScreenshotInProgress = false;
         resolve({ success: false, cancelled: true });
       });
     });
@@ -448,6 +527,7 @@ ipcMain.handle('take-region-screenshot', async () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
     }
+    isRegionScreenshotInProgress = false;
     return { success: false, error: (error as Error).message };
   }
 });
