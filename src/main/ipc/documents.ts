@@ -1,9 +1,11 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { IpcMain, BrowserWindow } from 'electron';
 
 // Active Document Context
 let activeDocContext: string | null = null;
 let activeDocPath: string | null = null;
+let activeDocKeyInfo: string | null = null;
 const DOC_CONTEXT_MAX_CHARS = 1000000000000;
 
 // Imported documents list
@@ -12,7 +14,8 @@ type ImportedDoc = {
   fileName: string; 
   length: number; 
   addedAt: number; 
-  context: string 
+  context: string;
+  keyInfo?: string; // Extracted key information summary
 };
 const importedDocs: ImportedDoc[] = [];
 
@@ -23,7 +26,8 @@ export const setActiveDocContext = (
   text: string, 
   filePath: string | undefined, 
   mainWindow: BrowserWindow | null,
-  log: any
+  log: any,
+  keyInfo?: string
 ) => {
   try {
     const truncated = text.length > DOC_CONTEXT_MAX_CHARS
@@ -31,22 +35,23 @@ export const setActiveDocContext = (
       : text;
     activeDocContext = truncated;
     activeDocPath = filePath || null;
+    activeDocKeyInfo = keyInfo || null;
     
     // Upsert into importedDocs list
     if (filePath) {
       const fileName = path.basename(filePath);
       const idx = importedDocs.findIndex((d) => d.filePath === filePath);
       if (idx >= 0) {
-        importedDocs[idx] = { ...importedDocs[idx], context: truncated, length: truncated.length };
+        importedDocs[idx] = { ...importedDocs[idx], context: truncated, length: truncated.length, keyInfo };
       } else {
-        importedDocs.push({ filePath, fileName, length: truncated.length, addedAt: Date.now(), context: truncated });
+        importedDocs.push({ filePath, fileName, length: truncated.length, addedAt: Date.now(), context: truncated, keyInfo });
       }
     }
     
     log.info('Active document context set', filePath ? `for: ${filePath}` : '');
     if (mainWindow && !mainWindow.isDestroyed()) {
       const name = filePath ? path.basename(filePath) : 'document';
-      mainWindow.webContents.send('toast', `Document context loaded: ${name}`);
+      mainWindow.webContents.send('toast', `Document loaded: ${name}${keyInfo ? ' (key info extracted)' : ''}`);
     }
   } catch (e) {
     log.warn('Failed setting active document context', e);
@@ -59,6 +64,7 @@ export const setActiveDocContext = (
 export const clearActiveDocContext = (mainWindow: BrowserWindow | null, log: any) => {
   activeDocContext = null;
   activeDocPath = null;
+  activeDocKeyInfo = null;
   log.info('Cleared active document context');
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('toast', 'Document context cleared');
@@ -67,10 +73,31 @@ export const clearActiveDocContext = (mainWindow: BrowserWindow | null, log: any
 
 /**
  * Build document context prefix for AI prompts
+ * Uses extracted key info as the primary reference if available
  */
 export const buildDocContextPrefix = () => {
-  if (!activeDocContext) return '';
+  if (!activeDocContext && !activeDocKeyInfo) return '';
   const name = activeDocPath ? path.basename(activeDocPath) : 'document';
+  
+  // If we have extracted key info, use it as primary context
+  if (activeDocKeyInfo) {
+    return [
+      `Use the following KEY INFORMATION extracted from the document "${name}" as your primary reference. Answer questions based on this information first. If the key info doesn't cover the question, you may refer to the full document context below.`,
+      '',
+      '--- KEY INFORMATION START ---',
+      activeDocKeyInfo,
+      '--- KEY INFORMATION END ---',
+      '',
+      activeDocContext ? [
+        '--- FULL DOCUMENT CONTEXT (for reference) ---',
+        activeDocContext.slice(0, 50000), // Limit full context to avoid token issues
+        activeDocContext.length > 50000 ? '\n[Document truncated for context...]' : '',
+        '--- END DOCUMENT ---'
+      ].join('\n') : ''
+    ].join('\n');
+  }
+  
+  // Fallback to original behavior if no key info
   return [
     `Use the following DOCUMENT CONTEXT as the primary reference. Prefer answers grounded in it before using screenshots or general knowledge. If the context doesn't cover the answer, say so briefly and proceed.`,
     '',
@@ -91,6 +118,7 @@ export const getImportedDocsForUI = () => {
     length: d.length,
     addedAt: d.addedAt,
     active: !!activeDocPath && d.filePath === activeDocPath,
+    hasKeyInfo: !!d.keyInfo,
   }));
 };
 
@@ -102,7 +130,8 @@ export const getActiveDocInfo = () => {
   return {
     hasContext: true,
     fileName: activeDocPath ? path.basename(activeDocPath) : undefined,
-    length: activeDocContext.length
+    length: activeDocContext.length,
+    hasKeyInfo: !!activeDocKeyInfo
   };
 };
 
@@ -155,7 +184,7 @@ export function registerDocumentsIPC(
     try {
       const found = getImportedDoc(filePath);
       if (!found) return { success: false, error: 'Document not found' };
-      setActiveDocContext(found.context, found.filePath, deps.mainWindow(), deps.log);
+      setActiveDocContext(found.context, found.filePath, deps.mainWindow(), deps.log, found.keyInfo);
       return { success: true };
     } catch (err: any) {
       deps.log.error('docs:setActive error', err);

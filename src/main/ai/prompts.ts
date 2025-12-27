@@ -68,3 +68,44 @@ export const generatePrompt = (
   const body = prompts[answerStyle as keyof typeof prompts] || prompts.explanation;
   return docContextPrefix ? `${docContextPrefix}\n\n${body}` : body;
 };
+/**
+ * Generate prompt for extracting key information from a document
+ */
+export const generateKeyInfoExtractionPrompt = (fileName: string, fileContent: string) => {
+  const ext = path.extname(fileName).toLowerCase();
+  
+  let documentType = 'document';
+  if (ext === '.pdf') documentType = 'PDF document';
+  else if (ext === '.pptx') documentType = 'PowerPoint presentation';
+  else if (ext === '.md') documentType = 'Markdown document';
+  else if (ext === '.txt') documentType = 'text document';
+  else if (ext === '.csv') documentType = 'CSV data file';
+  else if (ext === '.json') documentType = 'JSON data file';
+  
+  return `You are a document analyzer. Extract and summarize ALL key information from this ${documentType}.
+
+**Document: ${fileName}**
+
+**Your task:**
+1. Identify the main topics/subjects covered
+2. Extract ALL important facts, definitions, formulas, concepts, and data points
+3. Note any key relationships, processes, or procedures described
+4. Preserve exact values, numbers, dates, names, and technical terms
+5. Maintain the structure/hierarchy of information where relevant
+6. Include any examples, case studies, or illustrations mentioned
+
+**Output Format:**
+- Use clear headings and bullet points
+- Group related information together
+- Be comprehensive - include everything that might be useful for answering questions later
+- For technical content, preserve exact formulas and terminology
+- For presentations/lectures, capture the main points of each section/slide
+
+**Important:** This summary will be used to answer questions about the document, so be thorough and accurate. Do not omit information that might seem minor - it could be important for specific questions.
+
+--- DOCUMENT CONTENT START ---
+${fileContent}
+--- DOCUMENT CONTENT END ---
+
+Now extract all key information:`;
+};

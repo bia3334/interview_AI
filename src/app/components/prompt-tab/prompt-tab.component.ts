@@ -17,6 +17,10 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   isLoading: boolean = false;
   screenshots: string[] = [];
 
+  // Document context
+  documents: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> = [];
+  showDocumentSelector: boolean = false;
+
   // Conversation history for context
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
   isConversationMode: boolean = false;
@@ -38,6 +42,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   ngOnInit() {
     this.loadSettings();
     this.loadScreenshots();
+    this.loadDocuments();
     this.setupEventListeners();
   }
 
@@ -94,6 +99,34 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.screenshots = screenshots;
       this.cdr.detectChanges();
     });
+  }
+
+  async loadDocuments() {
+    const result = await this.electronService.listDocs();
+    this.ngZone.run(() => {
+      if (result.success) {
+        this.documents = result.docs;
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  toggleDocumentSelector() {
+    this.showDocumentSelector = !this.showDocumentSelector;
+  }
+
+  async setActiveDocument(filePath: string) {
+    await this.electronService.setActiveDoc(filePath);
+    await this.loadDocuments();
+  }
+
+  async clearActiveDocument() {
+    await this.electronService.clearActiveDocContext();
+    await this.loadDocuments();
+  }
+
+  getActiveDocument() {
+    return this.documents.find(d => d.active);
   }
 
   async clearScreenshots() {
@@ -166,6 +199,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.electronService.onWindowShown().subscribe(() => {
       this.loadScreenshots();
     });
+
+    // Documents updated - reload document list
+    this.electronService.onDocumentsUpdated().subscribe(() => {
+      this.loadDocuments();
+    });
   }
 
   updateViewMode() {
@@ -183,6 +221,9 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     let rawOpenaiResponse = '';
     let rawGeminiResponse = '';
 
+    // Check if we have screenshots to include
+    const hasScreenshots = this.screenshots.length > 0;
+
     // Add user message to conversation history if in conversation mode
     if (this.isConversationMode) {
       this.conversationHistory.push({ role: 'user', content: prompt });
@@ -194,8 +235,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         this.cdr.detectChanges();
         try {
           // Use conversation API if in conversation mode, otherwise use simple prompt
+          // Use screenshot-aware API if screenshots are present
           if (this.isConversationMode) {
             rawOpenaiResponse = await this.electronService.sendConversationToOpenAI(this.conversationHistory);
+          } else if (hasScreenshots) {
+            rawOpenaiResponse = await this.electronService.sendPromptWithScreenshotsToOpenAI(prompt);
           } else {
             rawOpenaiResponse = await this.electronService.sendPromptToOpenAI(prompt);
           }
@@ -216,8 +260,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         this.cdr.detectChanges();
         try {
           // Use conversation API if in conversation mode, otherwise use simple prompt
+          // Use screenshot-aware API if screenshots are present
           if (this.isConversationMode) {
             rawGeminiResponse = await this.electronService.sendConversationToGemini(this.conversationHistory);
+          } else if (hasScreenshots) {
+            rawGeminiResponse = await this.electronService.sendPromptWithScreenshotsToGemini(prompt);
           } else {
             rawGeminiResponse = await this.electronService.sendPromptToGemini(prompt);
           }
@@ -252,7 +299,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
             id: this.currentHistoryItemId,
             timestamp: new Date(),
             prompt: allPrompts,
-            screenshotCount: 0,
+            screenshotCount: hasScreenshots ? this.screenshots.length : 0,
             openaiResponse: this.openaiResponse,
             geminiResponse: this.geminiResponse
           });
@@ -262,7 +309,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
             id: Date.now().toString(),
             timestamp: new Date(),
             prompt: prompt,
-            screenshotCount: 0,
+            screenshotCount: hasScreenshots ? this.screenshots.length : 0,
             openaiResponse: this.openaiResponse,
             geminiResponse: this.geminiResponse
           });

@@ -41,6 +41,13 @@ export class AppComponent implements OnInit {
     this.activeTab = 'prompt';
   }
 
+  onItemLoaded() {
+    // Defer clearing to avoid ExpressionChangedAfterItHasBeenCheckedError
+    setTimeout(() => {
+      this.continuedItem = null;
+    });
+  }
+
   hideWindow() {
     this.electronService.hideWindow();
   }

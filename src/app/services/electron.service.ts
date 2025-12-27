@@ -31,6 +31,7 @@ export class ElectronService {
   private toast$ = new Subject<string>();
   private historyUpdated$ = new Subject<void>();
   private windowShown$ = new Subject<void>();
+  private documentsUpdated$ = new Subject<void>();
 
   // Local history storage key
   private readonly HISTORY_KEY = 'qa_history';
@@ -62,6 +63,7 @@ export class ElectronService {
     this.electronAPI.onExtractTextFromScreenshots(() => this.extractTextFromScreenshots$.next());
     this.electronAPI.onToast((msg) => this.toast$.next(msg));
     this.electronAPI.onWindowShown(() => this.windowShown$.next());
+    this.electronAPI.onDocumentsUpdated(() => this.documentsUpdated$.next());
   }
 
   // Window controls
@@ -88,6 +90,14 @@ export class ElectronService {
 
   sendPromptToGemini(prompt: string): Promise<string> {
     return this.electronAPI.sendPromptToGemini(prompt);
+  }
+
+  sendPromptWithScreenshotsToOpenAI(prompt: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToOpenAI(prompt);
+  }
+
+  sendPromptWithScreenshotsToGemini(prompt: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToGemini(prompt);
   }
 
   sendConversationToOpenAI(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
@@ -165,6 +175,45 @@ export class ElectronService {
     return this.electronAPI.saveGeminiApiKey(apiKey);
   }
 
+  // Custom System Prompt
+  getCustomSystemPrompt(): Promise<string> {
+    return this.electronAPI.getCustomSystemPrompt();
+  }
+
+  saveCustomSystemPrompt(prompt: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveCustomSystemPrompt(prompt);
+  }
+
+  // User Prompt Templates (legacy methods)
+  getUserPromptTemplates(): Promise<Array<{ id: string; name: string; prompt: string }>> {
+    return this.electronAPI.getUserPromptTemplates();
+  }
+
+  saveUserPromptTemplate(template: { id: string; name: string; prompt: string }): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveUserPromptTemplate(template);
+  }
+
+  deleteUserPromptTemplate(templateId: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.deleteUserPromptTemplate(templateId);
+  }
+
+  // Unified Prompt Templates (all templates editable)
+  getPromptTemplates(): Promise<Array<{ id: string; name: string; prompt: string }>> {
+    return this.electronAPI.getPromptTemplates();
+  }
+
+  savePromptTemplate(template: { id: string; name: string; prompt: string }): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.savePromptTemplate(template);
+  }
+
+  deletePromptTemplate(templateId: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.deletePromptTemplate(templateId);
+  }
+
+  resetPromptTemplates(): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.resetPromptTemplates();
+  }
+
   // Documents
   openFileDialog(): Promise<{ canceled: boolean; filePath?: string }> {
     return this.electronAPI.openFileDialog();
@@ -182,7 +231,7 @@ export class ElectronService {
     return this.electronAPI.getActiveDocInfo();
   }
 
-  listDocs(): Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean }> }> {
+  listDocs(): Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> }> {
     return this.electronAPI.listDocs();
   }
 
@@ -192,6 +241,10 @@ export class ElectronService {
 
   removeDoc(filePath: string): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.removeDoc(filePath);
+  }
+
+  importDocumentWithKeyInfo(filePath: string): Promise<{ success: boolean; fileName?: string; contentLength?: number; keyInfoLength?: number; hasKeyInfo?: boolean; error?: string }> {
+    return this.electronAPI.importDocumentWithKeyInfo(filePath);
   }
 
   // Event Observables - return shared subjects to avoid memory leaks
@@ -245,6 +298,10 @@ export class ElectronService {
 
   onWindowShown(): Observable<void> {
     return this.windowShown$.asObservable();
+  }
+
+  onDocumentsUpdated(): Observable<void> {
+    return this.documentsUpdated$.asObservable();
   }
 
   // Show toast message
@@ -317,6 +374,8 @@ export class ElectronService {
       sendPrompt: () => Promise.resolve('Mock response'),
       sendPromptToOpenAI: () => Promise.resolve('Mock OpenAI response'),
       sendPromptToGemini: () => Promise.resolve('Mock Gemini response'),
+      sendPromptWithScreenshotsToOpenAI: () => Promise.resolve('Mock OpenAI response with screenshots'),
+      sendPromptWithScreenshotsToGemini: () => Promise.resolve('Mock Gemini response with screenshots'),
       sendConversationToOpenAI: () => Promise.resolve('Mock OpenAI conversation response'),
       sendConversationToGemini: () => Promise.resolve('Mock Gemini conversation response'),
       closeWindow: () => {},
@@ -334,6 +393,7 @@ export class ElectronService {
       importClipboardImage: () => Promise.resolve({ success: false }),
       openFileDialog: () => Promise.resolve({ canceled: true }),
       askAboutFileWithOpenAI: () => Promise.resolve({ success: false }),
+      importDocumentWithKeyInfo: () => Promise.resolve({ success: false }),
       clearActiveDocContext: () => Promise.resolve({ success: false }),
       getActiveDocInfo: () => Promise.resolve({ hasContext: false }),
       listDocs: () => Promise.resolve({ success: false, docs: [] }),
@@ -351,6 +411,15 @@ export class ElectronService {
       getDefaultModel: () => Promise.resolve('both'),
       saveOpenAIModel: () => Promise.resolve({ success: false }),
       getOpenAIModel: () => Promise.resolve(''),
+      saveCustomSystemPrompt: () => Promise.resolve({ success: false }),
+      getCustomSystemPrompt: () => Promise.resolve(''),
+      getUserPromptTemplates: () => Promise.resolve([]),
+      saveUserPromptTemplate: () => Promise.resolve({ success: false }),
+      deleteUserPromptTemplate: () => Promise.resolve({ success: false }),
+      getPromptTemplates: () => Promise.resolve([]),
+      savePromptTemplate: () => Promise.resolve({ success: false }),
+      deletePromptTemplate: () => Promise.resolve({ success: false }),
+      resetPromptTemplates: () => Promise.resolve({ success: false }),
       copyLatestResponse: () => Promise.resolve({ success: false }),
       processClipboardPrompt: () => Promise.resolve({ success: false }),
       getScreenshots: () => Promise.resolve([]),
@@ -368,7 +437,8 @@ export class ElectronService {
       onTriggerRegionScreenshot: () => () => {},
       onOverlayUpdate: () => () => {},
       onToast: () => () => {},
-      onWindowShown: () => () => {}
+      onWindowShown: () => () => {},
+      onDocumentsUpdated: () => () => {}
     } as ElectronAPI;
   }
 }

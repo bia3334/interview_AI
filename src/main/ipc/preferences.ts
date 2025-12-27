@@ -94,4 +94,106 @@ export function registerPreferencesIPC(
       return { success: false, error: error.message };
     }
   });
+
+  // Custom System Prompt
+  ipcMain.handle('getCustomSystemPrompt', () => store.get('customSystemPrompt') || '');
+  ipcMain.handle('saveCustomSystemPrompt', (_event: IpcMainInvokeEvent, prompt: string) => {
+    try {
+      store.set('customSystemPrompt', prompt);
+      log.info('Custom system prompt saved successfully');
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving custom system prompt:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Prompt Templates (unified - all editable)
+  ipcMain.handle('getPromptTemplates', () => {
+    return store.get('promptTemplates') || [];
+  });
+
+  ipcMain.handle('savePromptTemplate', (_event: IpcMainInvokeEvent, template: { id: string; name: string; prompt: string }) => {
+    try {
+      const templates = store.get('promptTemplates') || [];
+      const existingIndex = templates.findIndex((t: any) => t.id === template.id);
+      
+      if (existingIndex >= 0) {
+        // Update existing
+        templates[existingIndex] = template;
+      } else {
+        // Add new
+        templates.push(template);
+      }
+      
+      store.set('promptTemplates', templates);
+      log.info(`Prompt template "${template.name}" saved successfully`);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving prompt template:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('deletePromptTemplate', (_event: IpcMainInvokeEvent, templateId: string) => {
+    try {
+      const templates = store.get('promptTemplates') || [];
+      const filtered = templates.filter((t: any) => t.id !== templateId);
+      store.set('promptTemplates', filtered);
+      log.info(`Prompt template deleted successfully`);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error deleting prompt template:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('resetPromptTemplates', (_event: IpcMainInvokeEvent, defaultTemplates: Array<{ id: string; name: string; prompt: string }>) => {
+    try {
+      store.set('promptTemplates', defaultTemplates);
+      log.info('Prompt templates reset to defaults');
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error resetting prompt templates:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Legacy handlers (keep for backwards compatibility, redirect to new ones)
+  ipcMain.handle('getUserPromptTemplates', () => {
+    return store.get('promptTemplates') || [];
+  });
+
+  ipcMain.handle('saveUserPromptTemplate', (_event: IpcMainInvokeEvent, template: { id: string; name: string; prompt: string }) => {
+    try {
+      const templates = store.get('promptTemplates') || [];
+      const existingIndex = templates.findIndex((t: any) => t.id === template.id);
+      
+      if (existingIndex >= 0) {
+        templates[existingIndex] = template;
+      } else {
+        templates.push(template);
+      }
+      
+      store.set('promptTemplates', templates);
+      log.info(`Prompt template "${template.name}" saved successfully`);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving prompt template:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('deleteUserPromptTemplate', (_event: IpcMainInvokeEvent, templateId: string) => {
+    try {
+      const templates = store.get('promptTemplates') || [];
+      const filtered = templates.filter((t: any) => t.id !== templateId);
+      store.set('promptTemplates', filtered);
+      log.info(`Prompt template deleted successfully`);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error deleting prompt template:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }

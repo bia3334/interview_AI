@@ -1,21 +1,21 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, globalShortcut, clipboard, dialog, screen } from 'electron';
-import * as path from 'path';
 import * as dotenv from 'dotenv';
-import screenshot from 'screenshot-desktop';
+import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, IpcMainInvokeEvent, screen } from 'electron';
+import * as electronLog from 'electron-log';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as electronLog from 'electron-log';
+import * as path from 'path';
+import screenshot from 'screenshot-desktop';
 const Store = require('electron-store');
 
 // Import modules
-import { registerFilesIPC } from './main/ipc/files';
-import { registerPreferencesIPC } from './main/ipc/preferences';
-import { overlayManager, registerOverlayIPC } from './main/ipc/overlay';
-import { registerDocumentsIPC, buildDocContextPrefix, setActiveDocContext } from './main/ipc/documents';
-import { createWindow, getMainWindow, toggleMainWindow, hideMainWindow, showMainWindow, toggleMouseEvents, moveWindow, notifyRenderer } from './main/window';
-import { getApiKey, sendPromptToGemini, sendPromptToOpenAI, sendConversationToOpenAI, sendConversationToGemini, getOpenAIClient, getGeminiClient, getCurrentOpenAIModel, AI_CONFIG } from './main/ai/clients';
+import { AI_CONFIG, getApiKey, getCurrentOpenAIModel, getGeminiClient, getOpenAIClient, sendConversationToGemini, sendConversationToOpenAI, sendPromptToGemini, sendPromptToOpenAI } from './main/ai/clients';
 import { generatePrompt } from './main/ai/prompts';
-import { safeDeleteFile, imageToBase64 } from './main/utils/files';
+import { buildDocContextPrefix, registerDocumentsIPC } from './main/ipc/documents';
+import { registerFilesIPC } from './main/ipc/files';
+import { overlayManager, registerOverlayIPC } from './main/ipc/overlay';
+import { registerPreferencesIPC } from './main/ipc/preferences';
+import { imageToBase64, safeDeleteFile } from './main/utils/files';
+import { createWindow, getMainWindow, hideMainWindow, moveWindow, notifyRenderer, showMainWindow, toggleMainWindow, toggleMouseEvents } from './main/window';
 
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 const { createPartFromUri } = require('@google/genai');
@@ -44,6 +44,30 @@ try {
   log.warn('dotenv loading warning:', e);
 }
 
+// Default prompt templates (used for seeding and reset)
+const DEFAULT_PROMPT_TEMPLATES = [
+  { 
+    id: 'default-none',
+    name: 'None (Default)', 
+    prompt: '' 
+  },
+  { 
+    id: 'default-concise',
+    name: 'Concise Coder', 
+    prompt: 'You are a senior software engineer. Give concise, practical answers with clean code examples. Avoid unnecessary explanations - get straight to the solution.' 
+  },
+  { 
+    id: 'default-interview',
+    name: 'Interview Helper', 
+    prompt: 'You are helping someone in a technical interview. Provide clear, well-structured answers that demonstrate strong problem-solving skills. Include time/space complexity analysis when relevant.' 
+  },
+  {
+    id: 'default-exam',
+    name: 'Exam Mode',
+    prompt: 'You are helping a student during an exam. Provide direct, exam-appropriate answers. Be concise but complete. Format answers as a student would write them - no teaching tone.'
+  }
+];
+
 // Store Configuration
 const STORE_DEFAULTS = {
   windowPosition: { x: 100, y: 100 },
@@ -51,10 +75,18 @@ const STORE_DEFAULTS = {
   preferredLanguage: 'python',
   answerStyle: 'explanation',
   defaultModel: 'both',
-  openaiModel: AI_CONFIG.openai.model
+  openaiModel: AI_CONFIG.openai.model,
+  customSystemPrompt: '',
+  promptTemplates: DEFAULT_PROMPT_TEMPLATES
 };
 
 const store = new Store({ defaults: STORE_DEFAULTS });
+
+// Seed templates on first run (if empty or missing)
+const existingTemplates = store.get('promptTemplates');
+if (!existingTemplates || (Array.isArray(existingTemplates) && existingTemplates.length === 0)) {
+  store.set('promptTemplates', DEFAULT_PROMPT_TEMPLATES);
+}
 
 // Global variables
 let screenshotQueue: string[] = [];
@@ -205,6 +237,90 @@ ipcMain.handle('sendConversationToGemini', async (_event: IpcMainInvokeEvent, me
   } catch (error) {
     log.error('Failed to fetch conversation from Gemini:', error);
     throw new Error(`Failed to fetch conversation from Gemini: ${(error as Error).message}`);
+  }
+});
+
+// Send prompt with screenshots
+ipcMain.handle('sendPromptWithScreenshotsToOpenAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  if (screenshotQueue.length === 0) {
+    // No screenshots, fall back to regular prompt
+    return ipcMain.emit('sendPromptToOpenAI', _event, prompt);
+  }
+
+  try {
+    log.info('Sending prompt with screenshots to OpenAI API');
+    const openai = getOpenAIClient(store);
+    const screenshots = [...screenshotQueue];
+    const docPrefix = buildDocContextPrefix();
+    const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+
+    const content: ChatCompletionContentPart[] = [{ type: "text", text: finalPrompt }];
+
+    for (const screenshotPath of screenshots) {
+      try {
+        const base64Image = imageToBase64(screenshotPath);
+        content.push({
+          type: "image_url",
+          image_url: { url: `data:image/png;base64,${base64Image}` }
+        } as ChatCompletionContentPart);
+      } catch (error) {
+        log.error(`Error processing image ${screenshotPath}:`, error);
+      }
+    }
+
+    const response = await openai.chat.completions.create({
+      model: getCurrentOpenAIModel(store),
+      messages: [{ role: 'user', content }],
+    });
+
+    const assistantReply = response.choices[0]?.message?.content || 'No response from OpenAI.';
+    latestAIResponse = assistantReply;
+    overlayManager.setLatestResponse(assistantReply);
+    overlayManager.autoShow(assistantReply, 2000, path.join(__dirname, 'preload', 'index.js'));
+
+    log.info('Received response from OpenAI API with screenshots');
+    return assistantReply;
+  } catch (error) {
+    log.error('Failed to fetch from OpenAI with screenshots:', error);
+    throw new Error(`Failed to fetch from OpenAI: ${(error as Error).message}`);
+  }
+});
+
+ipcMain.handle('sendPromptWithScreenshotsToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  if (screenshotQueue.length === 0) {
+    // No screenshots, fall back to regular prompt
+    return ipcMain.emit('sendPromptToGemini', _event, prompt);
+  }
+
+  try {
+    log.info('Sending prompt with screenshots to Gemini API');
+    const ai = getGeminiClient(store);
+    const screenshots = [...screenshotQueue];
+    const docPrefix = buildDocContextPrefix();
+    const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+
+    const parts = [finalPrompt];
+    for (const screenshotPath of screenshots) {
+      try {
+        const image = await ai.files.upload({ file: screenshotPath });
+        parts.push(createPartFromUri(image.uri, image.mimeType));
+      } catch (error) {
+        log.error(`Error processing image ${screenshotPath}:`, error);
+      }
+    }
+
+    const result = await sendPromptToGemini(parts, store);
+    const assistantReply = result.text || 'No response from Gemini.';
+    
+    latestAIResponse = assistantReply;
+    overlayManager.setLatestResponse(assistantReply);
+    overlayManager.autoShow(assistantReply, 2000, path.join(__dirname, 'preload', 'index.js'));
+
+    log.info('Received response from Gemini API with screenshots');
+    return assistantReply;
+  } catch (error) {
+    log.error('Failed to fetch from Gemini with screenshots:', error);
+    throw new Error(`Failed to fetch from Gemini: ${(error as Error).message}`);
   }
 });
 
@@ -648,7 +764,9 @@ registerFilesIPC(ipcMain, {
     // This needs to be implemented in files.ts or here
     // For now, keeping it simple
     return "File Q&A functionality needs implementation";
-  }
+  },
+  store,
+  mainWindow: getMainWindow
 });
 registerPreferencesIPC(ipcMain, { store, log, getApiKey: (type) => getApiKey(type, store, log) });
 registerOverlayIPC(ipcMain, { preloadPath: path.join(__dirname, 'preload', 'index.js') });

@@ -1,46 +1,27 @@
 <div class="settings-container">
-    <!-- Documents Section -->
-    <div class="settings-group">
-      <h3>Documents</h3>
-      <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <button class="btn btn-primary" (click)="importDocument()">Import document…</button>
-        <button class="btn" (click)="clearActiveDoc()">Clear active</button>
-      </div>
-      <div style="font-size: 12px; opacity: 0.8; margin-bottom:8px;">
-        <span *ngIf="activeDocInfo.hasContext">
-          Active: {{ activeDocInfo.fileName || 'document' }} ({{ activeDocInfo.length }} chars)
-        </span>
-        <span *ngIf="!activeDocInfo.hasContext">No active document</span>
-      </div>
-      <div class="screenshot-list">
-        <div *ngIf="documents.length === 0" style="opacity:.7">No documents imported yet</div>
-        <div 
-          *ngFor="let doc of documents" 
-          class="screenshot-item" 
-          [attr.data-path]="doc.filePath"
-          style="height:auto; padding:8px; display:flex; align-items:center; justify-content:space-between;"
-        >
-          <div>
-            <div class="highlighted-text">{{ doc.fileName }}{{ doc.active ? ' • (active)' : '' }}</div>
-            <div style="font-size:12px; opacity:.8">{{ doc.length }} chars · {{ doc.addedAt | date:'short' }}</div>
-          </div>
-          <div style="display:flex; gap:6px;">
-            <button 
-              class="btn" 
-              [class.btn-primary]="doc.active"
-              (click)="setActiveDoc(doc.filePath)"
-            >
-              {{ doc.active ? 'Active' : 'Set active' }}
-            </button>
-            <button class="btn btn-danger" (click)="removeDoc(doc.filePath)">Remove</button>
-          </div>
-        </div>
-      </div>
-    </div>
+  <!-- Sub-tabs -->
+  <div class="sub-tabs">
+    <button 
+      class="sub-tab" 
+      [class.active]="activeSubTab === 'api'" 
+      (click)="switchSubTab('api')"
+    >
+      🔑 API & Models
+    </button>
+    <button 
+      class="sub-tab" 
+      [class.active]="activeSubTab === 'behavior'" 
+      (click)="switchSubTab('behavior')"
+    >
+      🧠 AI Behavior
+    </button>
+  </div>
 
+  <!-- API & Models Tab -->
+  <div class="sub-tab-content" *ngIf="activeSubTab === 'api'">
     <!-- API Settings -->
     <div class="settings-group">
-      <h3>API Settings</h3>
+      <h3>API Keys</h3>
       <div class="form-group">
         <label for="apiKey">OpenAI API Key</label>
         <input 
@@ -50,7 +31,7 @@
           class="prompt-input" 
           placeholder="sk-..." 
         />
-        <small style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">
+        <small class="hint-text">
           Your API key is stored locally and never sent to our servers.
         </small>
       </div>
@@ -63,24 +44,197 @@
           class="prompt-input" 
           placeholder="AIza..." 
         />
-        <small style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">
+        <small class="hint-text">
           Your Gemini API key is stored locally and never sent to our servers.
         </small>
       </div>
-      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+      <div class="form-actions">
         <button class="btn btn-primary" (click)="saveApiKeys()">Save API Keys</button>
       </div>
     </div>
 
-    <!-- Preferences -->
+    <!-- Model Selection -->
     <div class="settings-group">
-      <h3>Preferences</h3>
+      <h3>Model Selection</h3>
+      <div class="form-group">
+        <label for="defaultModel">Default AI Model</label>
+        <select 
+          id="defaultModel" 
+          [(ngModel)]="defaultModel"
+          class="prompt-input"
+          (change)="savePreferences()"
+        >
+          <option value="both">Both OpenAI and Gemini</option>
+          <option value="openai">OpenAI Only</option>
+          <option value="gemini">Gemini Only</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Documents Section -->
+    <div class="settings-group">
+      <h3>Documents</h3>
+      <p class="group-description">
+        Import a PDF or text file. Key information will be automatically extracted for better Q&A.
+      </p>
+      <div class="doc-actions">
+        <button class="btn btn-primary" (click)="importDocument()">Import document…</button>
+        <button class="btn" (click)="clearActiveDoc()">Clear active</button>
+      </div>
+      <div class="active-doc-info">
+        <span *ngIf="activeDocInfo.hasContext">
+          Active: {{ activeDocInfo.fileName || 'document' }} ({{ activeDocInfo.length }} chars)
+          <span class="key-info-badge" *ngIf="activeDocInfo.hasKeyInfo" title="Key information extracted">✨ Key Info</span>
+        </span>
+        <span *ngIf="!activeDocInfo.hasContext">No active document</span>
+      </div>
+      <div class="doc-list">
+        <div *ngIf="documents.length === 0" class="empty-docs">No documents imported yet</div>
+        <div 
+          *ngFor="let doc of documents" 
+          class="doc-item"
+        >
+          <div class="doc-info">
+            <div class="doc-name">
+              {{ doc.fileName }}{{ doc.active ? ' • (active)' : '' }}
+              <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted">✨</span>
+            </div>
+            <div class="doc-meta">{{ doc.length }} chars · {{ doc.addedAt | date:'short' }}</div>
+          </div>
+          <div class="doc-actions-inline">
+            <button 
+              class="btn btn-small" 
+              [class.btn-primary]="doc.active"
+              (click)="setActiveDoc(doc.filePath)"
+            >
+              {{ doc.active ? 'Active' : 'Set active' }}
+            </button>
+            <button class="btn btn-small btn-danger" (click)="removeDoc(doc.filePath)">Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Behavior Tab -->
+  <div class="sub-tab-content" *ngIf="activeSubTab === 'behavior'">
+    <!-- Custom System Prompt -->
+    <div class="settings-group">
+      <h3>Custom System Prompt</h3>
+      <p class="group-description">
+        Define how the AI should behave. This instruction is prepended to every request.
+      </p>
+      
+      <!-- Templates Section -->
+      <div class="form-group">
+        <div class="templates-header">
+          <label>Templates</label>
+          <div class="templates-actions">
+            <button class="btn btn-small" (click)="openSaveTemplateDialog()" title="Add new template">+ Add New</button>
+            <button class="btn btn-small btn-secondary" (click)="resetTemplates()" title="Reset to default templates">↺ Reset</button>
+          </div>
+        </div>
+        <div class="templates-container">
+          <div class="template-list">
+            <div 
+              *ngFor="let template of templates" 
+              class="template-item"
+              (click)="applyTemplate(template)"
+              [title]="template.prompt || 'Clear system prompt'"
+            >
+              <span class="template-name">{{ template.name }}</span>
+              <div class="template-actions">
+                <button class="btn-icon" (click)="editTemplate(template, $event)" title="Edit">✏️</button>
+                <button class="btn-icon" (click)="deleteTemplate(template, $event)" title="Delete">🗑️</button>
+              </div>
+            </div>
+            <div *ngIf="templates.length === 0" class="empty-templates">
+              No templates. Click "Reset" to restore defaults.
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="customPrompt">System Prompt</label>
+        <textarea 
+          id="customPrompt" 
+          [(ngModel)]="customSystemPrompt"
+          class="prompt-input system-prompt-textarea" 
+          placeholder="E.g., You are a senior software engineer. Give concise, practical answers..."
+          rows="5"
+        ></textarea>
+        <div class="prompt-footer">
+          <span class="char-count">{{ getPromptCharCount() }} characters</span>
+        </div>
+      </div>
+      
+      <div class="form-actions">
+        <button class="btn btn-primary" (click)="saveSystemPrompt()">Save System Prompt</button>
+      </div>
+    </div>
+
+    <!-- Save Template Dialog -->
+    <div class="dialog-overlay" *ngIf="showSaveTemplateDialog" (click)="closeSaveTemplateDialog()">
+      <div class="dialog" (click)="$event.stopPropagation()">
+        <h3>{{ editingTemplateId ? 'Edit Template' : 'New Template' }}</h3>
+        <div class="form-group">
+          <label for="templateName">Template Name</label>
+          <input 
+            type="text" 
+            id="templateName" 
+            [(ngModel)]="newTemplateName"
+            class="prompt-input" 
+            placeholder="My Custom Template"
+            (keydown.enter)="saveAsTemplate()"
+          />
+        </div>
+        <div class="form-group">
+          <label for="templatePrompt">Prompt</label>
+          <textarea 
+            id="templatePrompt" 
+            [(ngModel)]="customSystemPrompt"
+            class="prompt-input system-prompt-textarea" 
+            placeholder="Define the AI behavior..."
+            rows="4"
+          ></textarea>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn" (click)="closeSaveTemplateDialog()">Cancel</button>
+          <button 
+            class="btn btn-primary" 
+            (click)="saveAsTemplate()"
+            [disabled]="!newTemplateName.trim() || !customSystemPrompt.trim()"
+          >
+            {{ editingTemplateId ? 'Update' : 'Save' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Answer Preferences -->
+    <div class="settings-group">
+      <h3>Answer Preferences</h3>
+      <div class="form-group">
+        <label for="answerStyle">Answer Style</label>
+        <select 
+          id="answerStyle" 
+          [(ngModel)]="answerStyle"
+          class="prompt-input"
+          (change)="savePreferences()"
+        >
+          <option value="code">Code (with explanation)</option>
+          <option value="explanation">Explanation (detailed)</option>
+          <option value="multiple-choice">Multiple Choice (answer only)</option>
+        </select>
+      </div>
       <div class="form-group">
         <label for="preferredLanguage">Preferred Programming Language</label>
         <select 
           id="preferredLanguage" 
           [(ngModel)]="preferredLanguage"
           class="prompt-input"
+          (change)="savePreferences()"
         >
           <option value="python">Python</option>
           <option value="javascript">JavaScript</option>
@@ -89,33 +243,7 @@
           <option value="cpp">C++</option>
         </select>
       </div>
-      <div class="form-group">
-        <label for="defaultModel">Default AI Model</label>
-        <select 
-          id="defaultModel" 
-          [(ngModel)]="defaultModel"
-          class="prompt-input"
-        >
-          <option value="both">Both OpenAI and Gemini</option>
-          <option value="openai">OpenAI Only</option>
-          <option value="gemini">Gemini Only</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="answerStyle">Answer Style</label>
-        <select 
-          id="answerStyle" 
-          [(ngModel)]="answerStyle"
-          class="prompt-input"
-        >
-          <option value="code">Code (with explanation)</option>
-          <option value="explanation">Explanation (detailed)</option>
-          <option value="multiple-choice">Multiple Choice (answer only)</option>
-        </select>
-      </div>
-      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
-        <button class="btn btn-primary" (click)="savePreferences()">Save Preferences</button>
-      </div>
     </div>
   </div>
+</div>
 

@@ -7,6 +7,38 @@
     </button>
   </div>
 
+  <!-- Document Context Selector -->
+  <div class="document-context-section" *ngIf="documents.length > 0">
+    <div class="document-context-header" (click)="toggleDocumentSelector()">
+      <span class="document-icon">📄</span>
+      <span *ngIf="getActiveDocument()" class="active-doc-label">
+        {{ getActiveDocument()?.fileName }}
+        <span class="key-info-badge small" *ngIf="getActiveDocument()?.hasKeyInfo">✨</span>
+      </span>
+      <span *ngIf="!getActiveDocument()" class="no-doc-label">No document selected</span>
+      <span class="doc-toggle-icon">{{ showDocumentSelector ? '▲' : '▼' }}</span>
+    </div>
+    <div class="document-selector" *ngIf="showDocumentSelector">
+      <div 
+        class="document-option" 
+        [class.active]="!getActiveDocument()"
+        (click)="clearActiveDocument()"
+      >
+        <span>None (no document context)</span>
+      </div>
+      <div 
+        *ngFor="let doc of documents" 
+        class="document-option"
+        [class.active]="doc.active"
+        (click)="setActiveDocument(doc.filePath)"
+      >
+        <span class="doc-name">{{ doc.fileName }}</span>
+        <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted">✨</span>
+        <span class="doc-size">{{ (doc.length / 1000).toFixed(1) }}k chars</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Screenshots Preview Section -->
   <div *ngIf="screenshots.length > 0" class="screenshots-preview">
     <div class="screenshots-header">

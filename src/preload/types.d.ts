@@ -3,6 +3,8 @@ export interface ElectronAPI {
   sendPrompt: (prompt: string) => Promise<string>;
   sendPromptToOpenAI: (prompt: string) => Promise<string>;
   sendPromptToGemini: (prompt: string) => Promise<string>;
+  sendPromptWithScreenshotsToOpenAI: (prompt: string) => Promise<string>;
+  sendPromptWithScreenshotsToGemini: (prompt: string) => Promise<string>;
   sendConversationToOpenAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
   sendConversationToGemini: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
 
@@ -24,9 +26,10 @@ export interface ElectronAPI {
   // File Q&A and document context
   openFileDialog: () => Promise<{ canceled: boolean; filePath?: string }>;
   askAboutFileWithOpenAI: (filePath: string, question: string) => Promise<{ success: boolean; answer?: string; error?: string }>;
+  importDocumentWithKeyInfo: (filePath: string) => Promise<{ success: boolean; fileName?: string; contentLength?: number; keyInfoLength?: number; hasKeyInfo?: boolean; error?: string }>;
   clearActiveDocContext: () => Promise<{ success: boolean }>;
-  getActiveDocInfo: () => Promise<{ hasContext: boolean; fileName?: string; length?: number }>;
-  listDocs: () => Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean }> }>;
+  getActiveDocInfo: () => Promise<{ hasContext: boolean; fileName?: string; length?: number; hasKeyInfo?: boolean }>;
+  listDocs: () => Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> }>;
   setActiveDoc: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   removeDoc: (filePath: string) => Promise<{ success: boolean; error?: string }>;
 
@@ -43,6 +46,20 @@ export interface ElectronAPI {
 
   saveOpenAIModel: (model: string) => Promise<{ success: boolean; error?: string }>;
   getOpenAIModel: () => Promise<string>;
+
+  saveCustomSystemPrompt: (prompt: string) => Promise<{ success: boolean; error?: string }>;
+  getCustomSystemPrompt: () => Promise<string>;
+
+  // Legacy user template methods (kept for backwards compatibility)
+  getUserPromptTemplates: () => Promise<Array<{ id: string; name: string; prompt: string }>>;
+  saveUserPromptTemplate: (template: { id: string; name: string; prompt: string }) => Promise<{ success: boolean; error?: string }>;
+  deleteUserPromptTemplate: (templateId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Unified template methods (all templates editable)
+  getPromptTemplates: () => Promise<Array<{ id: string; name: string; prompt: string }>>;
+  savePromptTemplate: (template: { id: string; name: string; prompt: string }) => Promise<{ success: boolean; error?: string }>;
+  deletePromptTemplate: (templateId: string) => Promise<{ success: boolean; error?: string }>;
+  resetPromptTemplates: () => Promise<{ success: boolean; error?: string }>;
 
   copyLatestResponse: () => Promise<{ success: boolean; error?: string }>;
   processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; error?: string }>;
@@ -64,6 +81,7 @@ export interface ElectronAPI {
   onOverlayUpdate: (callback: (text: string) => void) => () => void;
   onToast: (callback: (msg: string) => void) => () => void;
   onWindowShown: (callback: () => void) => () => void;
+  onDocumentsUpdated: (callback: () => void) => () => void;
 }
 
 declare global {

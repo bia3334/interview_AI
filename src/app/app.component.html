@@ -15,7 +15,7 @@
   </div>
 
   <div class="content">
-    <app-prompt-tab *ngIf="activeTab === 'prompt'" [continuedItem]="continuedItem" (itemLoaded)="continuedItem = null"></app-prompt-tab>
+    <app-prompt-tab *ngIf="activeTab === 'prompt'" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
     <app-history-tab *ngIf="activeTab === 'history'" (continueItem)="onContinueItem($event)"></app-history-tab>
     <app-settings-tab *ngIf="activeTab === 'settings'"></app-settings-tab>
     <app-shortcuts-tab *ngIf="activeTab === 'shortcuts'"></app-shortcuts-tab>

@@ -6,6 +6,8 @@ const api: ElectronAPI = {
   sendPrompt: (prompt) => ipcRenderer.invoke('chatgpt-request', prompt),
   sendPromptToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptToOpenAI', prompt),
   sendPromptToGemini: (prompt) => ipcRenderer.invoke('sendPromptToGemini', prompt),
+  sendPromptWithScreenshotsToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToOpenAI', prompt),
+  sendPromptWithScreenshotsToGemini: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToGemini', prompt),
   sendConversationToOpenAI: (messages) => ipcRenderer.invoke('sendConversationToOpenAI', messages),
   sendConversationToGemini: (messages) => ipcRenderer.invoke('sendConversationToGemini', messages),
 
@@ -27,6 +29,7 @@ const api: ElectronAPI = {
   // File Q&A and document context
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   askAboutFileWithOpenAI: (filePath, question) => ipcRenderer.invoke('ask-about-file-with-openai', { filePath, question }),
+  importDocumentWithKeyInfo: (filePath) => ipcRenderer.invoke('import-document-with-keyinfo', { filePath }),
   clearActiveDocContext: () => ipcRenderer.invoke('clearActiveDocContext'),
   getActiveDocInfo: () => ipcRenderer.invoke('getActiveDocInfo'),
   listDocs: () => ipcRenderer.invoke('docs:list'),
@@ -46,6 +49,20 @@ const api: ElectronAPI = {
 
   saveOpenAIModel: (model) => ipcRenderer.invoke('saveOpenAIModel', model),
   getOpenAIModel: () => ipcRenderer.invoke('getOpenAIModel'),
+
+  saveCustomSystemPrompt: (prompt) => ipcRenderer.invoke('saveCustomSystemPrompt', prompt),
+  getCustomSystemPrompt: () => ipcRenderer.invoke('getCustomSystemPrompt'),
+
+  // Legacy user template methods (kept for backwards compatibility)
+  getUserPromptTemplates: () => ipcRenderer.invoke('getUserPromptTemplates'),
+  saveUserPromptTemplate: (template) => ipcRenderer.invoke('saveUserPromptTemplate', template),
+  deleteUserPromptTemplate: (templateId) => ipcRenderer.invoke('deleteUserPromptTemplate', templateId),
+
+  // Unified template methods (all templates editable)
+  getPromptTemplates: () => ipcRenderer.invoke('getPromptTemplates'),
+  savePromptTemplate: (template) => ipcRenderer.invoke('savePromptTemplate', template),
+  deletePromptTemplate: (templateId) => ipcRenderer.invoke('deletePromptTemplate', templateId),
+  resetPromptTemplates: () => ipcRenderer.invoke('resetPromptTemplates'),
 
   copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
   processClipboardPrompt: () => ipcRenderer.invoke('processClipboardPrompt'),
@@ -67,5 +84,6 @@ const api: ElectronAPI = {
   onOverlayUpdate: (callback) => { ipcRenderer.on('overlay-update', (_e, t) => callback(t)); return () => ipcRenderer.removeAllListeners('overlay-update'); },
   onToast: (callback) => { ipcRenderer.on('toast', (_e, m: string) => callback(m)); return () => ipcRenderer.removeAllListeners('toast'); },
   onWindowShown: (callback) => { ipcRenderer.on('window-shown', () => callback()); return () => ipcRenderer.removeAllListeners('window-shown'); },
+  onDocumentsUpdated: (callback) => { ipcRenderer.on('documents-updated', () => callback()); return () => ipcRenderer.removeAllListeners('documents-updated'); },
 };
 contextBridge.exposeInMainWorld('electronAPI', api);

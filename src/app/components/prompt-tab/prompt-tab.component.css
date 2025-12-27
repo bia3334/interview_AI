@@ -97,3 +97,104 @@
   opacity: 1;
 }
 
+/* Document Context Selector */
+.document-context-section {
+  margin-bottom: 0.75rem;
+}
+
+.document-context-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.document-context-header:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.document-icon {
+  font-size: 1rem;
+}
+
+.active-doc-label {
+  flex: 1;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.no-doc-label {
+  flex: 1;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.doc-toggle-icon {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.document-selector {
+  margin-top: 0.35rem;
+  background: rgba(30, 30, 46, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.document-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.document-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.document-option.active {
+  background: rgba(99, 102, 241, 0.2);
+  color: white;
+}
+
+.document-option .doc-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-option .doc-size {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.key-info-badge {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.65rem;
+}
+
+.key-info-badge.small {
+  padding: 0.05rem 0.2rem;
+  font-size: 0.6rem;
+}

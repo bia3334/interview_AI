@@ -68,3 +68,47 @@ export function imageToBase64(imagePath: string): string {
   const imageBuffer = fs.readFileSync(imagePath);
   return imageBuffer.toString('base64');
 }
+
+/**
+ * Read document content based on file type
+ */
+export async function readDocumentContent(filePath: string): Promise<string> {
+  const ext = filePath.toLowerCase().split('.').pop() || '';
+  
+  if (ext === 'pdf') {
+    // Use pdf-parse for PDF files
+    const pdfParse = require('pdf-parse');
+    const dataBuffer = fs.readFileSync(filePath);
+    const pdfData = await pdfParse(dataBuffer);
+    return pdfData.text || '';
+  }
+  
+  if (ext === 'pptx') {
+    // For PPTX, we'll read it as text (basic extraction)
+    // Note: For better PPTX support, you might want to use a library like officegen or pptx-parser
+    try {
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(filePath);
+      const entries = zip.getEntries();
+      let text = '';
+      
+      for (const entry of entries) {
+        if (entry.entryName.startsWith('ppt/slides/slide') && entry.entryName.endsWith('.xml')) {
+          const content = entry.getData().toString('utf8');
+          // Extract text from XML (basic approach)
+          const matches = content.match(/<a:t>([^<]*)<\/a:t>/g);
+          if (matches) {
+            text += matches.map((m: string) => m.replace(/<\/?a:t>/g, '')).join(' ') + '\n';
+          }
+        }
+      }
+      return text || 'Could not extract text from PPTX';
+    } catch (e) {
+      // Fallback: just return file info
+      return `[PPTX file: ${filePath}] - Unable to extract text content`;
+    }
+  }
+  
+  // For text-based files (txt, md, csv, json, log)
+  return fs.readFileSync(filePath, 'utf8');
+}
