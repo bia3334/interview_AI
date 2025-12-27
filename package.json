@@ -8,7 +8,7 @@
     "ng:build:prod": "ng build --configuration production",
     "start": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && electron dist/main.js",
     "dev": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && electron dist/main.js",
-    "build": "npm run ng:build:prod && tsc && copy src\\overlay.html dist\\angular\\ && set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder",
+    "build": "npm run ng:build:prod && tsc && copy src\\overlay.html dist\\angular\\ && electron-builder --win --config.win.signAndEditExecutable=false",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -56,7 +56,7 @@
   },
   "build": {
     "appId": "com.openinterviewcoder.app",
-    "productName": "Open Interview Coder",
+    "productName": "Screen Genius",
     "win": {
       "target": [
         "dir"
@@ -75,15 +75,6 @@
       "**/node_modules/pdfjs-dist/**",
       "**/node_modules/jszip/**",
       "**/node_modules/sharp/**"
-    ],
-    "extraResources": [
-      {
-        "from": "src/angular",
-        "to": "dist/angular",
-        "filter": [
-          "overlay.html"
-        ]
-      }
     ],
     "directories": {
       "output": "release"
