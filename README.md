@@ -1,149 +1,191 @@
-# Screen Genius
+# 🎯 Interview AI
 
-An Electron + Angular desktop app that runs invisibly over your screen to capture screenshots and ask AI (OpenAI or Gemini) for help. It supports single-line KaTeX overlay display, quick keyboard-driven workflows, and a sandboxed renderer via a preload bridge.
+> **Ace your coding interviews with AI-powered assistance**
 
-## Table of Contents
-- Overview
-- Features
-- Keyboard Shortcuts
-- Getting Started
-- Configuration
-- Architecture
-- Developer Workflow
-- Packaging
-- Troubleshooting
-- Security
-- License
+An invisible desktop overlay that captures your screen, analyzes questions with AI (OpenAI/Gemini), and provides instant answers — all without leaving your interview window.
 
-## Overview
-Screen Genius analyzes screenshots and clipboard text using configured AI providers, then shows concise answers in the app and a single-line overlay bubble. It stores lightweight history locally and supports a document context you can inject into prompts.
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Electron](https://img.shields.io/badge/electron-28-green)
+![License](https://img.shields.io/badge/license-MIT-orange)
 
-## Features
-- **Full & Region Screenshots**: Capture up to 5 recent images; region selection honors Windows DPI scaling.
-- **AI Analysis**: OpenAI chat completions and Gemini `models.generateContent` with image parts.
-- **Answer Styles**: Code, Explanation, Multiple Choice (toggle via shortcut or settings).
-- **Clipboard Processing**: Turn clipboard text into a prompt, route to selected models, and copy the result.
-- **Overlay Bubble**: Always-on-top single-line KaTeX-enabled overlay for glanceable answers.
-- **History**: Lightweight local history with continue-session flow.
-- **Document Context**: Import a document and auto-inject its context into all prompts.
+---
 
-## Keyboard Shortcuts
+## ✨ Features
 
-| Shortcut | Function |
-|----------|----------|
-| Ctrl+Shift+A | Toggle window visibility |
-| Ctrl+Shift+S | Take full screenshot |
-| Ctrl+Shift+Z | Take region screenshot (invisible overlay) |
-| Ctrl+Shift+P | Analyze screenshots |
-| Ctrl+Shift+L | Switch answer style (Code ↔ Explanation ↔ Multiple Choice) |
-| Ctrl+Shift+M | Switch AI model (OpenAI ↔ Gemini ↔ Both) |
-| Ctrl+Shift+Q | Process clipboard text |
-| Ctrl+Shift+C | Copy latest AI response to clipboard |
-| Ctrl+Shift+D | Delete all screenshots |
-| Ctrl+Shift+Space | Switch to next tab |
-| Ctrl+Shift+Tab | Switch to previous tab |
-| Ctrl+Shift+Up/Down/Left/Right | Move window by 200px |
-| Ctrl+Left / Ctrl+Right | Move overlay to bottom-left/bottom-right when visible |
+### 📸 Smart Screenshot Analysis
+- **Full screen capture** — Grab everything with one hotkey
+- **Region selection** — Select specific areas for focused analysis
+- **Multi-image support** — Queue up to 5 screenshots for context
 
-## Getting Started
+### 🤖 Dual AI Models
+- **OpenAI GPT** — Powerful reasoning and code generation
+- **Google Gemini** — Fast responses with great accuracy
+- **Compare both** — See answers from both models side-by-side
+
+### 📄 Document Q&A with Key Info Extraction
+- **Import PDFs & text files** — Load study materials, lecture notes
+- **Auto-extracts key information** — AI summarizes important facts, formulas, concepts
+- **Smart context** — AI answers based on your documents first
+
+### 🎨 Answer Styles
+- **Code mode** — Get clean, working code with explanations
+- **Explanation mode** — Detailed step-by-step breakdowns
+- **Multiple choice mode** — Just the answer, no fluff
+
+### ⚡ Built for Speed
+- **Global hotkeys** — Works even when app is hidden
+- **Invisible overlay** — Stays on top without blocking your screen
+- **Clipboard integration** — Copy questions, paste answers instantly
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ recommended
-- Windows 10/11 (supports macOS/Linux builds; primary dev target is Windows)
-- OpenAI and/or Google Gemini API keys
+- Windows 10/11
+- Node.js 18+
+- OpenAI API key and/or Google Gemini API key
 
-### Install & Run
+### Installation
+
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/interview-ai.git
+cd interview-ai
+
+# Install dependencies
 npm install
+
+# Run the app
 npm start
 ```
 
-This runs the development flow: builds Angular to `dist/angular`, compiles TypeScript, copies `src/overlay.html` to `dist/angular`, then launches Electron on `dist/main.js`.
+### First Time Setup
+1. Open the app (it appears as a small window)
+2. Go to **Settings** tab
+3. Enter your **OpenAI API key** and/or **Gemini API key**
+4. Press `Ctrl+Shift+A` to hide the window — it's now invisible!
 
-### Scripts
-- `npm start` / `npm run dev`: Angular dev build → TypeScript compile → copy overlay → run Electron.
-- `npm run ng:build`: Angular dev build only.
-- `npm run ng:build:prod`: Angular production build only.
-- `npm run build`: Angular prod build → TypeScript compile → copy overlay → `electron-builder` to `release/`.
-- `npm run clean`: Remove `dist/`.
+---
 
-## Configuration
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+A` | Show/hide the app window |
+| `Ctrl+Shift+S` | Take full screenshot |
+| `Ctrl+Shift+Z` | Take region screenshot |
+| `Ctrl+Shift+P` | Analyze screenshots with AI |
+| `Ctrl+Shift+X` | Extract text from screenshots (OCR) |
+| `Ctrl+Shift+Q` | Process clipboard text |
+| `Ctrl+Shift+C` | Copy latest AI response |
+| `Ctrl+Shift+L` | Switch answer style |
+| `Ctrl+Shift+M` | Switch AI model |
+| `Ctrl+Shift+D` | Clear all screenshots |
+
+---
+
+## 📖 How to Use
+
+### During a Coding Interview
+
+1. **Hide the app** — Press `Ctrl+Shift+A` (window becomes invisible)
+2. **See a question** — Press `Ctrl+Shift+S` for full screen or `Ctrl+Shift+Z` to select a region
+3. **Get the answer** — Press `Ctrl+Shift+P` to analyze
+4. **Show the app** — Press `Ctrl+Shift+A` to see the AI response
+5. **Copy if needed** — Press `Ctrl+Shift+C` to copy to clipboard
+
+### With Study Materials (PDF/Notes)
+
+1. Go to **Settings → API & Models → Documents**
+2. Click **Import document** and select your PDF/notes
+3. Wait for key information extraction (shows ✨ when ready)
+4. Now all your questions will reference this document first!
+
+### Quick Clipboard Mode
+
+1. Copy any question text to clipboard
+2. Press `Ctrl+Shift+Q`
+3. AI processes it and copies the answer back to clipboard
+
+---
+
+## 🛠️ Configuration
 
 ### API Keys
-Set keys via the Settings tab or environment variables:
-- OpenAI: `OPENAI_API_KEY`
-- Gemini: `GEMINI_API_KEY`
+Get your keys from:
+- OpenAI: https://platform.openai.com/api-keys
+- Gemini: https://makersuite.google.com/app/apikey
 
-Keys are surfaced through the store and used by the main process AI clients.
+### AI Behavior Settings
+- **Custom System Prompts** — Define how AI should respond
+- **Built-in Templates** — Concise Coder, Detailed Teacher, Interview Helper, etc.
+- **Preferred Language** — Set default programming language for code answers
 
-### Preferences (electron-store defaults in main)
-- `preferredLanguage`: default `python`
-- `answerStyle`: `explanation` | `code` | `multiple-choice`
-- `defaultModel`: `both` | `openai` | `gemini`
-- `openaiModel`: default from AI config (e.g., `gpt-5.1`)
+---
 
-## Architecture
+## 📦 Building for Distribution
 
-- **Main Process**: Screenshot pipeline, AI requests, global shortcuts, overlay.
-   - Entry: [src/main.ts](src/main.ts)
-   - Window + state: [src/main/window.ts](src/main/window.ts)
-   - IPC modules: [src/main/ipc/files.ts](src/main/ipc/files.ts), [src/main/ipc/preferences.ts](src/main/ipc/preferences.ts), [src/main/ipc/overlay.ts](src/main/ipc/overlay.ts), [src/main/ipc/documents.ts](src/main/ipc/documents.ts)
-   - AI clients & prompts: [src/main/ai/clients.ts](src/main/ai/clients.ts), [src/main/ai/prompts.ts](src/main/ai/prompts.ts)
-   - File utils: [src/main/utils/files.ts](src/main/utils/files.ts)
+```bash
+# Build production release
+npm run build
 
-- **Renderer (Angular)**: Tabs for Prompt, History, Settings and Shortcuts.
-   - Bootstrap: [src/angular-main.ts](src/angular-main.ts), shell: [src/index.html](src/index.html)
-   - App module: [src/app/app.module.ts](src/app/app.module.ts)
-   - Core service bridging IPC: [src/app/services/electron.service.ts](src/app/services/electron.service.ts)
-   - UI components: Prompt ([src/app/components/prompt-tab/prompt-tab.component.ts](src/app/components/prompt-tab/prompt-tab.component.ts)), History ([src/app/components/history-tab/history-tab.component.ts](src/app/components/history-tab/history-tab.component.ts)), Settings ([src/app/components/settings-tab/settings-tab.component.ts](src/app/components/settings-tab/settings-tab.component.ts)), Shortcuts ([src/app/components/shortcuts-tab/shortcuts-tab.component.ts](src/app/components/shortcuts-tab/shortcuts-tab.component.ts))
+# Output appears in release/win-unpacked/
+```
 
-- **Preload Bridge**: Safe, typed API exposed to renderer with `contextIsolation` on.
-   - Types: [src/preload/types.d.ts](src/preload/types.d.ts)
-   - Implementation: [src/preload/index.ts](src/preload/index.ts)
+---
 
-- **Overlay Bubble**: Single-line KaTeX display.
-   - HTML: [src/overlay.html](src/overlay.html)
-   - Manager: [src/main/ipc/overlay.ts](src/main/ipc/overlay.ts)
+## 🏗️ Tech Stack
 
-### Data Flow (High Level)
-1. User captures screenshots via global shortcut → main saves to temp and emits `screenshot-taken`.
-2. Renderer loads paths via `ElectronService.getScreenshots()` and displays images.
-3. When analyzing, main builds a prompt using `answerStyle`, `preferredLanguage`, and document context. Images become OpenAI `image_url` parts or Gemini file parts.
-4. Responses are shown in UI; latest text is copied to clipboard when requested and sent to overlay with `overlayManager.autoShow(...)`.
+- **Electron** — Cross-platform desktop app
+- **Angular** — Frontend UI framework
+- **OpenAI API** — GPT models for analysis
+- **Google Gemini API** — Alternative AI provider
+- **KaTeX** — Math equation rendering
 
-## Developer Workflow
+---
 
-### Add a New IPC
-1. Register handler in main (e.g., add to [src/main/ipc/preferences.ts](src/main/ipc/preferences.ts) or directly in [src/main.ts](src/main.ts)). Handlers should return `{ success: boolean, ... }` and log via `electron-log`.
-2. Expose method in [src/preload/index.ts](src/preload/index.ts) aligned with [src/preload/types.d.ts](src/preload/types.d.ts).
-3. Consume via [src/app/services/electron.service.ts](src/app/services/electron.service.ts) and wire UI.
+## 🔒 Privacy & Security
 
-### Modify AI Behavior
-- Models & keys: [src/main/ai/clients.ts](src/main/ai/clients.ts)
-- Prompt styles: [src/main/ai/prompts.ts](src/main/ai/prompts.ts)
-- Document context injection: `buildDocContextPrefix()` in [src/main/ipc/documents.ts](src/main/ipc/documents.ts)
+- ✅ **Local processing** — Your API keys stay on your machine
+- ✅ **No data collection** — We don't store or transmit your screenshots
+- ✅ **Sandboxed renderer** — Secure architecture with context isolation
+- ✅ **Open source** — Audit the code yourself
 
-### Overlay Usage
-- Update latest response: `overlayManager.setLatestResponse(text)`
-- Show for 2 seconds: `overlayManager.autoShow(text, 2000, preloadPath)`
-- Toggle pin/interactivity via `overlayManager.togglePin()` (when visible)
+---
 
-## Packaging
-`npm run build` produces release artifacts under `release/` using `electron-builder`. Windows unpacked output appears in `release/win-unpacked/`. The build copies `src/overlay.html` to `dist/angular/` and unpacks heavy modules via `asarUnpack`.
+## 🐛 Troubleshooting
 
-## Troubleshooting
-- **API key missing**: Set keys in Settings or environment; check store defaults in main.
-- **Region selection off**: High-DPI displays require scaling. Main applies `screen.getPrimaryDisplay().scaleFactor` for physical pixels.
-- **File deletion fails (Windows)**: Uses `safeDeleteFile()` with retries; pending deletes are queued.
-- **Overlay not visible**: Ensure it’s not auto-hidden; toggle with `Ctrl+Shift+O` or re-show by analyzing again.
-- **No screenshots found**: Only 5 recent are kept; verify temp dir creation and that captures fire `screenshot-taken`.
-- **Gemini image parts**: Images upload via Gemini Files API; failures fall back where possible (e.g., OpenAI for text extraction).
+**App not responding to shortcuts?**
+- Make sure no other app is using the same hotkeys
+- Try running as Administrator
 
-## Security
-- Renderer sandboxed: `contextIsolation: true`, `nodeIntegration: false`.
-- Window content protection enabled.
-- Only the preload bridge exposes allowed IPC; do not call Node APIs directly from Angular.
+**Screenshots not working?**
+- Check Windows privacy settings for screen capture
+- Try restarting the app
 
-## License
-MIT License
+**API errors?**
+- Verify your API keys in Settings
+- Check your API quota/billing
+
+**High DPI display issues?**
+- The app auto-scales for DPI; if region selection is off, restart the app
+
+---
+
+## 📄 License
+
+MIT License — feel free to use, modify, and distribute.
+
+---
+
+## 🙏 Contributing
+
+Pull requests welcome! Please open an issue first to discuss major changes.
+
+---
+
+<p align="center">
+  <b>Good luck with your interviews! 🍀</b>
+</p>
 
