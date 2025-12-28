@@ -10,7 +10,7 @@ const Store = require('electron-store');
 // Import modules
 import { AI_CONFIG, getApiKey, getCurrentOpenAIModel, getGeminiClient, getOpenAIClient, sendConversationToGemini, sendConversationToOpenAI, sendPromptToGemini, sendPromptToOpenAI } from './main/ai/clients';
 import { generatePrompt } from './main/ai/prompts';
-import { buildDocContextPrefix, registerDocumentsIPC } from './main/ipc/documents';
+import { buildDocContextPrefix, initDocumentsFromStore, registerDocumentsIPC } from './main/ipc/documents';
 import { registerFilesIPC } from './main/ipc/files';
 import { overlayManager, registerOverlayIPC } from './main/ipc/overlay';
 import { registerPreferencesIPC } from './main/ipc/preferences';
@@ -775,6 +775,10 @@ registerDocumentsIPC(ipcMain, { mainWindow: getMainWindow, log });
 // Application initialization
 app.whenReady().then(() => {
   createWindow(store, path.join(__dirname, 'preload', 'index.js'));
+  
+  // Initialize documents from store (load persisted documents)
+  initDocumentsFromStore(store, log);
+  
   log.info('Application started');
 
   // Shortcuts

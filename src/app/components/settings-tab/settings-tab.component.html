@@ -76,6 +76,7 @@
       <h3>Documents</h3>
       <p class="group-description">
         Import a PDF or text file. Key information will be automatically extracted for better Q&A.
+        Documents with ✨ have extracted key info - click 👁️ to view it.
       </p>
       <div class="doc-actions">
         <button class="btn btn-primary" (click)="importDocument()">Import document…</button>
@@ -97,19 +98,26 @@
           <div class="doc-info">
             <div class="doc-name">
               {{ doc.fileName }}{{ doc.active ? ' • (active)' : '' }}
-              <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted">✨</span>
+              <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted ({{ doc.keyInfoLength || 0 }} chars)">✨</span>
             </div>
             <div class="doc-meta">{{ doc.length }} chars · {{ doc.addedAt | date:'short' }}</div>
           </div>
           <div class="doc-actions-inline">
             <button 
+              class="btn btn-small"
+              *ngIf="doc.hasKeyInfo"
+              (click)="onViewClick($event, doc.filePath)"
+            >
+              View
+            </button>
+            <button 
               class="btn btn-small" 
               [class.btn-primary]="doc.active"
-              (click)="setActiveDoc(doc.filePath)"
+              (click)="onToggleActiveClick($event, doc)"
             >
-              {{ doc.active ? 'Active' : 'Set active' }}
+              {{ doc.active ? 'Deactivate' : 'Activate' }}
             </button>
-            <button class="btn btn-small btn-danger" (click)="removeDoc(doc.filePath)">Remove</button>
+            <button class="btn btn-small btn-danger" (click)="onRemoveClick($event, doc.filePath)">Remove</button>
           </div>
         </div>
       </div>
@@ -247,3 +255,29 @@
   </div>
 </div>
 
+<!-- Key Info Viewer Modal -->
+<div class="modal-overlay" *ngIf="showKeyInfoModal" (click)="closeKeyInfoModal()">
+  <div class="modal-dialog key-info-modal" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+      <h3>📄 {{ keyInfoData?.fileName || 'Document' }} - Extracted Key Information</h3>
+      <button class="btn-close" (click)="closeKeyInfoModal()">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="key-info-stats">
+        <span>Original: {{ keyInfoData?.contentLength | number }} chars</span>
+        <span>·</span>
+        <span>Key Info: {{ keyInfoData?.keyInfoLength | number }} chars</span>
+      </div>
+      <div class="key-info-content" *ngIf="keyInfoData?.keyInfo">
+        <pre>{{ keyInfoData?.keyInfo }}</pre>
+      </div>
+      <div class="key-info-empty" *ngIf="!keyInfoData?.keyInfo">
+        No key information was extracted for this document.
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn" (click)="copyKeyInfo()">📋 Copy</button>
+      <button class="btn btn-primary" (click)="closeKeyInfoModal()">Close</button>
+    </div>
+  </div>
+</div>

@@ -29,9 +29,10 @@ export interface ElectronAPI {
   importDocumentWithKeyInfo: (filePath: string) => Promise<{ success: boolean; fileName?: string; contentLength?: number; keyInfoLength?: number; hasKeyInfo?: boolean; error?: string }>;
   clearActiveDocContext: () => Promise<{ success: boolean }>;
   getActiveDocInfo: () => Promise<{ hasContext: boolean; fileName?: string; length?: number; hasKeyInfo?: boolean }>;
-  listDocs: () => Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> }>;
+  listDocs: () => Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean; keyInfoLength?: number }> }>;
   setActiveDoc: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   removeDoc: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+  getDocKeyInfo: (filePath: string) => Promise<{ success: boolean; fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number; error?: string }>;
 
   saveApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
   getApiKey: () => Promise<string>;

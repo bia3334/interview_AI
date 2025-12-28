@@ -231,7 +231,7 @@ export class ElectronService {
     return this.electronAPI.getActiveDocInfo();
   }
 
-  listDocs(): Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> }> {
+  listDocs(): Promise<{ success: boolean; docs: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean; keyInfoLength?: number }> }> {
     return this.electronAPI.listDocs();
   }
 
@@ -241,6 +241,10 @@ export class ElectronService {
 
   removeDoc(filePath: string): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.removeDoc(filePath);
+  }
+
+  getDocKeyInfo(filePath: string): Promise<{ success: boolean; fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number; error?: string }> {
+    return this.electronAPI.getDocKeyInfo(filePath);
   }
 
   importDocumentWithKeyInfo(filePath: string): Promise<{ success: boolean; fileName?: string; contentLength?: number; keyInfoLength?: number; hasKeyInfo?: boolean; error?: string }> {
@@ -399,6 +403,7 @@ export class ElectronService {
       listDocs: () => Promise.resolve({ success: false, docs: [] }),
       setActiveDoc: () => Promise.resolve({ success: false }),
       removeDoc: () => Promise.resolve({ success: false }),
+      getDocKeyInfo: () => Promise.resolve({ success: false }),
       saveApiKey: () => Promise.resolve({ success: false }),
       getApiKey: () => Promise.resolve(''),
       saveGeminiApiKey: () => Promise.resolve({ success: false }),

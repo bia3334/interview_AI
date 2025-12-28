@@ -8,6 +8,9 @@ let activeDocPath: string | null = null;
 let activeDocKeyInfo: string | null = null;
 const DOC_CONTEXT_MAX_CHARS = 1000000000000;
 
+// Store reference for persistence
+let store: any = null;
+
 // Imported documents list
 type ImportedDoc = { 
   filePath: string; 
@@ -17,7 +20,31 @@ type ImportedDoc = {
   context: string;
   keyInfo?: string; // Extracted key information summary
 };
-const importedDocs: ImportedDoc[] = [];
+let importedDocs: ImportedDoc[] = [];
+
+/**
+ * Initialize documents from store (call on app start)
+ */
+export const initDocumentsFromStore = (storeInstance: any, log: any) => {
+  store = storeInstance;
+  try {
+    const savedDocs = store.get('importedDocuments') || [];
+    importedDocs = savedDocs;
+    log.info(`Loaded ${importedDocs.length} documents from store`);
+  } catch (e) {
+    log.warn('Failed to load documents from store', e);
+    importedDocs = [];
+  }
+};
+
+/**
+ * Save documents to store
+ */
+const saveDocsToStore = () => {
+  if (store) {
+    store.set('importedDocuments', importedDocs);
+  }
+};
 
 /**
  * Set active document context
@@ -46,6 +73,7 @@ export const setActiveDocContext = (
       } else {
         importedDocs.push({ filePath, fileName, length: truncated.length, addedAt: Date.now(), context: truncated, keyInfo });
       }
+      saveDocsToStore(); // Persist to store
     }
     
     log.info('Active document context set', filePath ? `for: ${filePath}` : '');
@@ -119,7 +147,24 @@ export const getImportedDocsForUI = () => {
     addedAt: d.addedAt,
     active: !!activeDocPath && d.filePath === activeDocPath,
     hasKeyInfo: !!d.keyInfo,
+    keyInfoLength: d.keyInfo?.length || 0,
   }));
+};
+
+/**
+ * Get document key info for viewing
+ */
+export const getDocKeyInfo = (filePath: string) => {
+  const doc = importedDocs.find((d) => d.filePath === filePath);
+  if (!doc) return { success: false, error: 'Document not found' };
+  return {
+    success: true,
+    fileName: doc.fileName,
+    keyInfo: doc.keyInfo || '',
+    hasKeyInfo: !!doc.keyInfo,
+    contentLength: doc.length,
+    keyInfoLength: doc.keyInfo?.length || 0
+  };
 };
 
 /**
@@ -151,10 +196,12 @@ export const removeImportedDoc = (filePath: string) => {
   
   const wasActive = activeDocPath && importedDocs[idx].filePath === activeDocPath;
   importedDocs.splice(idx, 1);
+  saveDocsToStore(); // Persist to store
   
   if (wasActive) {
     activeDocContext = null;
     activeDocPath = null;
+    activeDocKeyInfo = null;
   }
   
   return true;
@@ -202,6 +249,15 @@ export function registerDocumentsIPC(
       return { success: true };
     } catch (err: any) {
       deps.log.error('docs:remove error', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('docs:getKeyInfo', (_e, filePath: string) => {
+    try {
+      return getDocKeyInfo(filePath);
+    } catch (err: any) {
+      deps.log.error('docs:getKeyInfo error', err);
       return { success: false, error: err.message };
     }
   });

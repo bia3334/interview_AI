@@ -1,0 +1,143 @@
+---
+alwaysApply: true
+---
+
+# Interview AI - Electron + Angular Desktop App
+
+An invisible overlay app for capturing screenshots and querying AI (OpenAI/Gemini) for coding help.
+
+## Tech Stack
+- **Main Process**: Electron (TypeScript) - screenshots, AI requests, global shortcuts, overlay
+- **Renderer**: Angular 17+ with standalone: false components
+- **Bridge**: Preload script with contextIsolation
+
+## Project Structure
+```
+src/
+├── main.ts                    # Electron entry, IPC handlers, shortcuts
+├── angular-main.ts            # Angular bootstrap
+├── main/
+│   ├── window.ts              # Window management & state
+│   ├── ai/
+│   │   ├── clients.ts         # OpenAI & Gemini API clients
+│   │   └── prompts.ts         # Prompt templates & answer styles
+│   ├── ipc/
+│   │   ├── files.ts           # File operations
+│   │   ├── preferences.ts     # Settings storage
+│   │   ├── overlay.ts         # Overlay bubble manager
+│   │   └── documents.ts       # Document context for prompts
+│   └── utils/files.ts         # Safe file operations
+├── preload/
+│   ├── index.ts               # contextBridge API exposure
+│   └── types.d.ts             # ElectronAPI type definitions
+├── app/
+│   ├── services/
+│   │   └── electron.service.ts  # All IPC calls + RxJS Observables
+│   └── components/
+│       ├── prompt-tab/        # Main Q&A interface
+│       ├── history-tab/       # Past queries
+│       └── settings-tab/      # API keys, preferences, documents
+└── overlay.html               # Floating response bubble
+```
+
+## Critical Patterns
+
+### IPC Communication
+```typescript
+// Main: Always return { success: boolean, ...data } or { success: false, error: string }
+ipcMain.handle('example', async () => {
+  try {
+    return { success: true, data: result };
+  } catch (error) {
+    log.error('Error:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// Preload: Expose in types.d.ts AND index.ts
+// types.d.ts
+interface ElectronAPI {
+  example: () => Promise<{ success: boolean; data?: any; error?: string }>;
+}
+// index.ts
+example: () => ipcRenderer.invoke('example'),
+
+// Renderer: Call via ElectronService, wrap async results in ngZone.run()
+async doSomething() {
+  const result = await this.electronService.example();
+  this.ngZone.run(() => {
+    this.data = result.data;
+    this.cdr.detectChanges();  // Force UI update after async
+  });
+}
+```
+
+### Event Subscriptions (Main → Renderer)
+```typescript
+// ElectronService: Use shared Subjects, setup once in constructor
+private example$ = new Subject<void>();
+constructor() {
+  this.electronAPI.onExample(() => this.example$.next());
+}
+onExample(): Observable<void> {
+  return this.example$.asObservable();
+}
+
+// Component: Subscribe in setupEventListeners()
+this.electronService.onExample().subscribe(() => {
+  this.handleExample();
+});
+```
+
+### Angular Change Detection
+- **ALWAYS** wrap state updates after `await` in `this.ngZone.run(() => { ... })`
+- **ALWAYS** call `this.cdr.detectChanges()` after updating component state from async operations
+- This prevents the "double-click to work" bug
+
+## Common Commands
+```bash
+npm start          # Dev mode: Angular build → TS compile → Electron
+npm run build      # Production: Angular prod → compile → electron-builder
+```
+
+## Global Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Shift+A | Toggle window visibility |
+| Ctrl+Shift+S | Full screenshot |
+| Ctrl+Shift+Z | Region screenshot |
+| Ctrl+Shift+P | Analyze screenshots with AI |
+| Ctrl+Shift+X | Extract text (OCR) from screenshots |
+| Ctrl+Shift+Q | Process clipboard text |
+| Ctrl+Shift+L | Cycle answer style (code/explanation/multiple-choice) |
+| Ctrl+Shift+M | Cycle AI model (openai/gemini/both) |
+| Ctrl+Shift+C | Copy latest AI response |
+| Ctrl+Shift+D | Clear all screenshots |
+
+## Adding New Features
+
+### New IPC Handler
+1. **Main** (`src/main.ts` or `src/main/ipc/*.ts`): Add `ipcMain.handle()`
+2. **Preload Types** (`src/preload/types.d.ts`): Declare method signature
+3. **Preload Impl** (`src/preload/index.ts`): Expose via `ipcRenderer.invoke()`
+4. **ElectronService**: Add wrapper method
+5. **Component**: Call through service
+
+### New Event (Main → Renderer)
+1. **Main**: `mainWindow.webContents.send('event-name', data)`
+2. **Preload Types**: Add `onEventName: (callback) => () => void`
+3. **Preload Impl**: `onEventName: (cb) => { ipcRenderer.on(...); return cleanup; }`
+4. **ElectronService**: Add Subject + setup listener + expose Observable
+5. **Component**: Subscribe in `setupEventListeners()`
+
+## Key Gotchas
+- **Windows file locking**: Use `safeDeleteFile()` with retry logic for screenshots
+- **DPI scaling**: Region coordinates need `screen.getPrimaryDisplay().scaleFactor`
+- **Preload sync**: Types must match implementation exactly or Angular breaks at runtime
+- **History**: Stored in `localStorage`, notify via `historyUpdated$.next()`
+- **Screenshots**: Max 5 in temp dir, auto-cleanup on clear
+
+## Security
+- `contextIsolation: true`, `nodeIntegration: false`
+- `setContentProtection(true)` - prevents screen capture
+- Never expose Node APIs directly to renderer

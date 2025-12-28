@@ -35,6 +35,7 @@ const api: ElectronAPI = {
   listDocs: () => ipcRenderer.invoke('docs:list'),
   setActiveDoc: (filePath) => ipcRenderer.invoke('docs:setActive', filePath),
   removeDoc: (filePath) => ipcRenderer.invoke('docs:remove', filePath),
+  getDocKeyInfo: (filePath) => ipcRenderer.invoke('docs:getKeyInfo', filePath),
 
   saveApiKey: (apiKey) => ipcRenderer.invoke('save-api-key', apiKey),
   getApiKey: () => ipcRenderer.invoke('get-api-key'),

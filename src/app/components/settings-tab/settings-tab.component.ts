@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ElectronService } from '../../services/electron.service';
 
 interface SystemPromptTemplate {
@@ -29,7 +29,11 @@ export class SettingsTabComponent implements OnInit {
   
   // Documents
   activeDocInfo: { hasContext: boolean; fileName?: string; length?: number; hasKeyInfo?: boolean } = { hasContext: false };
-  documents: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> = [];
+  documents: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean; keyInfoLength?: number }> = [];
+
+  // Key Info Modal
+  showKeyInfoModal: boolean = false;
+  keyInfoData: { fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number } | null = null;
 
   // Template management
   showSaveTemplateDialog: boolean = false;
@@ -39,7 +43,11 @@ export class SettingsTabComponent implements OnInit {
   // All templates (loaded from store - all are editable)
   templates: SystemPromptTemplate[] = [];
 
-  constructor(private electronService: ElectronService) {}
+  constructor(
+    private electronService: ElectronService,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
     this.loadSettings();
@@ -75,12 +83,15 @@ export class SettingsTabComponent implements OnInit {
 
   async loadDocuments() {
     const result = await this.electronService.listDocs();
-    if (result.success) {
-      this.documents = result.docs;
-    }
-    
     const docInfo = await this.electronService.getActiveDocInfo();
-    this.activeDocInfo = docInfo;
+    
+    this.ngZone.run(() => {
+      if (result.success) {
+        this.documents = result.docs;
+      }
+      this.activeDocInfo = docInfo;
+      this.cdr.detectChanges();
+    });
   }
 
   setupEventListeners() {
@@ -203,6 +214,29 @@ export class SettingsTabComponent implements OnInit {
     }
   }
 
+  // Button click handlers with proper event handling
+  onViewClick(event: Event, filePath: string) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.viewKeyInfo(filePath);
+  }
+
+  onToggleActiveClick(event: Event, doc: any) {
+    event.stopPropagation();
+    event.preventDefault();
+    if (doc.active) {
+      this.clearActiveDoc();
+    } else {
+      this.setActiveDoc(doc.filePath);
+    }
+  }
+
+  onRemoveClick(event: Event, filePath: string) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.removeDoc(filePath);
+  }
+
   async setActiveDoc(filePath: string) {
     await this.electronService.setActiveDoc(filePath);
     await this.loadDocuments();
@@ -217,5 +251,37 @@ export class SettingsTabComponent implements OnInit {
     await this.electronService.clearActiveDocContext();
     await this.loadDocuments();
   }
-}
 
+  // Key Info Modal methods
+  async viewKeyInfo(filePath: string) {
+    // Guard: don't open if modal already showing
+    if (this.showKeyInfoModal) return;
+    
+    try {
+      const result = await this.electronService.getDocKeyInfo(filePath);
+      this.ngZone.run(() => {
+        if (result.success && result.hasKeyInfo) {
+          this.keyInfoData = result;
+          this.showKeyInfoModal = true;
+        } else if (!result.success) {
+          console.error('Error loading key info:', result.error);
+        }
+        this.cdr.detectChanges();
+      });
+    } catch (error) {
+      console.error('Error viewing key info:', error);
+    }
+  }
+
+  closeKeyInfoModal() {
+    this.showKeyInfoModal = false;
+    this.keyInfoData = null;
+  }
+
+  copyKeyInfo() {
+    if (this.keyInfoData?.keyInfo) {
+      navigator.clipboard.writeText(this.keyInfoData.keyInfo);
+      this.electronService.showToast('Key info copied to clipboard');
+    }
+  }
+}
