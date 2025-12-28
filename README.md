@@ -73,15 +73,15 @@ npm start
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Shift+A` | Show/hide the app window |
+| `Ctrl+Shift+W` | Toggle mouse events (click-through) |
+| `Ctrl+Shift+O` | Toggle overlay |
 | `Ctrl+Shift+S` | Take full screenshot |
 | `Ctrl+Shift+Z` | Take region screenshot |
-| `Ctrl+Shift+P` | Analyze screenshots with AI |
 | `Ctrl+Shift+X` | Extract text from screenshots (OCR) |
-| `Ctrl+Shift+Q` | Process clipboard text |
-| `Ctrl+Shift+C` | Copy latest AI response |
-| `Ctrl+Shift+L` | Switch answer style |
-| `Ctrl+Shift+M` | Switch AI model |
+| `Ctrl+Shift+P` | Analyze screenshots with AI |
 | `Ctrl+Shift+D` | Clear all screenshots |
+| `Ctrl+Shift+Q` | Process clipboard text as prompt |
+| `Ctrl+Shift+C` | Copy latest AI response |
 
 ---
 
@@ -98,9 +98,11 @@ npm start
 ### With Study Materials (PDF/Notes)
 
 1. Go to **Settings → API & Models → Documents**
-2. Click **Import document** and select your PDF/notes
+2. Click **Import document** and select your PDF or text file
 3. Wait for key information extraction (shows ✨ when ready)
-4. Now all your questions will reference this document first!
+4. Click **View** to see the extracted key information
+5. Click **Activate** to use that document as context
+6. Now all your questions will reference this document first!
 
 ### Quick Clipboard Mode
 
@@ -119,7 +121,8 @@ Get your keys from:
 
 ### AI Behavior Settings
 - **Custom System Prompts** — Define how AI should respond
-- **Built-in Templates** — Concise Coder, Detailed Teacher, Interview Helper, etc.
+- **Built-in Templates** — Concise Coder, Interview Helper, Exam Mode, etc.
+- **Editable Templates** — Customize or create your own prompt templates
 - **Preferred Language** — Set default programming language for code answers
 
 ---
