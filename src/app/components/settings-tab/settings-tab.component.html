@@ -142,14 +142,29 @@
             <button class="btn btn-small btn-secondary" (click)="resetTemplates()" title="Reset to default templates">↺ Reset</button>
           </div>
         </div>
+        
+        <!-- Active Template Indicator -->
+        <div class="active-template-info">
+          <span *ngIf="activeTemplateId">
+            ✓ Using: <strong>{{ getActiveTemplateName() }}</strong>
+          </span>
+          <span *ngIf="!activeTemplateId && customSystemPrompt">
+            📝 Custom prompt (not from template)
+          </span>
+          <span *ngIf="!activeTemplateId && !customSystemPrompt" class="no-prompt">
+            No system prompt set
+          </span>
+        </div>
+        
         <div class="templates-container">
           <div class="template-list">
             <div 
               *ngFor="let template of templates" 
               class="template-item"
+              [class.template-active]="isTemplateActive(template)"
               (click)="applyTemplate(template)"
-              [title]="template.prompt || 'Clear system prompt'"
             >
+              <span class="template-check" *ngIf="isTemplateActive(template)">✓</span>
               <span class="template-name">{{ template.name }}</span>
               <div class="template-actions">
                 <button class="btn-icon" (click)="editTemplate(template, $event)" title="Edit">✏️</button>
@@ -255,29 +270,52 @@
   </div>
 </div>
 
-<!-- Key Info Viewer Modal -->
+<!-- Key Info Viewer/Editor Modal -->
 <div class="modal-overlay" *ngIf="showKeyInfoModal" (click)="closeKeyInfoModal()">
   <div class="modal-dialog key-info-modal" (click)="$event.stopPropagation()">
     <div class="dialog-header">
-      <h3>📄 {{ keyInfoData?.fileName || 'Document' }} - Extracted Key Information</h3>
+      <h3>📄 {{ keyInfoData?.fileName || 'Document' }} - {{ isEditingKeyInfo ? 'Edit' : 'View' }} Key Information</h3>
       <button class="btn-close" (click)="closeKeyInfoModal()">×</button>
     </div>
     <div class="dialog-body">
       <div class="key-info-stats">
         <span>Original: {{ keyInfoData?.contentLength | number }} chars</span>
         <span>·</span>
-        <span>Key Info: {{ keyInfoData?.keyInfoLength | number }} chars</span>
+        <span>Key Info: {{ isEditingKeyInfo ? (editedKeyInfo.length | number) : (keyInfoData?.keyInfoLength | number) }} chars</span>
       </div>
-      <div class="key-info-content" *ngIf="keyInfoData?.keyInfo">
+      
+      <!-- View Mode -->
+      <div class="key-info-content" *ngIf="!isEditingKeyInfo && keyInfoData?.keyInfo">
         <pre>{{ keyInfoData?.keyInfo }}</pre>
       </div>
-      <div class="key-info-empty" *ngIf="!keyInfoData?.keyInfo">
+      
+      <!-- Edit Mode -->
+      <div class="key-info-edit" *ngIf="isEditingKeyInfo">
+        <textarea 
+          class="key-info-textarea"
+          [(ngModel)]="editedKeyInfo"
+          placeholder="Enter key information..."
+        ></textarea>
+      </div>
+      
+      <div class="key-info-empty" *ngIf="!isEditingKeyInfo && !keyInfoData?.keyInfo">
         No key information was extracted for this document.
       </div>
     </div>
     <div class="dialog-actions">
-      <button class="btn" (click)="copyKeyInfo()">📋 Copy</button>
-      <button class="btn btn-primary" (click)="closeKeyInfoModal()">Close</button>
+      <button class="btn" (click)="copyKeyInfo()" *ngIf="!isEditingKeyInfo">📋 Copy</button>
+      
+      <!-- View mode actions -->
+      <ng-container *ngIf="!isEditingKeyInfo">
+        <button class="btn" (click)="toggleEditKeyInfo()">✏️ Edit</button>
+        <button class="btn btn-primary" (click)="closeKeyInfoModal()">Close</button>
+      </ng-container>
+      
+      <!-- Edit mode actions -->
+      <ng-container *ngIf="isEditingKeyInfo">
+        <button class="btn" (click)="cancelKeyInfoEdit()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveKeyInfoEdit()">💾 Save</button>
+      </ng-container>
     </div>
   </div>
 </div>

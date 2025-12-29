@@ -33,6 +33,7 @@ export interface ElectronAPI {
   setActiveDoc: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   removeDoc: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   getDocKeyInfo: (filePath: string) => Promise<{ success: boolean; fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number; error?: string }>;
+  saveDocKeyInfo: (filePath: string, keyInfo: string) => Promise<{ success: boolean; keyInfoLength?: number; error?: string }>;
 
   saveApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
   getApiKey: () => Promise<string>;

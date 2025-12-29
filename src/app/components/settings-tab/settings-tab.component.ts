@@ -33,12 +33,16 @@ export class SettingsTabComponent implements OnInit {
 
   // Key Info Modal
   showKeyInfoModal: boolean = false;
-  keyInfoData: { fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number } | null = null;
+  keyInfoData: { fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number; filePath?: string } | null = null;
+  isEditingKeyInfo: boolean = false;
+  editedKeyInfo: string = '';
+  currentKeyInfoFilePath: string = '';
 
   // Template management
   showSaveTemplateDialog: boolean = false;
   newTemplateName: string = '';
   editingTemplateId: string | null = null;
+  activeTemplateId: string | null = null;
 
   // All templates (loaded from store - all are editable)
   templates: SystemPromptTemplate[] = [];
@@ -56,8 +60,19 @@ export class SettingsTabComponent implements OnInit {
     this.setupEventListeners();
   }
 
-  switchSubTab(tab: 'api' | 'behavior') {
+  async switchSubTab(tab: 'api' | 'behavior') {
     this.activeSubTab = tab;
+    
+    // Reload saved settings when switching tabs to discard unsaved changes
+    if (tab === 'behavior') {
+      // Reload the saved system prompt to discard any unsaved changes
+      const savedPrompt = await this.electronService.getCustomSystemPrompt();
+      this.ngZone.run(() => {
+        this.customSystemPrompt = savedPrompt || '';
+        this.detectActiveTemplate();
+        this.cdr.detectChanges();
+      });
+    }
   }
 
   async loadSettings() {
@@ -75,10 +90,16 @@ export class SettingsTabComponent implements OnInit {
     this.answerStyle = (preferences.answerStyle as any) || 'explanation';
     this.defaultModel = defaultModel;
     this.customSystemPrompt = customPrompt || '';
+    this.detectActiveTemplate();
   }
 
   async loadTemplates() {
-    this.templates = await this.electronService.getPromptTemplates();
+    const templates = await this.electronService.getPromptTemplates();
+    this.ngZone.run(() => {
+      this.templates = templates;
+      this.detectActiveTemplate();
+      this.cdr.detectChanges();
+    });
   }
 
   async loadDocuments() {
@@ -132,10 +153,32 @@ export class SettingsTabComponent implements OnInit {
 
   applyTemplate(template: SystemPromptTemplate) {
     this.customSystemPrompt = template.prompt;
+    this.activeTemplateId = template.id;
+    this.cdr.detectChanges();
   }
 
   getPromptCharCount(): number {
     return this.customSystemPrompt.length;
+  }
+
+  // Detect which template matches the current prompt
+  detectActiveTemplate() {
+    if (!this.customSystemPrompt) {
+      this.activeTemplateId = null;
+      return;
+    }
+    const matchingTemplate = this.templates.find(t => t.prompt === this.customSystemPrompt);
+    this.activeTemplateId = matchingTemplate?.id || null;
+  }
+
+  isTemplateActive(template: SystemPromptTemplate): boolean {
+    return this.activeTemplateId === template.id;
+  }
+
+  getActiveTemplateName(): string {
+    if (!this.activeTemplateId) return '';
+    const template = this.templates.find(t => t.id === this.activeTemplateId);
+    return template?.name || 'Custom';
   }
 
   // Template Management
@@ -193,7 +236,11 @@ export class SettingsTabComponent implements OnInit {
     if (confirm('Reset all templates to defaults? Your custom templates will be removed.')) {
       await this.electronService.resetPromptTemplates();
       await this.loadTemplates();
-      this.customSystemPrompt = '';
+      this.ngZone.run(() => {
+        this.customSystemPrompt = '';
+        this.activeTemplateId = null;
+        this.cdr.detectChanges();
+      });
       await this.saveSystemPrompt();
     }
   }
@@ -261,8 +308,10 @@ export class SettingsTabComponent implements OnInit {
       const result = await this.electronService.getDocKeyInfo(filePath);
       this.ngZone.run(() => {
         if (result.success && result.hasKeyInfo) {
-          this.keyInfoData = result;
+          this.keyInfoData = { ...result, filePath };
+          this.currentKeyInfoFilePath = filePath;
           this.showKeyInfoModal = true;
+          this.isEditingKeyInfo = false;
         } else if (!result.success) {
           console.error('Error loading key info:', result.error);
         }
@@ -276,6 +325,9 @@ export class SettingsTabComponent implements OnInit {
   closeKeyInfoModal() {
     this.showKeyInfoModal = false;
     this.keyInfoData = null;
+    this.isEditingKeyInfo = false;
+    this.editedKeyInfo = '';
+    this.currentKeyInfoFilePath = '';
   }
 
   copyKeyInfo() {
@@ -283,5 +335,49 @@ export class SettingsTabComponent implements OnInit {
       navigator.clipboard.writeText(this.keyInfoData.keyInfo);
       this.electronService.showToast('Key info copied to clipboard');
     }
+  }
+
+  toggleEditKeyInfo() {
+    if (!this.isEditingKeyInfo) {
+      // Enter edit mode
+      this.editedKeyInfo = this.keyInfoData?.keyInfo || '';
+      this.isEditingKeyInfo = true;
+    } else {
+      // Cancel edit mode
+      this.isEditingKeyInfo = false;
+      this.editedKeyInfo = '';
+    }
+    this.cdr.detectChanges();
+  }
+
+  async saveKeyInfoEdit() {
+    if (!this.currentKeyInfoFilePath) return;
+    
+    try {
+      const result = await this.electronService.saveDocKeyInfo(this.currentKeyInfoFilePath, this.editedKeyInfo);
+      this.ngZone.run(() => {
+        if (result.success) {
+          // Update local data
+          if (this.keyInfoData) {
+            this.keyInfoData.keyInfo = this.editedKeyInfo;
+            this.keyInfoData.keyInfoLength = result.keyInfoLength;
+          }
+          this.isEditingKeyInfo = false;
+          this.electronService.showToast('Key info saved');
+        } else {
+          console.error('Error saving key info:', result.error);
+          this.electronService.showToast('Failed to save key info');
+        }
+        this.cdr.detectChanges();
+      });
+    } catch (error) {
+      console.error('Error saving key info:', error);
+    }
+  }
+
+  cancelKeyInfoEdit() {
+    this.isEditingKeyInfo = false;
+    this.editedKeyInfo = '';
+    this.cdr.detectChanges();
   }
 }

@@ -1,6 +1,25 @@
 // path: src/main/ipc/preferences.ts
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 
+// Default prompt templates
+const DEFAULT_PROMPT_TEMPLATES = [
+  {
+    id: 'default-coding',
+    name: 'Coding Helper',
+    prompt: 'You are a senior software engineer. Provide concise, practical code solutions with clear explanations. Focus on best practices and clean code.'
+  },
+  {
+    id: 'default-interview',
+    name: 'Interview Coach',
+    prompt: 'You are an expert technical interviewer. Help analyze coding problems, explain optimal solutions, and provide tips for technical interviews.'
+  },
+  {
+    id: 'default-explain',
+    name: 'Concept Explainer',
+    prompt: 'You are a patient teacher. Explain concepts clearly with examples. Break down complex topics into simple, understandable parts.'
+  }
+];
+
 export function registerPreferencesIPC(
   ipcMain: IpcMain,
   deps: {
@@ -148,9 +167,9 @@ export function registerPreferencesIPC(
     }
   });
 
-  ipcMain.handle('resetPromptTemplates', (_event: IpcMainInvokeEvent, defaultTemplates: Array<{ id: string; name: string; prompt: string }>) => {
+  ipcMain.handle('resetPromptTemplates', () => {
     try {
-      store.set('promptTemplates', defaultTemplates);
+      store.set('promptTemplates', DEFAULT_PROMPT_TEMPLATES);
       log.info('Prompt templates reset to defaults');
       return { success: true };
     } catch (error: any) {

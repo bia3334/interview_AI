@@ -168,6 +168,34 @@ export const getDocKeyInfo = (filePath: string) => {
 };
 
 /**
+ * Save/update document key info
+ */
+export const saveDocKeyInfo = (filePath: string, keyInfo: string, mainWindow: BrowserWindow | null, log: any) => {
+  const idx = importedDocs.findIndex((d) => d.filePath === filePath);
+  if (idx < 0) return { success: false, error: 'Document not found' };
+  
+  importedDocs[idx].keyInfo = keyInfo;
+  saveDocsToStore();
+  
+  // Update active doc key info if this is the active document
+  if (activeDocPath === filePath) {
+    activeDocKeyInfo = keyInfo;
+  }
+  
+  log.info(`Updated key info for: ${filePath}`);
+  
+  // Notify renderer to refresh
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('documents-updated');
+  }
+  
+  return { 
+    success: true, 
+    keyInfoLength: keyInfo.length 
+  };
+};
+
+/**
  * Get active document info
  */
 export const getActiveDocInfo = () => {
@@ -258,6 +286,15 @@ export function registerDocumentsIPC(
       return getDocKeyInfo(filePath);
     } catch (err: any) {
       deps.log.error('docs:getKeyInfo error', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('docs:saveKeyInfo', (_e, filePath: string, keyInfo: string) => {
+    try {
+      return saveDocKeyInfo(filePath, keyInfo, deps.mainWindow(), deps.log);
+    } catch (err: any) {
+      deps.log.error('docs:saveKeyInfo error', err);
       return { success: false, error: err.message };
     }
   });
