@@ -8,17 +8,21 @@
   </div>
 
   <div class="tabs">
-    <div class="tab" [class.active]="activeTab === 'prompt'" (click)="switchTab('prompt')" data-tab="prompt">Prompt</div>
-    <div class="tab" [class.active]="activeTab === 'history'" (click)="switchTab('history')" data-tab="history">History</div>
-    <div class="tab" [class.active]="activeTab === 'settings'" (click)="switchTab('settings')" data-tab="settings">Settings</div>
-    <div class="tab" [class.active]="activeTab === 'shortcuts'" (click)="switchTab('shortcuts')" data-tab="shortcuts">Shortcuts</div>
+    <div 
+      *ngFor="let tab of tabs" 
+      class="tab" 
+      [class.active]="activeTab === tab.id" 
+      (click)="switchTab(tab.id)" 
+      [attr.data-tab]="tab.id">
+      {{ tab.label }}
+    </div>
   </div>
 
-  <div class="content">
-    <app-prompt-tab *ngIf="activeTab === 'prompt'" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
-    <app-history-tab *ngIf="activeTab === 'history'" (continueItem)="onContinueItem($event)"></app-history-tab>
-    <app-settings-tab *ngIf="activeTab === 'settings'"></app-settings-tab>
-    <app-shortcuts-tab *ngIf="activeTab === 'shortcuts'"></app-shortcuts-tab>
+  <div class="content" [ngSwitch]="activeTab">
+    <app-prompt-tab *ngSwitchCase="TAB.PROMPT" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
+    <app-history-tab *ngSwitchCase="TAB.HISTORY" (continueItem)="onContinueItem($event)"></app-history-tab>
+    <app-settings-tab *ngSwitchCase="TAB.SETTINGS"></app-settings-tab>
+    <app-shortcuts-tab *ngSwitchCase="TAB.SHORTCUTS"></app-shortcuts-tab>
   </div>
 
   <div class="footer">

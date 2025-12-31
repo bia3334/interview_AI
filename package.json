@@ -2,13 +2,14 @@
   "name": "open-interview-coder",
   "version": "1.0.0",
   "description": "An invisible desktop application to help you pass your technical interviews.",
+  "author": "Screen Genius",
   "main": "dist/main.js",
   "scripts": {
     "ng:build": "ng build --configuration development",
     "ng:build:prod": "ng build --configuration production",
-    "start": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && electron dist/main.js",
-    "dev": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && electron dist/main.js",
-    "build": "npm run ng:build:prod && tsc && copy src\\overlay.html dist\\angular\\ && electron-builder --win --config.win.signAndEditExecutable=false",
+    "start": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && copy src\\region-selection.html dist\\angular\\ && electron dist/main.js",
+    "dev": "npm run ng:build && tsc && copy src\\overlay.html dist\\angular\\ && copy src\\region-selection.html dist\\angular\\ && electron dist/main.js",
+    "build": "npm run ng:build:prod && tsc && copy src\\overlay.html dist\\angular\\ && copy src\\region-selection.html dist\\angular\\ && electron-builder --win --config.win.signAndEditExecutable=false",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -74,7 +75,8 @@
       "**/node_modules/pdf-parse/**",
       "**/node_modules/pdfjs-dist/**",
       "**/node_modules/jszip/**",
-      "**/node_modules/sharp/**"
+      "**/node_modules/sharp/**",
+      "**/node_modules/screenshot-desktop/**"
     ],
     "directories": {
       "output": "release"

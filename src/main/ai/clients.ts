@@ -1,14 +1,15 @@
 import { OpenAI } from 'openai';
 const { GoogleGenAI } = require('@google/genai');
+import { AI_MODELS, DEFAULT_AI_PROVIDER } from '../constants/ai';
 
 // AI Models Configuration
 export const AI_CONFIG = {
-  default: 'openai', // Default AI provider
+  default: DEFAULT_AI_PROVIDER,
   gemini: {
-    model: "gemini-2.5-flash"
+    model: AI_MODELS.gemini.default
   },
   openai: {
-    model: "gpt-5.1"
+    model: AI_MODELS.openai.default
   }
 };
 

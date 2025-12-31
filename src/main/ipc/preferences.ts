@@ -1,24 +1,6 @@
 // path: src/main/ipc/preferences.ts
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
-
-// Default prompt templates
-const DEFAULT_PROMPT_TEMPLATES = [
-  {
-    id: 'default-coding',
-    name: 'Coding Helper',
-    prompt: 'You are a senior software engineer. Provide concise, practical code solutions with clear explanations. Focus on best practices and clean code.'
-  },
-  {
-    id: 'default-interview',
-    name: 'Interview Coach',
-    prompt: 'You are an expert technical interviewer. Help analyze coding problems, explain optimal solutions, and provide tips for technical interviews.'
-  },
-  {
-    id: 'default-explain',
-    name: 'Concept Explainer',
-    prompt: 'You are a patient teacher. Explain concepts clearly with examples. Break down complex topics into simple, understandable parts.'
-  }
-];
+import { DEFAULT_PROMPT_TEMPLATES } from '../constants/prompts';
 
 export function registerPreferencesIPC(
   ipcMain: IpcMain,

@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ElectronService } from './services/electron.service';
 import { HistoryItem } from './components/history-tab/history-tab.component';
+import { TABS, TAB_IDS, DEFAULT_TAB, TAB, TabConfig, TabId } from './constants/tabs';
 
 @Component({
   selector: 'app-root',
@@ -9,8 +10,10 @@ import { HistoryItem } from './components/history-tab/history-tab.component';
   standalone: false
 })
 export class AppComponent implements OnInit {
-  activeTab: string = 'prompt';
+  activeTab: TabId = DEFAULT_TAB;
   continuedItem: HistoryItem | null = null;
+  tabs: TabConfig[] = TABS;
+  TAB = TAB; // Expose to template
 
   constructor(private electronService: ElectronService) {}
 
@@ -18,27 +21,26 @@ export class AppComponent implements OnInit {
     console.log('AppComponent: Initialized');
     // Subscribe to tab switching events from main process
     this.electronService.onSwitchTab().subscribe((direction: string) => {
-      const tabs = ['prompt', 'history', 'settings', 'shortcuts'];
-      const currentIndex = tabs.indexOf(this.activeTab);
+      const currentIndex = TAB_IDS.indexOf(this.activeTab as TabId);
       let nextIndex: number;
       
       if (direction === 'previous') {
-        nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        nextIndex = (currentIndex - 1 + TAB_IDS.length) % TAB_IDS.length;
       } else {
-        nextIndex = (currentIndex + 1) % tabs.length;
+        nextIndex = (currentIndex + 1) % TAB_IDS.length;
       }
       
-      this.activeTab = tabs[nextIndex];
+      this.activeTab = TAB_IDS[nextIndex] as TabId;
     });
   }
 
-  switchTab(tabName: string) {
+  switchTab(tabName: TabId) {
     this.activeTab = tabName;
   }
 
   onContinueItem(item: HistoryItem) {
     this.continuedItem = item;
-    this.activeTab = 'prompt';
+    this.activeTab = TAB.PROMPT;
   }
 
   onItemLoaded() {

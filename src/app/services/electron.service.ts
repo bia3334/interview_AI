@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { ElectronAPI } from '../../preload/types';
+import { STORAGE_KEYS } from '../constants/settings';
 
 export interface HistoryItem {
   id: string;
@@ -34,7 +35,7 @@ export class ElectronService {
   private documentsUpdated$ = new Subject<void>();
 
   // Local history storage key
-  private readonly HISTORY_KEY = 'qa_history';
+  private readonly HISTORY_KEY = STORAGE_KEYS.HISTORY;
 
   constructor() {
     console.log('ElectronService: Initializing...');

@@ -1,6 +1,5 @@
+import { BrowserWindow, IpcMain } from 'electron';
 import * as path from 'path';
-import * as fs from 'fs';
-import { IpcMain, BrowserWindow } from 'electron';
 
 // Active Document Context
 let activeDocContext: string | null = null;

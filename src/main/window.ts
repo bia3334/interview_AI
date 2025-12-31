@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
+import { WINDOW_MOVE_STEP } from './constants/app';
 
 let mainWindow: BrowserWindow | null = null;
 let isIgnoringMouseEvents = true;
@@ -90,16 +91,15 @@ export function moveWindow(direction: 'up' | 'down' | 'left' | 'right') {
   if (!mainWindow) return;
 
   const position = mainWindow.getPosition();
-  const step = 200;
 
   let newX = position[0];
   let newY = position[1];
 
   switch (direction) {
-    case 'up': newY -= step; break;
-    case 'down': newY += step; break;
-    case 'left': newX -= step; break;
-    case 'right': newX += step; break;
+    case 'up': newY -= WINDOW_MOVE_STEP; break;
+    case 'down': newY += WINDOW_MOVE_STEP; break;
+    case 'left': newX -= WINDOW_MOVE_STEP; break;
+    case 'right': newX += WINDOW_MOVE_STEP; break;
   }
 
   mainWindow.setPosition(newX, newY);

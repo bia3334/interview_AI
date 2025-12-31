@@ -1,6 +1,7 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, NgZone, ChangeDetectorRef, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 import { ElectronService, HistoryItem } from '../../services/electron.service';
 import { MarkdownService } from '../../services/markdown.service';
+import { DEFAULTS, AIProvider } from '../../constants/settings';
 
 @Component({
   selector: 'app-prompt-tab',
@@ -12,7 +13,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   userInput: string = '';
   openaiResponse: string = '';
   geminiResponse: string = '';
-  defaultModel: 'openai' | 'gemini' | 'both' = 'both';
+  defaultModel: AIProvider = DEFAULTS.MODEL;
   showBoth: boolean = true;
   isLoading: boolean = false;
   screenshots: string[] = [];

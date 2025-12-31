@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      cursor: crosshair;
+      user-select: none;
+      background: transparent;
+      overflow: hidden;
+      -webkit-app-region: no-drag;
+    }
+    
+    * {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    
+    .selection-box {
+      position: absolute;
+      border: none;
+      background: transparent;
+      display: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div class="selection-box" id="selectionBox"></div>
+  
+  <script>
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+    
+    window.addEventListener('blur', () => window.focus());
+    
+    let isSelecting = false;
+    let captured = false;
+    let startX, startY;
+    
+    document.addEventListener('mousedown', e => {
+      if (captured) return;
+      isSelecting = true;
+      startX = e.clientX;
+      startY = e.clientY;
+    });
+    
+    document.addEventListener('mousemove', e => {
+      if (!isSelecting) return;
+    });
+    
+    document.addEventListener('mouseup', e => {
+      if (!isSelecting || captured) return;
+      isSelecting = false;
+      captured = true;
+      
+      const left = Math.min(startX, e.clientX);
+      const top = Math.min(startY, e.clientY);
+      const width = Math.abs(e.clientX - startX);
+      const height = Math.abs(e.clientY - startY);
+      
+      if (width > 10 && height > 10) {
+        window.electronAPI.captureRegion({ x: left, y: top, width, height });
+      } else {
+        captured = false;
+      }
+    });
+    
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        window.electronAPI.cancelRegionScreenshot();
+      }
+    });
+  </script>
+</body>
+</html>

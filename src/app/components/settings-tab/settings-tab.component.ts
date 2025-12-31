@@ -1,5 +1,6 @@
 import { Component, OnInit, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ElectronService } from '../../services/electron.service';
+import { DEFAULTS, AIProvider, AnswerStyle } from '../../constants/settings';
 
 interface SystemPromptTemplate {
   id: string;
@@ -20,11 +21,11 @@ export class SettingsTabComponent implements OnInit {
   // API & Models
   openaiApiKey: string = '';
   geminiApiKey: string = '';
-  defaultModel: 'openai' | 'gemini' | 'both' = 'both';
+  defaultModel: AIProvider = DEFAULTS.MODEL;
 
   // AI Behavior
-  preferredLanguage: string = 'python';
-  answerStyle: 'code' | 'explanation' | 'multiple-choice' = 'explanation';
+  preferredLanguage: string = DEFAULTS.LANGUAGE;
+  answerStyle: AnswerStyle = DEFAULTS.ANSWER_STYLE;
   customSystemPrompt: string = '';
   
   // Documents
