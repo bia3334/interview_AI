@@ -1,6 +1,7 @@
 import { Component, OnInit, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ElectronService } from '../../services/electron.service';
 import { DEFAULTS, AIProvider, AnswerStyle } from '../../constants/settings';
+import { OCR_LANGUAGES, OCRSettings, DEFAULT_OCR_SETTINGS } from '../../constants/ocr';
 
 interface SystemPromptTemplate {
   id: string;
@@ -16,17 +17,28 @@ interface SystemPromptTemplate {
 })
 export class SettingsTabComponent implements OnInit {
   // Sub-tab state
-  activeSubTab: 'api' | 'behavior' = 'api';
+  activeSubTab: 'api' | 'behavior' | 'ocr' = 'api';
 
   // API & Models
   openaiApiKey: string = '';
   geminiApiKey: string = '';
   defaultModel: AIProvider = DEFAULTS.MODEL;
 
+  // LM Studio Settings
+  lmstudioEnabled: boolean = false;
+  lmstudioEndpoint: string = 'http://localhost:1234/v1';
+  lmstudioModel: string = 'local-model';
+  lmstudioTestLoading: boolean = false;
+
   // AI Behavior
   preferredLanguage: string = DEFAULTS.LANGUAGE;
   answerStyle: AnswerStyle = DEFAULTS.ANSWER_STYLE;
   customSystemPrompt: string = '';
+  
+  // OCR Settings
+  ocrEnabled: boolean = DEFAULT_OCR_SETTINGS.enabled;
+  ocrLanguage: string = DEFAULT_OCR_SETTINGS.language;
+  ocrLanguages = OCR_LANGUAGES;
   
   // Documents
   activeDocInfo: { hasContext: boolean; fileName?: string; length?: number; hasKeyInfo?: boolean } = { hasContext: false };
@@ -58,10 +70,11 @@ export class SettingsTabComponent implements OnInit {
     this.loadSettings();
     this.loadDocuments();
     this.loadTemplates();
+    this.loadOCRSettings();
     this.setupEventListeners();
   }
 
-  async switchSubTab(tab: 'api' | 'behavior') {
+  async switchSubTab(tab: 'api' | 'behavior' | 'ocr') {
     this.activeSubTab = tab;
     
     // Reload saved settings when switching tabs to discard unsaved changes
@@ -73,16 +86,19 @@ export class SettingsTabComponent implements OnInit {
         this.detectActiveTemplate();
         this.cdr.detectChanges();
       });
+    } else if (tab === 'ocr') {
+      await this.loadOCRSettings();
     }
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, preferences, defaultModel, customPrompt] = await Promise.all([
+    const [openaiKey, geminiKey, preferences, defaultModel, customPrompt, lmstudioSettings] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
       this.electronService.getPreferences(),
       this.electronService.getDefaultModel(),
-      this.electronService.getCustomSystemPrompt()
+      this.electronService.getCustomSystemPrompt(),
+      this.electronService.getLMStudioSettings()
     ]);
 
     this.openaiApiKey = openaiKey || '';
@@ -91,7 +107,125 @@ export class SettingsTabComponent implements OnInit {
     this.answerStyle = (preferences.answerStyle as any) || 'explanation';
     this.defaultModel = defaultModel;
     this.customSystemPrompt = customPrompt || '';
+    
+    // LM Studio settings
+    this.lmstudioEnabled = lmstudioSettings.enabled;
+    this.lmstudioEndpoint = lmstudioSettings.endpoint;
+    this.lmstudioModel = lmstudioSettings.model;
+    
     this.detectActiveTemplate();
+  }
+
+  async loadOCRSettings() {
+    const settings = await this.electronService.getOCRSettings();
+    this.ngZone.run(() => {
+      this.ocrEnabled = settings.enabled;
+      this.ocrLanguage = settings.language;
+      this.cdr.detectChanges();
+    });
+  }
+
+  async saveOCRSettings() {
+    const result = await this.electronService.saveOCRSettings({
+      enabled: this.ocrEnabled,
+      language: this.ocrLanguage,
+    });
+    if (result.success) {
+      this.electronService.showToast('OCR settings saved');
+    }
+  }
+
+  // OCR Test state
+  ocrTestResult: { text: string; confidence: number } | null = null;
+  ocrTestLoading: boolean = false;
+
+  async testOCR() {
+    this.ocrTestLoading = true;
+    this.ocrTestResult = null;
+    this.cdr.detectChanges();
+
+    const result = await this.electronService.testOCR();
+    
+    this.ngZone.run(() => {
+      this.ocrTestLoading = false;
+      if (result.success && result.text) {
+        this.ocrTestResult = {
+          text: result.text,
+          confidence: result.confidence || 0,
+        };
+        this.electronService.showToast(`OCR: ${result.confidence?.toFixed(0)}% confidence`);
+      } else {
+        this.electronService.showToast(result.error || 'OCR failed');
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  copyOCRText() {
+    if (this.ocrTestResult?.text) {
+      navigator.clipboard.writeText(this.ocrTestResult.text);
+      this.electronService.showToast('Copied to clipboard');
+    }
+  }
+
+  // LM Studio methods
+  async onLMStudioToggle() {
+    // When enabling LM Studio, auto-set it as default model
+    if (this.lmstudioEnabled) {
+      this.defaultModel = 'lmstudio';
+      await this.electronService.saveDefaultModel('lmstudio');
+      
+      // Auto-enable OCR (LM Studio is text-only)
+      if (!this.ocrEnabled) {
+        this.ocrEnabled = true;
+        await this.saveOCRSettings();
+      }
+      this.electronService.showToast('LM Studio enabled - OCR auto-activated');
+    } else {
+      // When disabling LM Studio, revert to 'both' as default
+      this.defaultModel = 'both';
+      await this.electronService.saveDefaultModel('both');
+      this.electronService.showToast('LM Studio disabled - switched to cloud models');
+    }
+    
+    await this.saveLMStudioSettings();
+  }
+
+  isOCRForcedByLMStudio(): boolean {
+    return this.lmstudioEnabled && this.defaultModel === 'lmstudio';
+  }
+
+  async saveLMStudioSettings() {
+    const result = await this.electronService.saveLMStudioSettings({
+      enabled: this.lmstudioEnabled,
+      endpoint: this.lmstudioEndpoint,
+      model: this.lmstudioModel,
+    });
+    if (result.success) {
+      this.electronService.showToast('LM Studio settings saved');
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save LM Studio settings');
+    }
+  }
+
+  async testLMStudioConnection() {
+    this.lmstudioTestLoading = true;
+    this.cdr.detectChanges();
+
+    // Save settings first before testing
+    await this.saveLMStudioSettings();
+
+    const result = await this.electronService.testLMStudioConnection();
+    
+    this.ngZone.run(() => {
+      this.lmstudioTestLoading = false;
+      if (result.success) {
+        this.electronService.showToast('LM Studio connected successfully!');
+      } else {
+        this.electronService.showToast(result.error || 'Failed to connect to LM Studio');
+      }
+      this.cdr.detectChanges();
+    });
   }
 
   async loadTemplates() {

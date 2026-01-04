@@ -18,11 +18,11 @@
     </div>
   </div>
 
-  <div class="content" [ngSwitch]="activeTab">
-    <app-prompt-tab *ngSwitchCase="TAB.PROMPT" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
-    <app-history-tab *ngSwitchCase="TAB.HISTORY" (continueItem)="onContinueItem($event)"></app-history-tab>
-    <app-settings-tab *ngSwitchCase="TAB.SETTINGS"></app-settings-tab>
-    <app-shortcuts-tab *ngSwitchCase="TAB.SHORTCUTS"></app-shortcuts-tab>
+  <div class="content">
+    <app-prompt-tab [hidden]="activeTab !== TAB.PROMPT" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
+    <app-history-tab [hidden]="activeTab !== TAB.HISTORY" (continueItem)="onContinueItem($event)"></app-history-tab>
+    <app-settings-tab [hidden]="activeTab !== TAB.SETTINGS"></app-settings-tab>
+    <app-shortcuts-tab [hidden]="activeTab !== TAB.SHORTCUTS"></app-shortcuts-tab>
   </div>
 
   <div class="footer">

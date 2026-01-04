@@ -10,6 +10,7 @@ export interface HistoryItem {
   screenshotCount: number;
   openaiResponse?: string;
   geminiResponse?: string;
+  lmstudioResponse?: string;
 }
 
 @Injectable({
@@ -23,7 +24,7 @@ export class ElectronService {
   private processScreenshots$ = new Subject<void>();
   private screenshotsCleared$ = new Subject<void>();
   private answerStyleChanged$ = new Subject<string>();
-  private modelChanged$ = new Subject<'openai' | 'gemini' | 'both'>();
+  private modelChanged$ = new Subject<'openai' | 'gemini' | 'both' | 'lmstudio'>();
   private switchTab$ = new Subject<string>();
   private responseCopied$ = new Subject<void>();
   private processClipboardPrompt$ = new Subject<void>();
@@ -109,7 +110,16 @@ export class ElectronService {
     return this.electronAPI.sendConversationToGemini(messages);
   }
 
-  processClipboardPrompt(): Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; error?: string }> {
+  // LM Studio
+  sendPromptToLMStudio(prompt: string): Promise<string> {
+    return this.electronAPI.sendPromptToLMStudio(prompt);
+  }
+
+  sendConversationToLMStudio(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
+    return this.electronAPI.sendConversationToLMStudio(messages);
+  }
+
+  processClipboardPrompt(): Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; error?: string }> {
     return this.electronAPI.processClipboardPrompt();
   }
 
@@ -151,11 +161,11 @@ export class ElectronService {
     return this.electronAPI.savePreferences(preferences);
   }
 
-  getDefaultModel(): Promise<'openai' | 'gemini' | 'both'> {
+  getDefaultModel(): Promise<'openai' | 'gemini' | 'both' | 'lmstudio'> {
     return this.electronAPI.getDefaultModel();
   }
 
-  saveDefaultModel(defaultModel: 'openai' | 'gemini' | 'both'): Promise<{ success: boolean; error?: string }> {
+  saveDefaultModel(defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio'): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveDefaultModel(defaultModel);
   }
 
@@ -213,6 +223,32 @@ export class ElectronService {
 
   resetPromptTemplates(): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.resetPromptTemplates();
+  }
+
+  // OCR Settings
+  getOCRSettings(): Promise<{ enabled: boolean; language: string }> {
+    return this.electronAPI.getOCRSettings();
+  }
+
+  saveOCRSettings(settings: { enabled: boolean; language: string }): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveOCRSettings(settings);
+  }
+
+  testOCR(): Promise<{ success: boolean; text?: string; confidence?: number; error?: string }> {
+    return this.electronAPI.testOCR();
+  }
+
+  // LM Studio Settings
+  getLMStudioSettings(): Promise<{ enabled: boolean; endpoint: string; model: string }> {
+    return this.electronAPI.getLMStudioSettings();
+  }
+
+  saveLMStudioSettings(settings: { enabled: boolean; endpoint: string; model: string }): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveLMStudioSettings(settings);
+  }
+
+  testLMStudioConnection(): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.testLMStudioConnection();
   }
 
   // Documents
@@ -273,7 +309,7 @@ export class ElectronService {
     return this.answerStyleChanged$.asObservable();
   }
 
-  onModelChanged(): Observable<'openai' | 'gemini' | 'both'> {
+  onModelChanged(): Observable<'openai' | 'gemini' | 'both' | 'lmstudio'> {
     return this.modelChanged$.asObservable();
   }
 
@@ -383,10 +419,12 @@ export class ElectronService {
       sendPrompt: () => Promise.resolve('Mock response'),
       sendPromptToOpenAI: () => Promise.resolve('Mock OpenAI response'),
       sendPromptToGemini: () => Promise.resolve('Mock Gemini response'),
+      sendPromptToLMStudio: () => Promise.resolve('Mock LM Studio response'),
       sendPromptWithScreenshotsToOpenAI: () => Promise.resolve('Mock OpenAI response with screenshots'),
       sendPromptWithScreenshotsToGemini: () => Promise.resolve('Mock Gemini response with screenshots'),
       sendConversationToOpenAI: () => Promise.resolve('Mock OpenAI conversation response'),
       sendConversationToGemini: () => Promise.resolve('Mock Gemini conversation response'),
+      sendConversationToLMStudio: () => Promise.resolve('Mock LM Studio conversation response'),
       closeWindow: () => {},
       hideWindow: () => {},
       showWindow: () => {},
@@ -431,6 +469,12 @@ export class ElectronService {
       savePromptTemplate: () => Promise.resolve({ success: false }),
       deletePromptTemplate: () => Promise.resolve({ success: false }),
       resetPromptTemplates: () => Promise.resolve({ success: false }),
+      getOCRSettings: () => Promise.resolve({ enabled: false, language: 'eng' }),
+      saveOCRSettings: () => Promise.resolve({ success: false }),
+      testOCR: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      getLMStudioSettings: () => Promise.resolve({ enabled: false, endpoint: 'http://localhost:1234/v1', model: 'local-model' }),
+      saveLMStudioSettings: () => Promise.resolve({ success: false }),
+      testLMStudioConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       copyLatestResponse: () => Promise.resolve({ success: false }),
       processClipboardPrompt: () => Promise.resolve({ success: false }),
       getScreenshots: () => Promise.resolve([]),

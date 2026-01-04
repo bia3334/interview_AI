@@ -1,6 +1,19 @@
 // path: src/main/ipc/preferences.ts
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { DEFAULT_PROMPT_TEMPLATES } from '../constants/prompts';
+import { OCR_CONFIG, OCRLanguage } from '../constants/ocr';
+import { LMSTUDIO_CONFIG } from '../constants/ai';
+
+export interface OCRSettings {
+  enabled: boolean;
+  language: OCRLanguage;
+}
+
+export interface LMStudioSettings {
+  enabled: boolean;
+  endpoint: string;
+  model: string;
+}
 
 export function registerPreferencesIPC(
   ipcMain: IpcMain,
@@ -8,9 +21,10 @@ export function registerPreferencesIPC(
     store: { get: (k: string, d?: any) => any; set: (k: string, v: any) => void };
     log: { info: (...args: any[]) => void; error: (...args: any[]) => void };
     getApiKey: (type: 'openai' | 'gemini') => string;
+    mainWindow: () => Electron.BrowserWindow | null;
   }
 ) {
-  const { store, log, getApiKey } = deps;
+  const { store, log, getApiKey, mainWindow } = deps;
 
   ipcMain.handle('save-api-key', (_event: IpcMainInvokeEvent, apiKey: string) => {
     try {
@@ -73,9 +87,14 @@ export function registerPreferencesIPC(
     answerStyle: store.get('answerStyle') || 'explanation',
   }));
 
-  ipcMain.handle('saveDefaultModel', (_event: IpcMainInvokeEvent, defaultModel: 'openai' | 'gemini' | 'both') => {
+  ipcMain.handle('saveDefaultModel', (_event: IpcMainInvokeEvent, defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio') => {
     try {
       store.set('defaultModel', defaultModel);
+      // Notify renderer of model change
+      const win = mainWindow();
+      if (win) {
+        win.webContents.send('model-changed', defaultModel);
+      }
       return { success: true };
     } catch (error: any) {
       log.error('Error saving default model preference:', error);
@@ -194,6 +213,48 @@ export function registerPreferencesIPC(
       return { success: true };
     } catch (error: any) {
       log.error('Error deleting prompt template:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // OCR Settings
+  ipcMain.handle('getOCRSettings', (): OCRSettings => {
+    return {
+      enabled: store.get('ocrEnabled', OCR_CONFIG.DEFAULT_ENABLED),
+      language: store.get('ocrLanguage', OCR_CONFIG.DEFAULT_LANGUAGE),
+    };
+  });
+
+  ipcMain.handle('saveOCRSettings', (_event: IpcMainInvokeEvent, settings: OCRSettings) => {
+    try {
+      store.set('ocrEnabled', settings.enabled);
+      store.set('ocrLanguage', settings.language);
+      log.info('OCR settings saved:', settings);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving OCR settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // LM Studio Settings
+  ipcMain.handle('getLMStudioSettings', (): LMStudioSettings => {
+    return {
+      enabled: store.get('lmstudioEnabled', false),
+      endpoint: store.get('lmstudioEndpoint', LMSTUDIO_CONFIG.DEFAULT_ENDPOINT),
+      model: store.get('lmstudioModel', LMSTUDIO_CONFIG.DEFAULT_MODEL),
+    };
+  });
+
+  ipcMain.handle('saveLMStudioSettings', (_event: IpcMainInvokeEvent, settings: LMStudioSettings) => {
+    try {
+      store.set('lmstudioEnabled', settings.enabled);
+      store.set('lmstudioEndpoint', settings.endpoint);
+      store.set('lmstudioModel', settings.model);
+      log.info('LM Studio settings saved:', settings);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving LM Studio settings:', error);
       return { success: false, error: error.message };
     }
   });

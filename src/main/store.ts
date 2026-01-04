@@ -4,8 +4,9 @@
 import { AI_CONFIG } from './ai/clients';
 import { DEFAULT_PROMPT_TEMPLATES } from './constants/prompts';
 import { DEFAULT_ANSWER_STYLE, DEFAULT_LANGUAGE } from './constants/answer-styles';
-import { AI_PROVIDER } from './constants/ai';
+import { AI_PROVIDER, LMSTUDIO_CONFIG } from './constants/ai';
 import { DEFAULT_WINDOW } from './constants/app';
+import { OCR_CONFIG, OCRLanguage } from './constants/ocr';
 
 const Store = require('electron-store');
 
@@ -14,13 +15,20 @@ export interface StoreSchema {
   windowSize: { width: number; height: number };
   preferredLanguage: string;
   answerStyle: 'code' | 'explanation' | 'multiple-choice';
-  defaultModel: 'both' | 'openai' | 'gemini';
+  defaultModel: 'both' | 'openai' | 'gemini' | 'lmstudio';
   openaiModel: string;
   customSystemPrompt: string;
   promptTemplates: Array<{ id: string; name: string; prompt: string }>;
   apiKey?: string;
   openaiApiKey?: string;
   geminiApiKey?: string;
+  // OCR settings
+  ocrEnabled: boolean;
+  ocrLanguage: OCRLanguage;
+  // LM Studio settings
+  lmstudioEnabled: boolean;
+  lmstudioEndpoint: string;
+  lmstudioModel: string;
 }
 
 export const STORE_DEFAULTS: StoreSchema = {
@@ -31,7 +39,14 @@ export const STORE_DEFAULTS: StoreSchema = {
   defaultModel: AI_PROVIDER.BOTH,
   openaiModel: AI_CONFIG.openai.model,
   customSystemPrompt: '',
-  promptTemplates: DEFAULT_PROMPT_TEMPLATES
+  promptTemplates: DEFAULT_PROMPT_TEMPLATES,
+  // OCR defaults
+  ocrEnabled: OCR_CONFIG.DEFAULT_ENABLED,
+  ocrLanguage: OCR_CONFIG.DEFAULT_LANGUAGE,
+  // LM Studio defaults
+  lmstudioEnabled: false,
+  lmstudioEndpoint: LMSTUDIO_CONFIG.DEFAULT_ENDPOINT,
+  lmstudioModel: LMSTUDIO_CONFIG.DEFAULT_MODEL,
 };
 
 export function createStore() {

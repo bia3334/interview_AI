@@ -1,2 +1,21 @@
 /* Styles will be inherited from existing app.css */
 
+/* Ensure [hidden] works with flex containers */
+app-prompt-tab[hidden],
+app-history-tab[hidden],
+app-settings-tab[hidden],
+app-shortcuts-tab[hidden] {
+  display: none !important;
+}
+
+app-prompt-tab,
+app-history-tab,
+app-settings-tab,
+app-shortcuts-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+

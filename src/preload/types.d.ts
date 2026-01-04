@@ -3,10 +3,12 @@ export interface ElectronAPI {
   sendPrompt: (prompt: string) => Promise<string>;
   sendPromptToOpenAI: (prompt: string) => Promise<string>;
   sendPromptToGemini: (prompt: string) => Promise<string>;
+  sendPromptToLMStudio: (prompt: string) => Promise<string>;
   sendPromptWithScreenshotsToOpenAI: (prompt: string) => Promise<string>;
   sendPromptWithScreenshotsToGemini: (prompt: string) => Promise<string>;
   sendConversationToOpenAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
   sendConversationToGemini: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
+  sendConversationToLMStudio: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
 
   closeWindow: () => void;
   hideWindow: () => void;
@@ -43,8 +45,8 @@ export interface ElectronAPI {
   getOpenAIApiKey: () => Promise<string>;
   savePreferences: (preferences: { preferredLanguage: string; answerStyle?: 'code' | 'explanation' | 'multiple-choice' }) => Promise<{ success: boolean; error?: string }>;
   getPreferences: () => Promise<{ preferredLanguage: string; answerStyle: string }>;
-  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both') => Promise<{ success: boolean; error?: string }>;
-  getDefaultModel: () => Promise<'openai' | 'gemini' | 'both'>;
+  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio') => Promise<{ success: boolean; error?: string }>;
+  getDefaultModel: () => Promise<'openai' | 'gemini' | 'both' | 'lmstudio'>;
 
   saveOpenAIModel: (model: string) => Promise<{ success: boolean; error?: string }>;
   getOpenAIModel: () => Promise<string>;
@@ -63,8 +65,18 @@ export interface ElectronAPI {
   deletePromptTemplate: (templateId: string) => Promise<{ success: boolean; error?: string }>;
   resetPromptTemplates: () => Promise<{ success: boolean; error?: string }>;
 
+  // OCR Settings
+  getOCRSettings: () => Promise<{ enabled: boolean; language: string }>;
+  saveOCRSettings: (settings: { enabled: boolean; language: string }) => Promise<{ success: boolean; error?: string }>;
+  testOCR: () => Promise<{ success: boolean; text?: string; confidence?: number; error?: string }>;
+
+  // LM Studio Settings
+  getLMStudioSettings: () => Promise<{ enabled: boolean; endpoint: string; model: string }>;
+  saveLMStudioSettings: (settings: { enabled: boolean; endpoint: string; model: string }) => Promise<{ success: boolean; error?: string }>;
+  testLMStudioConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
+
   copyLatestResponse: () => Promise<{ success: boolean; error?: string }>;
-  processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; error?: string }>;
+  processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; error?: string }>;
 
   getScreenshots: () => Promise<string[]>;
   removeScreenshot: (index: number) => Promise<{ success: boolean; error?: string }>;
@@ -72,7 +84,7 @@ export interface ElectronAPI {
   onScreenshotTaken: (callback: (data: any) => void) => () => void;
   onProcessScreenshots: (callback: () => void) => () => void;
   onAnswerStyleChanged: (callback: (style: string) => void) => () => void;
-  onModelChanged: (callback: (model: 'openai' | 'gemini' | 'both') => void) => () => void;
+  onModelChanged: (callback: (model: 'openai' | 'gemini' | 'both' | 'lmstudio') => void) => () => void;
   onOpenAIModelChanged: (callback: (model: string) => void) => () => void;
   onExtractTextFromScreenshots: (callback: () => void) => () => void;
   onScreenshotsCleared: (callback: () => void) => () => void;

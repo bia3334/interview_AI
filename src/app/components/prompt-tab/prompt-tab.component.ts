@@ -13,6 +13,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   userInput: string = '';
   openaiResponse: string = '';
   geminiResponse: string = '';
+  lmstudioResponse: string = '';
   defaultModel: AIProvider = DEFAULTS.MODEL;
   showBoth: boolean = true;
   isLoading: boolean = false;
@@ -32,6 +33,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   @ViewChild('openaiResponseContainer') openaiResponseContainer!: ElementRef;
   @ViewChild('geminiResponseContainer') geminiResponseContainer!: ElementRef;
+  @ViewChild('lmstudioResponseContainer') lmstudioResponseContainer!: ElementRef;
 
   constructor(
     private electronService: ElectronService,
@@ -58,6 +60,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.userInput = '';
     this.openaiResponse = item.openaiResponse || '';
     this.geminiResponse = item.geminiResponse || '';
+    this.lmstudioResponse = item.lmstudioResponse || '';
     
     // Store the history item ID for updating later
     this.currentHistoryItemId = item.id;
@@ -90,6 +93,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.currentHistoryItemId = null;
     this.openaiResponse = '';
     this.geminiResponse = '';
+    this.lmstudioResponse = '';
     this.userInput = '';
     this.cdr.detectChanges();
   }
@@ -152,6 +156,9 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     if (this.geminiResponseContainer?.nativeElement) {
       this.markdownService.renderMathInElement(this.geminiResponseContainer.nativeElement);
     }
+    if (this.lmstudioResponseContainer?.nativeElement) {
+      this.markdownService.renderMathInElement(this.lmstudioResponseContainer.nativeElement);
+    }
   }
 
   async loadSettings() {
@@ -172,8 +179,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
     // Model changed
     this.electronService.onModelChanged().subscribe((model) => {
-      this.defaultModel = model;
-      this.updateViewMode();
+      this.ngZone.run(() => {
+        this.defaultModel = model;
+        this.updateViewMode();
+        this.cdr.detectChanges();
+      });
     });
 
     // Trigger region screenshot
@@ -209,6 +219,13 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   updateViewMode() {
     this.showBoth = this.defaultModel === 'both';
+    // Clear responses from providers not being used when switching
+    if (this.defaultModel === 'lmstudio') {
+      this.openaiResponse = '';
+      this.geminiResponse = '';
+    } else if (this.defaultModel !== 'both') {
+      this.lmstudioResponse = '';
+    }
   }
 
   async sendPrompt() {
@@ -218,9 +235,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.isLoading = true;
     this.openaiResponse = '';
     this.geminiResponse = '';
+    this.lmstudioResponse = '';
 
     let rawOpenaiResponse = '';
     let rawGeminiResponse = '';
+    let rawLmstudioResponse = '';
 
     // Check if we have screenshots to include
     const hasScreenshots = this.screenshots.length > 0;
@@ -281,15 +300,39 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         }
       }
 
+      // LM Studio (local model)
+      if (this.defaultModel === 'lmstudio') {
+        this.lmstudioResponse = '<p>Loading...</p>';
+        this.cdr.detectChanges();
+        try {
+          // Use conversation API if in conversation mode, otherwise use simple prompt
+          // Note: LM Studio doesn't support screenshots (text-only)
+          if (this.isConversationMode) {
+            rawLmstudioResponse = await this.electronService.sendConversationToLMStudio(this.conversationHistory);
+          } else {
+            rawLmstudioResponse = await this.electronService.sendPromptToLMStudio(prompt);
+          }
+          this.ngZone.run(() => {
+            this.lmstudioResponse = this.markdownService.renderMarkdown(rawLmstudioResponse);
+            this.cdr.detectChanges();
+          });
+        } catch (error: any) {
+          this.ngZone.run(() => {
+            this.lmstudioResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to get response from LM Studio'}`);
+            this.cdr.detectChanges();
+          });
+        }
+      }
+
       // Add assistant response to conversation history if in conversation mode
-      if (this.isConversationMode && (rawOpenaiResponse || rawGeminiResponse)) {
-        // Use OpenAI response as the assistant response (primary), or Gemini if OpenAI not available
-        const assistantResponse = rawOpenaiResponse || rawGeminiResponse;
+      if (this.isConversationMode && (rawOpenaiResponse || rawGeminiResponse || rawLmstudioResponse)) {
+        // Use the appropriate response as the assistant response
+        const assistantResponse = rawOpenaiResponse || rawGeminiResponse || rawLmstudioResponse;
         this.conversationHistory.push({ role: 'assistant', content: assistantResponse });
       }
 
       // Save or update history
-      if (rawOpenaiResponse || rawGeminiResponse) {
+      if (rawOpenaiResponse || rawGeminiResponse || rawLmstudioResponse) {
         if (this.isConversationMode && this.currentHistoryItemId) {
           // Update existing history item with the full conversation
           const allPrompts = this.conversationHistory
@@ -302,7 +345,8 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
             prompt: allPrompts,
             screenshotCount: hasScreenshots ? this.screenshots.length : 0,
             openaiResponse: this.openaiResponse,
-            geminiResponse: this.geminiResponse
+            geminiResponse: this.geminiResponse,
+            lmstudioResponse: this.lmstudioResponse
           });
         } else {
           // Create new history item
@@ -312,7 +356,8 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
             prompt: prompt,
             screenshotCount: hasScreenshots ? this.screenshots.length : 0,
             openaiResponse: this.openaiResponse,
-            geminiResponse: this.geminiResponse
+            geminiResponse: this.geminiResponse,
+            lmstudioResponse: this.lmstudioResponse
           });
         }
       }
@@ -330,12 +375,14 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.isLoading = true;
       this.openaiResponse = '<p>Processing clipboard text...</p>';
       this.geminiResponse = '<p>Processing clipboard text...</p>';
+      this.lmstudioResponse = '<p>Processing clipboard text...</p>';
       this.cdr.detectChanges();
 
       const result = await this.electronService.processClipboardPrompt();
       
       let savedOpenaiResponse = '';
       let savedGeminiResponse = '';
+      let savedLmstudioResponse = '';
       let promptText = '';
       
       this.ngZone.run(() => {
@@ -356,23 +403,32 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
           } else {
             this.geminiResponse = '<p>Gemini model not selected or failed</p>';
           }
+
+          if (result.lmstudioResponse) {
+            savedLmstudioResponse = this.markdownService.renderMarkdown(result.lmstudioResponse);
+            this.lmstudioResponse = savedLmstudioResponse;
+          } else {
+            this.lmstudioResponse = '<p>LM Studio not selected or failed</p>';
+          }
         } else {
           const errorMsg = this.markdownService.renderMarkdown(`**Error:** ${result.error}`);
           this.openaiResponse = errorMsg;
           this.geminiResponse = errorMsg;
+          this.lmstudioResponse = errorMsg;
         }
         this.cdr.detectChanges();
       });
 
       // Save to history if we got responses
-      if (savedOpenaiResponse || savedGeminiResponse) {
+      if (savedOpenaiResponse || savedGeminiResponse || savedLmstudioResponse) {
         this.electronService.saveHistoryItem({
           id: Date.now().toString(),
           timestamp: new Date(),
           prompt: promptText || 'Clipboard prompt',
           screenshotCount: 0,
           openaiResponse: savedOpenaiResponse,
-          geminiResponse: savedGeminiResponse
+          geminiResponse: savedGeminiResponse,
+          lmstudioResponse: savedLmstudioResponse
         });
       }
     } catch (error: any) {
@@ -380,6 +436,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         const errorMsg = this.markdownService.renderMarkdown(`**Error:** ${error.message}`);
         this.openaiResponse = errorMsg;
         this.geminiResponse = errorMsg;
+        this.lmstudioResponse = errorMsg;
         this.cdr.detectChanges();
       });
     } finally {
@@ -519,18 +576,30 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.showBoth = true;
     this.electronService.saveDefaultModel('both');
     this.defaultModel = 'both';
+    this.lmstudioResponse = ''; // Clear LM Studio response when switching to both
   }
 
   showOpenAIOnly() {
     this.showBoth = false;
     this.electronService.saveDefaultModel('openai');
     this.defaultModel = 'openai';
+    this.lmstudioResponse = ''; // Clear LM Studio response when switching
   }
 
   showGeminiOnly() {
     this.showBoth = false;
     this.electronService.saveDefaultModel('gemini');
     this.defaultModel = 'gemini';
+    this.lmstudioResponse = ''; // Clear LM Studio response when switching
+  }
+
+  showLMStudioOnly() {
+    this.showBoth = false;
+    this.electronService.saveDefaultModel('lmstudio');
+    this.defaultModel = 'lmstudio';
+    // Clear cloud responses when switching to local
+    this.openaiResponse = '';
+    this.geminiResponse = '';
   }
 
   async removeScreenshot(index: number) {

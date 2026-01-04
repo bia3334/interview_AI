@@ -1,19 +1,19 @@
 <div class="tab-content active" data-tab-content="prompt">
   <!-- Conversation Mode Indicator -->
   <div *ngIf="isConversationMode" class="conversation-indicator" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: linear-gradient(45deg, #6366f1, #8b5cf6); border-radius: 6px;">
-    <span style="font-size: 0.9rem;">💬 Continuing conversation ({{conversationHistory.length}} messages)</span>
+    <span style="font-size: 0.9rem;"><mat-icon class="inline-icon">forum</mat-icon> Continuing conversation ({{conversationHistory.length}} messages)</span>
     <button class="btn" style="margin-left: auto; background: rgba(255,255,255,0.2); color: white; padding: 0.25rem 0.5rem; font-size: 0.8rem;" (click)="clearConversation()">
-      ✕ New Conversation
+            <mat-icon class="inline-icon">close</mat-icon> New Conversation
     </button>
   </div>
 
   <!-- Document Context Selector -->
   <div class="document-context-section" *ngIf="documents.length > 0">
     <div class="document-context-header" (click)="toggleDocumentSelector()">
-      <span class="document-icon">📄</span>
+      <span class="document-icon"><mat-icon class="inline-icon">description</mat-icon></span>
       <span *ngIf="getActiveDocument()" class="active-doc-label">
         {{ getActiveDocument()?.fileName }}
-        <span class="key-info-badge small" *ngIf="getActiveDocument()?.hasKeyInfo">✨</span>
+        <span class="key-info-badge small" *ngIf="getActiveDocument()?.hasKeyInfo"><mat-icon class="inline-icon small">auto_awesome</mat-icon></span>
       </span>
       <span *ngIf="!getActiveDocument()" class="no-doc-label">No document selected</span>
       <span class="doc-toggle-icon">{{ showDocumentSelector ? '▲' : '▼' }}</span>
@@ -33,7 +33,7 @@
         (click)="setActiveDocument(doc.filePath)"
       >
         <span class="doc-name">{{ doc.fileName }}</span>
-        <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted">✨</span>
+        <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted"><mat-icon class="inline-icon small">auto_awesome</mat-icon></span>
         <span class="doc-size">{{ (doc.length / 1000).toFixed(1) }}k chars</span>
       </div>
     </div>
@@ -42,10 +42,10 @@
   <!-- Screenshots Preview Section -->
   <div *ngIf="screenshots.length > 0" class="screenshots-preview">
     <div class="screenshots-header">
-      <span class="screenshots-count">📷 {{screenshots.length}} screenshot{{screenshots.length > 1 ? 's' : ''}} ready</span>
+      <span class="screenshots-count"><mat-icon class="inline-icon">photo_camera</mat-icon> {{screenshots.length}} screenshot{{screenshots.length > 1 ? 's' : ''}} ready</span>
       <div class="screenshots-actions">
-        <button class="btn btn-small btn-primary" (click)="processScreenshots()">🔍 Analyze</button>
-        <button class="btn btn-small btn-danger" (click)="clearScreenshots()">🗑️ Clear</button>
+        <button class="btn btn-small btn-primary" (click)="processScreenshots()"><mat-icon class="inline-icon">search</mat-icon> Analyze</button>
+        <button class="btn btn-small btn-danger" (click)="clearScreenshots()"><mat-icon class="inline-icon">delete</mat-icon> Clear</button>
       </div>
     </div>
     <div class="screenshots-list">
@@ -65,35 +65,38 @@
     />
     <button class="btn btn-primary" (click)="sendPrompt()">Send</button>
     <div style="display: flex; gap: 0.5rem;">
-      <button class="btn" (click)="processClipboardPrompt()">📋 Process Clipboard</button>
-      <button class="btn btn-primary" style="background: linear-gradient(45deg, #3b82f6, #6366f1);" (click)="takeFullScreenshot()">📸 Full Screenshot</button>
-      <button class="btn btn-primary" style="background: linear-gradient(45deg, #ff6b6b, #feca57);" (click)="takeRegionScreenshot()">🎯 Region Screenshot</button>
-      <button class="btn btn-primary" style="background: linear-gradient(45deg, #10b981, #059669);" (click)="extractText()">📝 Extract Text</button>
+      <button class="btn" (click)="processClipboardPrompt()"><mat-icon class="inline-icon">content_paste</mat-icon> Process Clipboard</button>
+      <button class="btn btn-primary" style="background: linear-gradient(45deg, #3b82f6, #6366f1);" (click)="takeFullScreenshot()"><mat-icon class="inline-icon">screenshot_monitor</mat-icon> Full Screenshot</button>
+      <button class="btn btn-primary" style="background: linear-gradient(45deg, #ff6b6b, #feca57);" (click)="takeRegionScreenshot()"><mat-icon class="inline-icon">crop</mat-icon> Region Screenshot</button>
+      <button class="btn btn-primary" style="background: linear-gradient(45deg, #10b981, #059669);" (click)="extractText()"><mat-icon class="inline-icon">text_snippet</mat-icon> Extract Text</button>
     </div>
   </div>
   <div id="responseToggle" style="display: flex; margin-bottom: 0.5rem;">
-    <button 
-      class="btn" 
-      [class.btn-primary]="defaultModel === 'both'"
-      (click)="showBothModels()" 
-      style="margin-right: 0.5rem;"
-    >
-      Show Both
-    </button>
-    <button 
-      class="btn" 
-      [class.btn-primary]="defaultModel === 'openai'"
-      (click)="showOpenAIOnly()"
-    >
-      OpenAI
-    </button>
-    <button 
-      class="btn" 
-      [class.btn-primary]="defaultModel === 'gemini'"
-      (click)="showGeminiOnly()"
-    >
-      Gemini
-    </button>
+    <!-- Cloud model buttons (hidden when LM Studio is active) -->
+    <ng-container *ngIf="defaultModel !== 'lmstudio'">
+      <button 
+        class="btn" 
+        [class.btn-primary]="defaultModel === 'both'"
+        (click)="showBothModels()" 
+        style="margin-right: 0.5rem;"
+      >
+        Show Both
+      </button>
+      <button 
+        class="btn" 
+        [class.btn-primary]="defaultModel === 'openai'"
+        (click)="showOpenAIOnly()"
+      >
+        OpenAI
+      </button>
+      <button 
+        class="btn" 
+        [class.btn-primary]="defaultModel === 'gemini'"
+        (click)="showGeminiOnly()"
+      >
+        Gemini
+      </button>
+    </ng-container>
   </div>
   <div id="responsesContainer" style="display: flex; gap: 1rem; flex: 1;">
     <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="(showBoth || defaultModel === 'openai') ? 'flex' : 'none'">
@@ -110,6 +113,14 @@
         #geminiResponseContainer 
         class="response-container" 
         [innerHTML]="geminiResponse"
+      ></div>
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="defaultModel === 'lmstudio' ? 'flex' : 'none'">
+      <div style="font-weight: bold; margin-bottom: 0.5rem;">LM Studio (Local)</div>
+      <div 
+        #lmstudioResponseContainer 
+        class="response-container" 
+        [innerHTML]="lmstudioResponse"
       ></div>
     </div>
   </div>

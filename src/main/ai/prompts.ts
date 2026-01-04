@@ -12,9 +12,9 @@ export const generatePrompt = (
   const basePrompt = question ? `Question: ${question}` : 'Please analyze these screenshots';
 
   const prompts = {
-    code: `I'm taking a coding interview and need help with the following problem. ${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`,
+    code: `${basePrompt} and provide a solution in ${language}. First give 3-4 lines of explanation such as whats data structure or algorithm you want to use or how you gonna solve this, then provide the code.`,
     
-    'multiple-choice': `I'm taking a multiple choice exam and need the correct answer(s). ${basePrompt} and provide only the answer(s) without any explanation.
+    'multiple-choice': `I'm taking a multiple choice and need the correct answer(s). ${basePrompt} and provide only the answer(s) without any explanation.
 
       Formatting Rules:
       - Provide only the correct answer(s) (e.g., "Answer: a" or "Answer: a, c")
@@ -25,44 +25,40 @@ export const generatePrompt = (
       If multiple answers are correct, list them separated by commas.
       If only one answer is correct, provide just that letter.`,
           
-    explanation: `I'm taking an exam and need help with the following problem. ${basePrompt} and provide direct, concise answers.
+    explanation: `I need help with the following problem. ${basePrompt}
 
-      Notes:
+      Provide a direct, concise, exam-style answer.
 
-      Formatting Rules:
-      - Do not include any section headers like "Step-by-step", "Final Answer", "Explanation", etc.
-      - Write the answer exactly like a student would during an exam, with a clear and compact style.
-      - Avoid teaching tone or instructional language.
+      ### Formatting Rules:
+      - **Style:** Write strictly as a **model answer key** for an exam. concise, accurate, and organized.
+      - **Tone:** Zero conversational filler. No "Here is the answer" or "Let's solve this."
+      - **Structure:** Do not use large headers (e.g., ## Explanation). Instead, **use bold labels** (e.g., **Given:**, **Step 1:**) or bullet points to separate logical steps.
 
-      **IMPORTANT:** For any mathematical expressions, formulas, or equations:
-      - Use inline math with single dollar signs: $expression$
-      - Use display math (centered, on its own line) with double dollar signs: $$expression$$
-      - Example inline: The number of keys is $N \\leq (2t)^{h+1} - 1$
-      - Example display for derivations:
+      ### Math & Logic Formatting (CRITICAL - READ CAREFULLY):
+      - **Inline math:** Use single dollar signs: $expression$
+      - **Display math:** Use double dollar signs: $$expression$$
+      - **NEVER use square brackets** like [expression] or \\[expression\\] for math. These will NOT render.
+      - **Derivations:** Use the aligned environment:
         $$
         \\begin{aligned}
-        N + 1 &\\leq (2t)^{h+1} \\\\
-        h &\\geq \\log_{2t}(N+1) - 1
+        x &= 2y + 5 \\\\
+        y &= \\frac{x-5}{2}
         \\end{aligned}
         $$
-      - Use proper LaTeX syntax: \\log, \\leq, \\geq, \\lceil, \\rceil, \\sum, \\prod, \\int, etc.
+      - **Logic operators:** \\land (∧), \\lor (∨), \\lnot (¬), \\to (→), \\leftrightarrow (↔)
+      - **Example CNF formula:**
+        $$
+        (A \\lor H) \\land (A \\lor R) \\land (\\lnot A \\lor \\lnot H \\lor \\lnot R)
+        $$
+      - Use \\\\ (double backslash) for line breaks in aligned blocks.
+      - Do NOT use \\boxed{}, \\[...\\], or [...] for math.
 
-      If this is a multiple choice question:
-      - State the correct answer(s) clearly (e.g., "Answer: a, c")
-      - Give brief reasoning for each correct choice
-      - Keep explanations short and to the point
+      ### Domain Specifics:
+      - **Multiple Choice:** Format as "**Answer: [Option]**" followed by a 1-sentence verification.
+      - **Algorithms:** Provide the code/pseudocode immediately. Use short inline comments (// like this) for critical logic only. State complexity (Time/Space) at the end.
+      - **Proofs:** specific steps (e.g., "Assume...", "Then...", "Therefore..."). Use \\implies or \\therefore for flow.
 
-      If this is an algorithm design or theoretical question:
-      - Provide the solution directly without excessive explanation
-      - State the approach, key steps, and complexity analysis concisely
-      - Write as if you're a student answering an exam question, not teaching
-      - It should have inline comments explaining key parts of the code
-
-      If this is a proof question:
-      - Give a direct, step-by-step proof
-      - Use clear logic but keep it concise
-
-      Format your response to be exam-appropriate: clear, direct, and efficient.`
+      **Goal:** Maximum information density. Clear, scannable steps.`
   };
 
   const body = prompts[answerStyle as keyof typeof prompts] || prompts.explanation;

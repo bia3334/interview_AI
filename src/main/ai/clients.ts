@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai';
 const { GoogleGenAI } = require('@google/genai');
-import { AI_MODELS, DEFAULT_AI_PROVIDER } from '../constants/ai';
+import { AI_MODELS, DEFAULT_AI_PROVIDER, LMSTUDIO_CONFIG } from '../constants/ai';
 
 // AI Models Configuration
 export const AI_CONFIG = {
@@ -10,6 +10,10 @@ export const AI_CONFIG = {
   },
   openai: {
     model: AI_MODELS.openai.default
+  },
+  lmstudio: {
+    endpoint: LMSTUDIO_CONFIG.DEFAULT_ENDPOINT,
+    model: LMSTUDIO_CONFIG.DEFAULT_MODEL
   }
 };
 
@@ -68,7 +72,9 @@ export const sendPromptToGemini = (prompt: string[], store: any) => {
   const finalPrompt = systemPrompt 
     ? [`[System Instructions]: ${systemPrompt}\n\n`, ...prompt]
     : prompt;
-  
+
+  console.log('Final Gemini Prompt:', finalPrompt);
+
   return ai.models.generateContent({
     model: getCurrentGeminiModel(store),
     contents: [createUserContent(finalPrompt)],
@@ -80,6 +86,8 @@ export const sendPromptToOpenAI = async (prompt: string, store: any) => {
   const systemPrompt = getCustomSystemPrompt(store);
   
   const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+
+  console.log('System Prompt:', systemPrompt);
   
   // Add system message if custom prompt exists
   if (systemPrompt) {
@@ -108,6 +116,8 @@ export const sendConversationToOpenAI = async (
   if (systemPrompt) {
     apiMessages.push({ role: 'system', content: systemPrompt });
   }
+  
+  console.log('System Prompt for Conversation:', systemPrompt);
   
   // Add conversation messages
   apiMessages.push(...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
@@ -191,4 +201,93 @@ export const extractKeyInfoFromDocument = async (
   }
   
   throw new Error('No AI model configured for key information extraction');
+};
+
+// LM Studio Client Management
+export const getLMStudioSettings = (store: any) => {
+  return {
+    enabled: store.get('lmstudioEnabled') || false,
+    endpoint: store.get('lmstudioEndpoint') || LMSTUDIO_CONFIG.DEFAULT_ENDPOINT,
+    model: store.get('lmstudioModel') || LMSTUDIO_CONFIG.DEFAULT_MODEL,
+  };
+};
+
+export const getLMStudioClient = (store: any) => {
+  const settings = getLMStudioSettings(store);
+  if (!settings.enabled) {
+    throw new Error('LM Studio is not enabled');
+  }
+  // Use OpenAI client with custom baseURL (LM Studio is OpenAI-compatible)
+  return new OpenAI({
+    baseURL: settings.endpoint,
+    apiKey: 'not-needed', // LM Studio doesn't require API key
+  });
+};
+
+export const getCurrentLMStudioModel = (store: any) => {
+  return store.get('lmstudioModel') || LMSTUDIO_CONFIG.DEFAULT_MODEL;
+};
+
+// LM Studio Request Functions
+export const sendPromptToLMStudio = async (prompt: string, store: any) => {
+  const lmstudio = getLMStudioClient(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+  
+  const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+  
+  // Add system message if custom prompt exists
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
+  
+  const response = await lmstudio.chat.completions.create({
+    model: getCurrentLMStudioModel(store),
+    messages: messages,
+  });
+  return response.choices[0]?.message?.content || '';
+};
+
+export const sendConversationToLMStudio = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+) => {
+  const lmstudio = getLMStudioClient(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+  
+  const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+  
+  // Add system message if custom prompt exists
+  if (systemPrompt) {
+    apiMessages.push({ role: 'system', content: systemPrompt });
+  }
+  
+  // Add conversation messages
+  apiMessages.push(...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+  
+  const response = await lmstudio.chat.completions.create({
+    model: getCurrentLMStudioModel(store),
+    messages: apiMessages,
+  });
+  return response.choices[0]?.message?.content || '';
+};
+
+// Test LM Studio connection
+export const testLMStudioConnection = async (store: any): Promise<{ success: boolean; model?: string; error?: string }> => {
+  try {
+    const settings = getLMStudioSettings(store);
+    const response = await fetch(`${settings.endpoint}/models`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const models = data.data || [];
+    const modelName = models.length > 0 ? models[0].id : settings.model;
+    
+    return { success: true, model: modelName };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Connection failed' };
+  }
 };

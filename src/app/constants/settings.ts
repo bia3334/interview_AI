@@ -8,6 +8,7 @@ export const AI_PROVIDER = {
   OPENAI: 'openai',
   GEMINI: 'gemini',
   BOTH: 'both',
+  LMSTUDIO: 'lmstudio',
 } as const;
 
 export type AIProvider = typeof AI_PROVIDER[keyof typeof AI_PROVIDER];

@@ -6,14 +6,21 @@
       [class.active]="activeSubTab === 'api'" 
       (click)="switchSubTab('api')"
     >
-      🔑 API & Models
+      <mat-icon>vpn_key</mat-icon> API & Models
     </button>
     <button 
       class="sub-tab" 
       [class.active]="activeSubTab === 'behavior'" 
       (click)="switchSubTab('behavior')"
     >
-      🧠 AI Behavior
+      <mat-icon>psychology</mat-icon> AI Behavior
+    </button>
+    <button 
+      class="sub-tab" 
+      [class.active]="activeSubTab === 'ocr'" 
+      (click)="switchSubTab('ocr')"
+    >
+      <mat-icon>document_scanner</mat-icon> OCR
     </button>
   </div>
 
@@ -53,8 +60,8 @@
       </div>
     </div>
 
-    <!-- Model Selection -->
-    <div class="settings-group">
+    <!-- Model Selection (hidden when LM Studio is enabled) -->
+    <div class="settings-group" *ngIf="!lmstudioEnabled">
       <h3>Model Selection</h3>
       <div class="form-group">
         <label for="defaultModel">Default AI Model</label>
@@ -71,12 +78,75 @@
       </div>
     </div>
 
+    <!-- Model Selection Notice when LM Studio is enabled -->
+    <div class="settings-group" *ngIf="lmstudioEnabled">
+      <h3>Model Selection</h3>
+      <div class="form-group" style="background: linear-gradient(45deg, #10b981, #059669); padding: 12px; border-radius: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <mat-icon class="inline-icon">computer</mat-icon>
+          <span><strong>LM Studio Mode Active</strong></span>
+        </div>
+        <small style="display: block; margin-top: 4px; opacity: 0.9;">
+          Using local LM Studio server. Disable LM Studio below to switch back to cloud models.
+        </small>
+      </div>
+    </div>
+
+    <!-- LM Studio Settings -->
+    <div class="settings-group">
+      <h3>LM Studio (Local AI)</h3>
+      <p class="group-description">
+        Connect to a local LM Studio server for free, private AI responses. No API key required!
+      </p>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="lmstudioEnabled" (change)="onLMStudioToggle()" style="margin-right: 8px;" />
+          <span>Enable LM Studio</span>
+        </label>
+        <small class="hint-text" *ngIf="lmstudioEnabled" style="color: #10b981;">
+          <mat-icon class="inline-icon small">info</mat-icon> OCR is automatically enabled when using LM Studio (text-only model).
+        </small>
+      </div>
+      <div class="form-group" *ngIf="lmstudioEnabled">
+        <label for="lmstudioEndpoint">Server Endpoint</label>
+        <input 
+          type="text" 
+          id="lmstudioEndpoint" 
+          [(ngModel)]="lmstudioEndpoint"
+          class="prompt-input" 
+          placeholder="http://localhost:1234/v1"
+        />
+        <small class="hint-text">
+          Default: http://localhost:1234/v1 (LM Studio's default endpoint)
+        </small>
+      </div>
+      <div class="form-group" *ngIf="lmstudioEnabled">
+        <label for="lmstudioModel">Model Name</label>
+        <input 
+          type="text" 
+          id="lmstudioModel" 
+          [(ngModel)]="lmstudioModel"
+          class="prompt-input" 
+          placeholder="local-model"
+        />
+        <small class="hint-text">
+          Enter the model name as shown in LM Studio, or use "local-model" for auto-detection.
+        </small>
+      </div>
+      <div class="form-actions" *ngIf="lmstudioEnabled">
+        <button class="btn btn-primary" (click)="saveLMStudioSettings()">Save Settings</button>
+        <button class="btn" (click)="testLMStudioConnection()" [disabled]="lmstudioTestLoading">
+          {{ lmstudioTestLoading ? 'Testing...' : 'Test Connection' }}
+        </button>
+      </div>
+    </div>
+
     <!-- Documents Section -->
     <div class="settings-group">
       <h3>Documents</h3>
       <p class="group-description">
         Import a PDF or text file. Key information will be automatically extracted for better Q&A.
-        Documents with ✨ have extracted key info - click 👁️ to view it.
+        Documents with <mat-icon class="inline-icon">auto_awesome</mat-icon> have extracted key info - click to view it.
       </p>
       <div class="doc-actions">
         <button class="btn btn-primary" (click)="importDocument()">Import document…</button>
@@ -85,7 +155,7 @@
       <div class="active-doc-info">
         <span *ngIf="activeDocInfo.hasContext">
           Active: {{ activeDocInfo.fileName || 'document' }} ({{ activeDocInfo.length }} chars)
-          <span class="key-info-badge" *ngIf="activeDocInfo.hasKeyInfo" title="Key information extracted">✨ Key Info</span>
+          <span class="key-info-badge" *ngIf="activeDocInfo.hasKeyInfo" title="Key information extracted"><mat-icon class="inline-icon small">auto_awesome</mat-icon> Key Info</span>
         </span>
         <span *ngIf="!activeDocInfo.hasContext">No active document</span>
       </div>
@@ -98,7 +168,7 @@
           <div class="doc-info">
             <div class="doc-name">
               {{ doc.fileName }}{{ doc.active ? ' • (active)' : '' }}
-              <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted ({{ doc.keyInfoLength || 0 }} chars)">✨</span>
+              <span class="key-info-badge small" *ngIf="doc.hasKeyInfo" title="Key information extracted ({{ doc.keyInfoLength || 0 }} chars)"><mat-icon class="inline-icon small">auto_awesome</mat-icon></span>
             </div>
             <div class="doc-meta">{{ doc.length }} chars · {{ doc.addedAt | date:'short' }}</div>
           </div>
@@ -149,7 +219,7 @@
             ✓ Using: <strong>{{ getActiveTemplateName() }}</strong>
           </span>
           <span *ngIf="!activeTemplateId && customSystemPrompt">
-            📝 Custom prompt (not from template)
+            <mat-icon class="inline-icon" style="color: white;">edit_note</mat-icon> Custom prompt (not from template)
           </span>
           <span *ngIf="!activeTemplateId && !customSystemPrompt" class="no-prompt">
             No system prompt set
@@ -167,8 +237,8 @@
               <span class="template-check" *ngIf="isTemplateActive(template)">✓</span>
               <span class="template-name">{{ template.name }}</span>
               <div class="template-actions">
-                <button class="btn-icon" (click)="editTemplate(template, $event)" title="Edit">✏️</button>
-                <button class="btn-icon" (click)="deleteTemplate(template, $event)" title="Delete">🗑️</button>
+                <button class="btn-icon" (click)="editTemplate(template, $event)" title="Edit"><mat-icon style="color: white;">edit</mat-icon></button>
+                <button class="btn-icon" (click)="deleteTemplate(template, $event)" title="Delete"><mat-icon style="color: white;">delete</mat-icon></button>
               </div>
             </div>
             <div *ngIf="templates.length === 0" class="empty-templates">
@@ -268,13 +338,116 @@
       </div>
     </div>
   </div>
+
+  <!-- OCR Settings Tab -->
+  <div class="sub-tab-content" *ngIf="activeSubTab === 'ocr'">
+    <div class="settings-group">
+      <h3>Text Extraction (OCR)</h3>
+      <p class="settings-description">
+        Extract text from screenshots before sending to AI. This reduces token usage and speeds up responses for text-heavy screenshots.
+      </p>
+      
+      <!-- LM Studio OCR Override Notice -->
+      <div class="form-group" *ngIf="isOCRForcedByLMStudio()" style="background: linear-gradient(45deg, #10b981, #059669); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <mat-icon class="inline-icon">computer</mat-icon>
+          <span><strong>OCR Active (LM Studio Mode)</strong></span>
+        </div>
+        <small style="display: block; margin-top: 4px; opacity: 0.9;">
+          OCR is automatically enabled because LM Studio is a text-only model. Screenshots are converted to text before sending.
+        </small>
+      </div>
+      
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input 
+            type="checkbox" 
+            [(ngModel)]="ocrEnabled" 
+            (change)="saveOCRSettings()" 
+            [disabled]="isOCRForcedByLMStudio()"
+            style="margin-right: 8px;" 
+          />
+          <span textsize="medium">Enable OCR text extraction</span>
+        </label>
+        <small class="hint-text" *ngIf="isOCRForcedByLMStudio()">
+          This setting is managed automatically when LM Studio is selected as the default model.
+        </small>
+      </div>
+      
+      <div class="form-group" *ngIf="ocrEnabled || isOCRForcedByLMStudio()">
+        <label for="ocrLanguage">OCR Language</label>
+        <select 
+          id="ocrLanguage" 
+          [(ngModel)]="ocrLanguage" 
+          class="form-select"
+          (change)="saveOCRSettings()"
+        >
+          <option *ngFor="let lang of ocrLanguages" [value]="lang.id">
+            {{ lang.name }}
+          </option>
+        </select>
+        <small class="hint-text">
+          Select the primary language in your screenshots for better accuracy.
+        </small>
+      </div>
+    </div>
+    
+    <!-- Test OCR -->
+    <div class="settings-group" *ngIf="ocrEnabled">
+      <h3><mat-icon class="inline-icon">science</mat-icon> Test OCR</h3>
+      <p class="settings-description">
+        Take a screenshot first, then click "Test OCR" to preview extracted text without sending to AI.
+      </p>
+      
+      <div class="form-actions">
+        <button 
+          class="btn btn-primary" 
+          (click)="testOCR()" 
+          [disabled]="ocrTestLoading"
+        >
+          <ng-container *ngIf="ocrTestLoading"><mat-icon class="inline-icon spinning">hourglass_empty</mat-icon> Extracting...</ng-container>
+          <ng-container *ngIf="!ocrTestLoading"><mat-icon class="inline-icon">search</mat-icon> Test OCR</ng-container>
+        </button>
+        <button 
+          class="btn" 
+          (click)="copyOCRText()" 
+          *ngIf="ocrTestResult"
+        >
+          <mat-icon class="inline-icon">content_copy</mat-icon> Copy Text
+        </button>
+      </div>
+      
+      <div class="ocr-result" *ngIf="ocrTestResult">
+        <div class="ocr-result-header">
+          <span class="ocr-confidence" [class.low]="ocrTestResult.confidence < 60">
+            Confidence: {{ ocrTestResult.confidence.toFixed(0) }}%
+          </span>
+          <span class="ocr-length">{{ ocrTestResult.text.length }} chars</span>
+        </div>
+        <pre class="ocr-result-text">{{ ocrTestResult.text }}</pre>
+      </div>
+    </div>
+    
+    <div class="settings-group" *ngIf="ocrEnabled">
+      <h3>How it works</h3>
+      <ul class="ocr-info-list">
+        <li><mat-icon class="inline-icon">photo_camera</mat-icon> Take a screenshot as usual</li>
+        <li><mat-icon class="inline-icon">search</mat-icon> Text is automatically extracted using Tesseract OCR</li>
+        <li><mat-icon class="inline-icon">edit_note</mat-icon> Extracted text is added to your prompt</li>
+        <li><mat-icon class="inline-icon">rocket_launch</mat-icon> AI receives text context (faster, cheaper responses)</li>
+      </ul>
+      <p class="hint-text">
+        Note: First OCR operation may take a few seconds to download the language model (~2MB).
+      </p>
+    </div>
+  </div>
 </div>
 
 <!-- Key Info Viewer/Editor Modal -->
 <div class="modal-overlay" *ngIf="showKeyInfoModal" (click)="closeKeyInfoModal()">
   <div class="modal-dialog key-info-modal" (click)="$event.stopPropagation()">
     <div class="dialog-header">
-      <h3>📄 {{ keyInfoData?.fileName || 'Document' }} - {{ isEditingKeyInfo ? 'Edit' : 'View' }} Key Information</h3>
+      <h3><mat-icon class="inline-icon">description</mat-icon> {{ keyInfoData?.fileName || 'Document' }} - {{ isEditingKeyInfo ? 'Edit' : 'View' }} Key Information</h3>
       <button class="btn-close" (click)="closeKeyInfoModal()">×</button>
     </div>
     <div class="dialog-body">
@@ -303,18 +476,18 @@
       </div>
     </div>
     <div class="dialog-actions">
-      <button class="btn" (click)="copyKeyInfo()" *ngIf="!isEditingKeyInfo">📋 Copy</button>
+      <button class="btn" (click)="copyKeyInfo()" *ngIf="!isEditingKeyInfo"><mat-icon class="inline-icon">content_copy</mat-icon> Copy</button>
       
       <!-- View mode actions -->
       <ng-container *ngIf="!isEditingKeyInfo">
-        <button class="btn" (click)="toggleEditKeyInfo()">✏️ Edit</button>
+        <button class="btn" (click)="toggleEditKeyInfo()"><mat-icon class="inline-icon">edit</mat-icon> Edit</button>
         <button class="btn btn-primary" (click)="closeKeyInfoModal()">Close</button>
       </ng-container>
       
       <!-- Edit mode actions -->
       <ng-container *ngIf="isEditingKeyInfo">
         <button class="btn" (click)="cancelKeyInfoEdit()">Cancel</button>
-        <button class="btn btn-primary" (click)="saveKeyInfoEdit()">💾 Save</button>
+        <button class="btn btn-primary" (click)="saveKeyInfoEdit()"><mat-icon class="inline-icon">save</mat-icon> Save</button>
       </ng-container>
     </div>
   </div>

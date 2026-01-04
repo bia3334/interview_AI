@@ -15,6 +15,21 @@ import type { AppStore } from './store';
 /** All AI providers in order for cycling */
 const AI_PROVIDERS = [AI_PROVIDER.BOTH, AI_PROVIDER.OPENAI, AI_PROVIDER.GEMINI];
 
+/** Debounce tracking for shortcuts */
+const lastTriggerTime: Map<string, number> = new Map();
+const DEBOUNCE_MS = 300; // 300ms debounce
+
+/** Debounce wrapper for shortcut handlers */
+function debounced(key: string, fn: () => void): void {
+  const now = Date.now();
+  const lastTime = lastTriggerTime.get(key) || 0;
+  if (now - lastTime < DEBOUNCE_MS) {
+    return; // Skip if triggered too quickly
+  }
+  lastTriggerTime.set(key, now);
+  fn();
+}
+
 export function registerGlobalShortcuts(
   deps: {
     store: AppStore;
@@ -74,16 +89,16 @@ export function registerGlobalShortcuts(
   });
 
   // Region screenshot trigger
-  globalShortcut.register(SHORTCUTS.REGION_SCREENSHOT, () => {
+  globalShortcut.register(SHORTCUTS.REGION_SCREENSHOT, () => debounced('region-screenshot', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) mainWindow.webContents.send('trigger-region-screenshot');
-  });
+  }));
 
   // Extract text from screenshots
-  globalShortcut.register(SHORTCUTS.EXTRACT_TEXT, () => {
+  globalShortcut.register(SHORTCUTS.EXTRACT_TEXT, () => debounced('extract-text', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) mainWindow.webContents.send('extract-text-from-screenshots');
-  });
+  }));
 
   // Clear screenshots
   globalShortcut.register(SHORTCUTS.CLEAR_SCREENSHOTS, async () => {
@@ -93,22 +108,22 @@ export function registerGlobalShortcuts(
   });
 
   // Process screenshots
-  globalShortcut.register(SHORTCUTS.PROCESS_SCREENSHOTS, () => {
+  globalShortcut.register(SHORTCUTS.PROCESS_SCREENSHOTS, () => debounced('process-screenshots', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) mainWindow.webContents.send('process-screenshots');
-  });
+  }));
 
   // Process clipboard prompt
-  globalShortcut.register(SHORTCUTS.PROCESS_CLIPBOARD, () => {
+  globalShortcut.register(SHORTCUTS.PROCESS_CLIPBOARD, () => debounced('process-clipboard', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) mainWindow.webContents.send('process-clipboard-prompt');
-  });
+  }));
 
   // Copy latest AI response
-  globalShortcut.register(SHORTCUTS.COPY_RESPONSE, () => {
+  globalShortcut.register(SHORTCUTS.COPY_RESPONSE, () => debounced('copy-response', () => {
     const latestResponse = getLatestAIResponse();
     if (latestResponse) clipboard.writeText(latestResponse);
-  });
+  }));
 
   // Arrow key shortcuts for window movement and content scrolling
   ['Up', 'Down', 'Left', 'Right'].forEach(dir => {

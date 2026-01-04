@@ -1,18 +1,18 @@
 <div class="history-container">
   <div class="history-header">
-    <h3>📜 Q&A History</h3>
+    <h3><mat-icon class="inline-icon">history</mat-icon> Q&A History</h3>
     <button 
       class="btn btn-danger btn-small" 
       (click)="clearAllHistory()" 
       *ngIf="history.length > 0"
     >
-      🗑️ Clear All
+      <mat-icon class="inline-icon">delete_sweep</mat-icon> Clear All
     </button>
   </div>
 
   <!-- Empty State -->
   <div class="empty-state" *ngIf="history.length === 0 && !selectedItem">
-    <div class="empty-icon">📝</div>
+    <div class="empty-icon"><mat-icon style="font-size: 48px; width: 48px; height: 48px;">edit_note</mat-icon></div>
     <p>No history yet</p>
     <small>Your questions and AI responses will appear here</small>
   </div>
@@ -32,9 +32,10 @@
         </div>
         <div class="history-prompt">{{ truncateText(item.prompt, 150) }}</div>
         <div class="history-meta">
-          <span *ngIf="item.screenshotCount > 0" class="meta-badge">📷 {{ item.screenshotCount }}</span>
+          <span *ngIf="item.screenshotCount > 0" class="meta-badge"><mat-icon class="inline-icon small">photo_camera</mat-icon> {{ item.screenshotCount }}</span>
           <span *ngIf="item.openaiResponse" class="meta-badge openai">OpenAI ✓</span>
           <span *ngIf="item.geminiResponse" class="meta-badge gemini">Gemini ✓</span>
+          <span *ngIf="item.lmstudioResponse" class="meta-badge lmstudio" style="background: linear-gradient(45deg, #10b981, #059669);">LM Studio ✓</span>
         </div>
       </div>
     </div>
@@ -45,10 +46,10 @@
         <button class="btn btn-small" (click)="closeDetail()">← Back</button>
         <div class="detail-actions">
           <button class="btn btn-small btn-primary" (click)="continueSession(selectedItem)" title="Continue this conversation">
-            ▶️ Continue
+            <mat-icon class="inline-icon">play_arrow</mat-icon> Continue
           </button>
           <button class="btn btn-small btn-danger" (click)="deleteItem(selectedItem, $event)" title="Delete this item">
-            🗑️ Delete
+            <mat-icon class="inline-icon">delete</mat-icon> Delete
           </button>
         </div>
       </div>
@@ -57,7 +58,7 @@
         <div class="detail-label">Question / Prompt</div>
         <div class="detail-prompt">
           {{ selectedItem.prompt || '(Screenshot analysis)' }}
-          <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.prompt)" title="Copy">📋</button>
+          <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.prompt)" title="Copy"><mat-icon>content_copy</mat-icon></button>
         </div>
       </div>
 
@@ -65,7 +66,7 @@
         <div class="response-section" *ngIf="selectedItem.openaiResponse">
           <div class="response-label">
             <span>OpenAI Response</span>
-            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.openaiResponse || '')" title="Copy">📋</button>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.openaiResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
           <div #openaiResponseContent class="response-content" [innerHTML]="selectedItem.openaiResponse"></div>
         </div>
@@ -73,9 +74,17 @@
         <div class="response-section" *ngIf="selectedItem.geminiResponse">
           <div class="response-label">
             <span>Gemini Response</span>
-            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.geminiResponse || '')" title="Copy">📋</button>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.geminiResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
           <div #geminiResponseContent class="response-content" [innerHTML]="selectedItem.geminiResponse"></div>
+        </div>
+
+        <div class="response-section" *ngIf="selectedItem.lmstudioResponse">
+          <div class="response-label" style="background: linear-gradient(45deg, #10b981, #059669);">
+            <span><mat-icon class="inline-icon">computer</mat-icon> LM Studio Response</span>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.lmstudioResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
+          </div>
+          <div #lmstudioResponseContent class="response-content" [innerHTML]="selectedItem.lmstudioResponse"></div>
         </div>
       </div>
     </div>

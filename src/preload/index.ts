@@ -6,10 +6,12 @@ const api: ElectronAPI = {
   sendPrompt: (prompt) => ipcRenderer.invoke('chatgpt-request', prompt),
   sendPromptToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptToOpenAI', prompt),
   sendPromptToGemini: (prompt) => ipcRenderer.invoke('sendPromptToGemini', prompt),
+  sendPromptToLMStudio: (prompt) => ipcRenderer.invoke('sendPromptToLMStudio', prompt),
   sendPromptWithScreenshotsToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToOpenAI', prompt),
   sendPromptWithScreenshotsToGemini: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToGemini', prompt),
   sendConversationToOpenAI: (messages) => ipcRenderer.invoke('sendConversationToOpenAI', messages),
   sendConversationToGemini: (messages) => ipcRenderer.invoke('sendConversationToGemini', messages),
+  sendConversationToLMStudio: (messages) => ipcRenderer.invoke('sendConversationToLMStudio', messages),
 
   closeWindow: () => ipcRenderer.send('close-window'),
   hideWindow: () => ipcRenderer.send('hide-window'),
@@ -65,6 +67,16 @@ const api: ElectronAPI = {
   savePromptTemplate: (template) => ipcRenderer.invoke('savePromptTemplate', template),
   deletePromptTemplate: (templateId) => ipcRenderer.invoke('deletePromptTemplate', templateId),
   resetPromptTemplates: () => ipcRenderer.invoke('resetPromptTemplates'),
+
+  // OCR Settings
+  getOCRSettings: () => ipcRenderer.invoke('getOCRSettings'),
+  saveOCRSettings: (settings) => ipcRenderer.invoke('saveOCRSettings', settings),
+  testOCR: () => ipcRenderer.invoke('testOCR'),
+
+  // LM Studio Settings
+  getLMStudioSettings: () => ipcRenderer.invoke('getLMStudioSettings'),
+  saveLMStudioSettings: (settings) => ipcRenderer.invoke('saveLMStudioSettings', settings),
+  testLMStudioConnection: () => ipcRenderer.invoke('testLMStudioConnection'),
 
   copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
   processClipboardPrompt: () => ipcRenderer.invoke('processClipboardPrompt'),

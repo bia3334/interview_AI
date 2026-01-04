@@ -11,6 +11,8 @@
     "include": ["src/**/*"],
     "exclude": [
       "src/angular/**/*",
-      "src/renderer/**/*"
+      "src/renderer/**/*",
+      "src/app/**/*",
+      "src/angular-main.ts"
     ]
   }

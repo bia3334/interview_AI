@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { AppComponent } from './app.component';
 import { PromptTabComponent } from './components/prompt-tab/prompt-tab.component';
 import { HistoryTabComponent } from './components/history-tab/history-tab.component';
@@ -21,7 +22,8 @@ import { ToastComponent } from './components/toast/toast.component';
   ],
   imports: [
     BrowserModule,
-    FormsModule
+    FormsModule,
+    MatIconModule
   ],
   providers: [
     ElectronService,

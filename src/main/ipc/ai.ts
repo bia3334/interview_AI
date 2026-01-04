@@ -13,7 +13,11 @@ import {
   sendConversationToGemini, 
   sendConversationToOpenAI, 
   sendPromptToGemini, 
-  sendPromptToOpenAI 
+  sendPromptToOpenAI,
+  sendPromptToLMStudio,
+  sendConversationToLMStudio,
+  testLMStudioConnection,
+  getLMStudioSettings
 } from '../ai/clients';
 import { generatePrompt } from '../ai/prompts';
 import { buildDocContextPrefix } from './documents';
@@ -22,6 +26,7 @@ import { getScreenshotQueue } from './screenshots';
 import { imageToBase64 } from '../utils/files';
 import { getMainWindow } from '../window';
 import type { AppStore } from '../store';
+import { extractTextFromImages, combineOCRResults, isConfidenceAcceptable, OCRResult } from '../ocr';
 
 const { createPartFromUri } = require('@google/genai');
 
@@ -30,6 +35,51 @@ let latestAIResponse: string = '';
 
 export const getLatestAIResponse = () => latestAIResponse;
 export const setLatestAIResponse = (response: string) => { latestAIResponse = response; };
+
+/**
+ * Build OCR context prefix if OCR is enabled and has results
+ */
+function buildOCRContextPrefix(ocrResult: OCRResult | null, log: any): string {
+  if (!ocrResult || !ocrResult.success || !ocrResult.text.trim()) {
+    return '';
+  }
+
+  const confidenceNote = !isConfidenceAcceptable(ocrResult.confidence) 
+    ? ` (Note: OCR confidence is low at ${ocrResult.confidence.toFixed(0)}%, text may be inaccurate)`
+    : '';
+
+  log.info(`OCR: Adding extracted text to prompt (${ocrResult.text.length} chars, ${ocrResult.confidence.toFixed(0)}% confidence)`);
+  // Log the actual extracted text for debugging
+  log.info(`OCR Extracted Text:\n---\n${ocrResult.text}\n---`);
+  
+  return `[Extracted Text from Screenshot(s)]${confidenceNote}\n${ocrResult.text}\n[End Extracted Text]\n\n`;
+}
+
+/**
+ * Process screenshots with OCR if enabled
+ */
+async function processScreenshotsWithOCR(
+  screenshots: string[],
+  store: AppStore,
+  log: any
+): Promise<{ ocrResult: OCRResult | null; shouldIncludeImages: boolean }> {
+  const ocrEnabled = store.get('ocrEnabled', false);
+  
+  if (!ocrEnabled || screenshots.length === 0) {
+    return { ocrResult: null, shouldIncludeImages: true };
+  }
+
+  log.info(`OCR: Processing ${screenshots.length} screenshot(s)`);
+  const ocrLanguage = store.get('ocrLanguage', 'eng');
+  
+  const results = await extractTextFromImages(screenshots, ocrLanguage);
+  const combined = combineOCRResults(results);
+
+  // When OCR is enabled, don't send images (text-only mode)
+  const shouldIncludeImages = !combined.success;
+  
+  return { ocrResult: combined, shouldIncludeImages };
+}
 
 export function registerAIIPC(
   deps: {
@@ -46,6 +96,31 @@ export function registerAIIPC(
     overlayManager.setLatestResponse(response);
     overlayManager.autoShow(response, 2000, preloadPath);
   };
+
+  // Test OCR - extract text from screenshots without sending to AI
+  ipcMain.handle('testOCR', async () => {
+    const screenshotQueue = getScreenshotQueue();
+    if (screenshotQueue.length === 0) {
+      return { success: false, error: 'No screenshots available' };
+    }
+
+    try {
+      const ocrLanguage = store.get('ocrLanguage', 'eng');
+      
+      const results = await extractTextFromImages([...screenshotQueue], ocrLanguage);
+      const combined = combineOCRResults(results);
+      
+      return {
+        success: combined.success,
+        text: combined.text,
+        confidence: combined.confidence,
+        error: combined.error,
+      };
+    } catch (error) {
+      log.error('OCR Test failed:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
 
   // Simple prompt handlers
   ipcMain.handle('sendPromptToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
@@ -114,6 +189,51 @@ export function registerAIIPC(
     }
   });
 
+  // LM Studio handlers
+  ipcMain.handle('sendPromptToLMStudio', async (_event: IpcMainInvokeEvent, prompt: string) => {
+    try {
+      log.info('Sending request to LM Studio');
+      const docPrefix = buildDocContextPrefix();
+      const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+      const assistantReply = await sendPromptToLMStudio(finalPrompt, store);
+      
+      handleAIResponse(assistantReply);
+
+      log.info('Received response from LM Studio');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch from LM Studio:', error);
+      throw new Error(`Failed to fetch from LM Studio: ${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('sendConversationToLMStudio', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+    try {
+      log.info('Sending conversation request to LM Studio');
+      const assistantReply = await sendConversationToLMStudio(messages, store);
+      
+      handleAIResponse(assistantReply);
+
+      log.info('Received conversation response from LM Studio');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch conversation from LM Studio:', error);
+      throw new Error(`Failed to fetch conversation from LM Studio: ${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('testLMStudioConnection', async () => {
+    try {
+      log.info('Testing LM Studio connection');
+      const result = await testLMStudioConnection(store);
+      log.info('LM Studio connection test result:', result);
+      return result;
+    } catch (error) {
+      log.error('LM Studio connection test failed:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
   // Prompt with screenshots
   ipcMain.handle('sendPromptWithScreenshotsToOpenAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
     const screenshotQueue = getScreenshotQueue();
@@ -126,19 +246,27 @@ export function registerAIIPC(
       const openai = getOpenAIClient(store);
       const screenshots = [...screenshotQueue];
       const docPrefix = buildDocContextPrefix();
-      const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const finalPrompt = `${docPrefix ? docPrefix + '\n\n' : ''}${ocrPrefix}${prompt}`;
 
       const content: ChatCompletionContentPart[] = [{ type: "text", text: finalPrompt }];
 
-      for (const screenshotPath of screenshots) {
-        try {
-          const base64Image = imageToBase64(screenshotPath);
-          content.push({
-            type: "image_url",
-            image_url: { url: `data:image/png;base64,${base64Image}` }
-          } as ChatCompletionContentPart);
-        } catch (error) {
-          log.error(`Error processing image ${screenshotPath}:`, error);
+      // Only include images if OCR mode requires it
+      if (shouldIncludeImages) {
+        for (const screenshotPath of screenshots) {
+          try {
+            const base64Image = imageToBase64(screenshotPath);
+            content.push({
+              type: "image_url",
+              image_url: { url: `data:image/png;base64,${base64Image}` }
+            } as ChatCompletionContentPart);
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
         }
       }
 
@@ -169,15 +297,24 @@ export function registerAIIPC(
       const ai = getGeminiClient(store);
       const screenshots = [...screenshotQueue];
       const docPrefix = buildDocContextPrefix();
-      const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const finalPrompt = `${docPrefix ? docPrefix + '\n\n' : ''}${ocrPrefix}${prompt}`;
 
-      const parts = [finalPrompt];
-      for (const screenshotPath of screenshots) {
-        try {
-          const image = await ai.files.upload({ file: screenshotPath });
-          parts.push(createPartFromUri(image.uri, image.mimeType));
-        } catch (error) {
-          log.error(`Error processing image ${screenshotPath}:`, error);
+      const parts: any[] = [finalPrompt];
+      
+      // Only include images if OCR mode requires it
+      if (shouldIncludeImages) {
+        for (const screenshotPath of screenshots) {
+          try {
+            const image = await ai.files.upload({ file: screenshotPath });
+            parts.push(createPartFromUri(image.uri, image.mimeType));
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
         }
       }
 
@@ -207,15 +344,24 @@ export function registerAIIPC(
       const language = options.language || store.get('preferredLanguage') || 'python';
       const answerStyle = store.get('answerStyle', 'code');
       const docPrefix = buildDocContextPrefix();
-      const promptText = generatePrompt(answerStyle, language, undefined, docPrefix);
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const promptText = generatePrompt(answerStyle, language, undefined, docPrefix ? `${docPrefix}\n\n${ocrPrefix}` : ocrPrefix);
 
-      const parts = [promptText];
-      for (const screenshotPath of screenshots) {
-        try {
-          const image = await ai.files.upload({ file: screenshotPath });
-          parts.push(createPartFromUri(image.uri, image.mimeType));
-        } catch (error) {
-          log.error(`Error processing image ${screenshotPath}:`, error);
+      const parts: any[] = [promptText];
+      
+      // Only include images if OCR mode requires it
+      if (shouldIncludeImages) {
+        for (const screenshotPath of screenshots) {
+          try {
+            const image = await ai.files.upload({ file: screenshotPath });
+            parts.push(createPartFromUri(image.uri, image.mimeType));
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
         }
       }
 
@@ -243,19 +389,27 @@ export function registerAIIPC(
       const language = options.language || store.get('preferredLanguage') || 'python';
       const answerStyle = store.get('answerStyle') || 'code';
       const docPrefix = buildDocContextPrefix();
-      const promptText = generatePrompt(answerStyle, language, undefined, docPrefix);
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const promptText = generatePrompt(answerStyle, language, undefined, docPrefix ? `${docPrefix}\n\n${ocrPrefix}` : ocrPrefix);
 
       const content: ChatCompletionContentPart[] = [{ type: "text", text: promptText }];
 
-      for (const screenshotPath of screenshots) {
-        try {
-          const base64Image = imageToBase64(screenshotPath);
-          content.push({
-            type: "image_url",
-            image_url: { url: `data:image/png;base64,${base64Image}` }
-          } as ChatCompletionContentPart);
-        } catch (error) {
-          log.error(`Error processing image ${screenshotPath}:`, error);
+      // Only include images if OCR mode requires it
+      if (shouldIncludeImages) {
+        for (const screenshotPath of screenshots) {
+          try {
+            const base64Image = imageToBase64(screenshotPath);
+            content.push({
+              type: "image_url",
+              image_url: { url: `data:image/png;base64,${base64Image}` }
+            } as ChatCompletionContentPart);
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
         }
       }
 
@@ -314,41 +468,64 @@ export function registerAIIPC(
 
     try {
       const screenshots = [...screenshotQueue];
-      const extractPrompt = `Please extract and list all the text you can see in these screenshots. Only return the extracted text, no analysis or explanation.\n\n[EXTRACTED TEXT]`;
-
-      const geminiKey = getApiKey('gemini', store, log);
-      const openaiKey = getApiKey('openai', store, log);
-      
       let extractedText = '';
 
-      if (geminiKey) {
-        try {
-          const ai = getGeminiClient(store);
-          const parts = [extractPrompt];
+      // Check if OCR is enabled - use OCR instead of AI
+      // Also force OCR when LM Studio is selected (since it's text-only)
+      const defaultModel = store.get('defaultModel', 'both');
+      const lmstudioEnabled = store.get('lmstudioEnabled', false);
+      const ocrEnabled = store.get('ocrEnabled', false) || (defaultModel === 'lmstudio' && lmstudioEnabled);
+      
+      if (ocrEnabled) {
+        // Use Tesseract OCR (fast, free, local)
+        log.info('Extract Text: Using OCR (enabled in settings)');
+        const ocrLanguage = store.get('ocrLanguage', 'eng');
+        const results = await extractTextFromImages(screenshots, ocrLanguage);
+        const combined = combineOCRResults(results);
+        
+        if (combined.success && combined.text) {
+          extractedText = combined.text;
+          log.info(`OCR extraction completed: ${extractedText.length} chars, ${combined.confidence.toFixed(0)}% confidence`);
+        } else {
+          return { success: false, error: combined.error || 'OCR failed to extract text' };
+        }
+      } else {
+        // Use AI extraction (original behavior)
+        log.info('Extract Text: Using AI (OCR disabled)');
+        const extractPrompt = `Please extract and list all the text you can see in these screenshots. Only return the extracted text, no analysis or explanation.\n\n[EXTRACTED TEXT]`;
 
-          for (const screenshotPath of screenshots) {
-            try {
-              const image = await ai.files.upload({ file: screenshotPath });
-              parts.push(createPartFromUri(image.uri, image.mimeType));
-            } catch (error) {
-              log.error(`Error processing image ${screenshotPath}:`, error);
+        const geminiKey = getApiKey('gemini', store, log);
+        const openaiKey = getApiKey('openai', store, log);
+
+        if (geminiKey) {
+          try {
+            const ai = getGeminiClient(store);
+            const parts = [extractPrompt];
+
+            for (const screenshotPath of screenshots) {
+              try {
+                const image = await ai.files.upload({ file: screenshotPath });
+                parts.push(createPartFromUri(image.uri, image.mimeType));
+              } catch (error) {
+                log.error(`Error processing image ${screenshotPath}:`, error);
+              }
+            }
+
+            const result = await sendPromptToGemini(parts, store);
+            extractedText = result.text || 'No text extracted';
+          } catch (geminiError) {
+            log.warn('Gemini extraction failed, falling back to OpenAI:', geminiError);
+            if (openaiKey) {
+              extractedText = await extractWithOpenAI(screenshots, extractPrompt);
+            } else {
+              throw new Error('Gemini extraction failed and no OpenAI API key available');
             }
           }
-
-          const result = await sendPromptToGemini(parts, store);
-          extractedText = result.text || 'No text extracted';
-        } catch (geminiError) {
-          log.warn('Gemini extraction failed, falling back to OpenAI:', geminiError);
-          if (openaiKey) {
-            extractedText = await extractWithOpenAI(screenshots, extractPrompt);
-          } else {
-            throw new Error('Gemini extraction failed and no OpenAI API key available');
-          }
+        } else if (openaiKey) {
+          extractedText = await extractWithOpenAI(screenshots, extractPrompt);
+        } else {
+          throw new Error('No API key configured. Please set either Gemini or OpenAI API key in Settings, or enable OCR.');
         }
-      } else if (openaiKey) {
-        extractedText = await extractWithOpenAI(screenshots, extractPrompt);
-      } else {
-        throw new Error('No API key configured. Please set either Gemini or OpenAI API key in Settings.');
       }
       
       clipboard.writeText(extractedText);
@@ -395,6 +572,7 @@ export function registerAIIPC(
       const promises = [];
       let openaiResponse = '';
       let geminiResponse = '';
+      let lmstudioResponse = '';
       
       if (defaultModel === 'both' || defaultModel === 'openai') {
         promises.push(
@@ -427,8 +605,24 @@ export function registerAIIPC(
         );
       }
 
+      // LM Studio (local model)
+      if (defaultModel === 'lmstudio') {
+        promises.push(
+          sendPromptToLMStudio(promptText, store)
+            .then(response => {
+              lmstudioResponse = response;
+              handleAIResponse(response);
+              return response;
+            })
+            .catch((error: Error) => {
+              lmstudioResponse = `LM Studio Error: ${error.message}`;
+              return lmstudioResponse;
+            })
+        );
+      }
+
       await Promise.allSettled(promises);
-      const finalResponse = latestAIResponse || openaiResponse || geminiResponse || 'No response received';
+      const finalResponse = latestAIResponse || openaiResponse || geminiResponse || lmstudioResponse || 'No response received';
 
       if (finalResponse && finalResponse !== 'No response received') {
         clipboard.writeText(finalResponse);
@@ -438,7 +632,8 @@ export function registerAIIPC(
         success: true,
         prompt: clipboardText,
         openaiResponse,
-        geminiResponse
+        geminiResponse,
+        lmstudioResponse
       };
     } catch (error) {
       log.error('Error processing clipboard prompt via IPC:', error);

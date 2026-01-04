@@ -21,6 +21,7 @@ import { registerAIIPC } from './main/ipc/ai';
 import { registerGlobalShortcuts, unregisterAllShortcuts } from './main/shortcuts';
 import { createStore } from './main/store';
 import { createWindow, getMainWindow, hideMainWindow, moveWindow, showMainWindow } from './main/window';
+import { terminateOCRWorker } from './main/ocr';
 
 // Configure logging
 electronLog.initialize();
@@ -67,7 +68,7 @@ registerFilesIPC(ipcMain, {
   store,
   mainWindow: getMainWindow
 });
-registerPreferencesIPC(ipcMain, { store, log, getApiKey: (type) => getApiKey(type, store, log) });
+registerPreferencesIPC(ipcMain, { store, log, getApiKey: (type) => getApiKey(type, store, log), mainWindow: getMainWindow });
 registerOverlayIPC(ipcMain, { preloadPath });
 registerDocumentsIPC(ipcMain, { mainWindow: getMainWindow, log });
 
@@ -97,6 +98,7 @@ app.on('activate', () => {
   }
 });
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
   unregisterAllShortcuts();
+  await terminateOCRWorker();
 });

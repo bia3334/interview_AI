@@ -88,3 +88,34 @@ select.prompt-input option:hover, select.prompt-input option:checked { backgroun
 
 .toast { position: fixed; bottom: 1rem; right: 1rem; background: rgba(0, 0, 0, 0.8); border: 1px solid var(--border); border-radius: 0.25rem; padding: 0.5rem 1rem; font-size: 0.875rem; transform: translateY(100%); opacity: 0; transition: all 0.3s; }
 .toast.show { transform: translateY(0); opacity: 1; }
+
+/* Material Icons styling */
+mat-icon {
+  vertical-align: middle;
+}
+mat-icon.inline-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+mat-icon.inline-icon.small {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  margin-right: 2px;
+}
+.btn-icon mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+mat-icon.spinning {
+  animation: spin 1s linear infinite;
+}

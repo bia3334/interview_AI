@@ -6,3 +6,6 @@ package-lock.json
 .env.*
 .angular
 !.env.example
+
+# Tesseract OCR language models (auto-downloaded)
+*.traineddata
