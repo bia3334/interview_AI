@@ -98,8 +98,8 @@
       </button>
     </ng-container>
   </div>
-  <div id="responsesContainer" style="display: flex; gap: 1rem; flex: 1;">
-    <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="(showBoth || defaultModel === 'openai') ? 'flex' : 'none'">
+  <div id="responsesContainer" style="display: flex; gap: 1rem; flex: 1; min-height: 0; overflow: hidden;">
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="(showBoth || defaultModel === 'openai') ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem;">OpenAI</div>
       <div 
         #openaiResponseContainer 
@@ -107,7 +107,7 @@
         [innerHTML]="openaiResponse"
       ></div>
     </div>
-    <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="(showBoth || defaultModel === 'gemini') ? 'flex' : 'none'">
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="(showBoth || defaultModel === 'gemini') ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem;">Gemini</div>
       <div 
         #geminiResponseContainer 
@@ -115,7 +115,7 @@
         [innerHTML]="geminiResponse"
       ></div>
     </div>
-    <div style="flex: 1; display: flex; flex-direction: column;" [style.display]="defaultModel === 'lmstudio' ? 'flex' : 'none'">
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="defaultModel === 'lmstudio' ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem;">LM Studio (Local)</div>
       <div 
         #lmstudioResponseContainer 

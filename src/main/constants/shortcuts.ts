@@ -45,6 +45,9 @@ export const SHORTCUTS = {
   SCROLL_DOWN: 'CommandOrControl+Down',
   SCROLL_LEFT: 'CommandOrControl+Left',
   SCROLL_RIGHT: 'CommandOrControl+Right',
+  
+  // Developer
+  DEV_TOOLS: 'CommandOrControl+Shift+I',
 } as const;
 
 export type ShortcutKey = keyof typeof SHORTCUTS;

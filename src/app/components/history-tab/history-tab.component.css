@@ -199,6 +199,13 @@
   letter-spacing: 0.5px;
 }
 
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
 .detail-prompt {
   background: rgba(255, 255, 255, 0.05);
   padding: 0.75rem;
@@ -238,35 +245,21 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-.response-content {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  padding: 0.75rem;
-  overflow-y: auto;
-  font-size: 0.85rem;
-  line-height: 1.6;
-}
-
 /* Scrollbar Styles */
-.history-content::-webkit-scrollbar,
-.response-content::-webkit-scrollbar {
+.history-content::-webkit-scrollbar {
   width: 6px;
 }
 
-.history-content::-webkit-scrollbar-track,
-.response-content::-webkit-scrollbar-track {
+.history-content::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 3px;
 }
 
-.history-content::-webkit-scrollbar-thumb,
-.response-content::-webkit-scrollbar-thumb {
+.history-content::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
-.history-content::-webkit-scrollbar-thumb:hover,
-.response-content::-webkit-scrollbar-thumb:hover {
+.history-content::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }

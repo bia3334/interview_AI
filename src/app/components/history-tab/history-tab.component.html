@@ -55,10 +55,12 @@
       </div>
       
       <div class="detail-section">
-        <div class="detail-label">Question / Prompt</div>
+        <div class="detail-header">
+          <div class="detail-label">Question / Prompt</div>
+          <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.prompt)" title="Copy"><mat-icon>content_copy</mat-icon></button>
+        </div>
         <div class="detail-prompt">
           {{ selectedItem.prompt || '(Screenshot analysis)' }}
-          <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.prompt)" title="Copy"><mat-icon>content_copy</mat-icon></button>
         </div>
       </div>
 
@@ -68,7 +70,7 @@
             <span>OpenAI Response</span>
             <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.openaiResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
-          <div #openaiResponseContent class="response-content" [innerHTML]="selectedItem.openaiResponse"></div>
+          <div #openaiResponseContent class="response-container" [innerHTML]="selectedItem.openaiResponse"></div>
         </div>
 
         <div class="response-section" *ngIf="selectedItem.geminiResponse">
@@ -76,7 +78,7 @@
             <span>Gemini Response</span>
             <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.geminiResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
-          <div #geminiResponseContent class="response-content" [innerHTML]="selectedItem.geminiResponse"></div>
+          <div #geminiResponseContent class="response-container" [innerHTML]="selectedItem.geminiResponse"></div>
         </div>
 
         <div class="response-section" *ngIf="selectedItem.lmstudioResponse">
@@ -84,7 +86,7 @@
             <span><mat-icon class="inline-icon">computer</mat-icon> LM Studio Response</span>
             <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.lmstudioResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
-          <div #lmstudioResponseContent class="response-content" [innerHTML]="selectedItem.lmstudioResponse"></div>
+          <div #lmstudioResponseContent class="response-container" [innerHTML]="selectedItem.lmstudioResponse"></div>
         </div>
       </div>
     </div>

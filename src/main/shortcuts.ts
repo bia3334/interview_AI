@@ -156,6 +156,12 @@ export function registerGlobalShortcuts(
     if (mainWindow) mainWindow.webContents.send('switch-tab', 'previous');
   });
 
+  // Developer tools
+  globalShortcut.register(SHORTCUTS.DEV_TOOLS, () => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) mainWindow.webContents.toggleDevTools();
+  });
+
   log.info('Global shortcuts registered');
 }
 
