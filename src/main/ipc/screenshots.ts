@@ -161,7 +161,7 @@ export function registerScreenshotsIPC(
         transparent: true,
         alwaysOnTop: true,
         skipTaskbar: true,
-        focusable: false,
+        focusable: true,
         closable: false,
         minimizable: false,
         maximizable: false,
