@@ -181,6 +181,13 @@
               View
             </button>
             <button 
+              class="btn btn-small"
+              (click)="openRenameDialog(doc, $event)"
+              title="Rename document"
+            >
+              Rename
+            </button>
+            <button 
               class="btn btn-small" 
               [class.btn-primary]="doc.active"
               (click)="onToggleActiveClick($event, doc)"
@@ -439,6 +446,34 @@
       <p class="hint-text">
         Note: First OCR operation may take a few seconds to download the language model (~2MB).
       </p>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Document Dialog -->
+<div class="dialog-overlay" *ngIf="showRenameDialog" (click)="closeRenameDialog()">
+  <div class="dialog" (click)="$event.stopPropagation()">
+    <h3>Rename Document</h3>
+    <div class="form-group">
+      <label for="renameInput">New Name</label>
+      <input 
+        type="text" 
+        id="renameInput" 
+        [(ngModel)]="renameNewName"
+        class="prompt-input" 
+        placeholder="Enter new name..."
+        (keydown.enter)="saveRename()"
+      />
+    </div>
+    <div class="dialog-actions">
+      <button class="btn" (click)="closeRenameDialog()">Cancel</button>
+      <button 
+        class="btn btn-primary" 
+        (click)="saveRename()"
+        [disabled]="!renameNewName.trim()"
+      >
+        Save
+      </button>
     </div>
   </div>
 </div>

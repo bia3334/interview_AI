@@ -51,6 +51,11 @@ export class SettingsTabComponent implements OnInit {
   editedKeyInfo: string = '';
   currentKeyInfoFilePath: string = '';
 
+  // Rename Dialog
+  showRenameDialog: boolean = false;
+  renameDocPath: string = '';
+  renameNewName: string = '';
+
   // Template management
   showSaveTemplateDialog: boolean = false;
   newTemplateName: string = '';
@@ -514,5 +519,37 @@ export class SettingsTabComponent implements OnInit {
     this.isEditingKeyInfo = false;
     this.editedKeyInfo = '';
     this.cdr.detectChanges();
+  }
+
+  // Rename Document methods
+  openRenameDialog(doc: any, event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.renameDocPath = doc.filePath;
+    this.renameNewName = doc.fileName;
+    this.showRenameDialog = true;
+  }
+
+  closeRenameDialog() {
+    this.showRenameDialog = false;
+    this.renameDocPath = '';
+    this.renameNewName = '';
+  }
+
+  async saveRename() {
+    if (!this.renameDocPath || !this.renameNewName.trim()) return;
+    
+    try {
+      const result = await this.electronService.renameDoc(this.renameDocPath, this.renameNewName.trim());
+      if (result.success) {
+        this.electronService.showToast('Document renamed');
+        await this.loadDocuments();
+      } else {
+        this.electronService.showToast(result.error || 'Failed to rename');
+      }
+    } catch (error) {
+      console.error('Error renaming document:', error);
+    }
+    this.closeRenameDialog();
   }
 }

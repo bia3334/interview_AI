@@ -235,6 +235,19 @@ export const removeImportedDoc = (filePath: string) => {
 };
 
 /**
+ * Rename imported document (display name only, not actual file)
+ */
+export const renameImportedDoc = (filePath: string, newName: string) => {
+  const idx = importedDocs.findIndex((d) => d.filePath === filePath);
+  if (idx < 0) return { success: false, error: 'Document not found' };
+  
+  importedDocs[idx].fileName = newName;
+  saveDocsToStore();
+  
+  return { success: true, fileName: newName };
+};
+
+/**
  * Register document context IPC handlers
  */
 export function registerDocumentsIPC(
@@ -294,6 +307,23 @@ export function registerDocumentsIPC(
       return saveDocKeyInfo(filePath, keyInfo, deps.mainWindow(), deps.log);
     } catch (err: any) {
       deps.log.error('docs:saveKeyInfo error', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('docs:rename', (_e, filePath: string, newName: string) => {
+    try {
+      const result = renameImportedDoc(filePath, newName);
+      if (result.success) {
+        deps.log.info(`Renamed document to: ${newName}`);
+        const win = deps.mainWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('documents-updated');
+        }
+      }
+      return result;
+    } catch (err: any) {
+      deps.log.error('docs:rename error', err);
       return { success: false, error: err.message };
     }
   });

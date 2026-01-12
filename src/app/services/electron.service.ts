@@ -280,6 +280,10 @@ export class ElectronService {
     return this.electronAPI.removeDoc(filePath);
   }
 
+  renameDoc(filePath: string, newName: string): Promise<{ success: boolean; fileName?: string; error?: string }> {
+    return this.electronAPI.renameDoc(filePath, newName);
+  }
+
   getDocKeyInfo(filePath: string): Promise<{ success: boolean; fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number; error?: string }> {
     return this.electronAPI.getDocKeyInfo(filePath);
   }
@@ -446,6 +450,7 @@ export class ElectronService {
       listDocs: () => Promise.resolve({ success: false, docs: [] }),
       setActiveDoc: () => Promise.resolve({ success: false }),
       removeDoc: () => Promise.resolve({ success: false }),
+      renameDoc: () => Promise.resolve({ success: false }),
       getDocKeyInfo: () => Promise.resolve({ success: false }),
       saveDocKeyInfo: () => Promise.resolve({ success: false }),
       saveApiKey: () => Promise.resolve({ success: false }),
