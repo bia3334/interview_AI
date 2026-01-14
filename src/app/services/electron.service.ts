@@ -11,6 +11,7 @@ export interface HistoryItem {
   openaiResponse?: string;
   geminiResponse?: string;
   lmstudioResponse?: string;
+  zaiResponse?: string;
 }
 
 @Injectable({
@@ -23,9 +24,7 @@ export class ElectronService {
   private screenshotTaken$ = new Subject<any>();
   private processScreenshots$ = new Subject<void>();
   private screenshotsCleared$ = new Subject<void>();
-  private answerStyleChanged$ = new Subject<string>();
-  private modelChanged$ = new Subject<'openai' | 'gemini' | 'both' | 'lmstudio'>();
-  private switchTab$ = new Subject<string>();
+  private modelChanged$ = new Subject<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'>();
   private responseCopied$ = new Subject<void>();
   private processClipboardPrompt$ = new Subject<void>();
   private triggerRegionScreenshot$ = new Subject<void>();
@@ -56,9 +55,7 @@ export class ElectronService {
     this.electronAPI.onScreenshotTaken((data) => this.screenshotTaken$.next(data));
     this.electronAPI.onProcessScreenshots(() => this.processScreenshots$.next());
     this.electronAPI.onScreenshotsCleared(() => this.screenshotsCleared$.next());
-    this.electronAPI.onAnswerStyleChanged((style) => this.answerStyleChanged$.next(style));
     this.electronAPI.onModelChanged((model) => this.modelChanged$.next(model));
-    this.electronAPI.onSwitchTab((direction) => this.switchTab$.next(direction));
     this.electronAPI.onResponseCopied(() => this.responseCopied$.next());
     this.electronAPI.onProcessClipboardPrompt(() => this.processClipboardPrompt$.next());
     this.electronAPI.onTriggerRegionScreenshot(() => this.triggerRegionScreenshot$.next());
@@ -119,7 +116,16 @@ export class ElectronService {
     return this.electronAPI.sendConversationToLMStudio(messages);
   }
 
-  processClipboardPrompt(): Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; error?: string }> {
+  // Z.AI
+  sendPromptToZAI(prompt: string): Promise<string> {
+    return this.electronAPI.sendPromptToZAI(prompt);
+  }
+
+  sendConversationToZAI(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
+    return this.electronAPI.sendConversationToZAI(messages);
+  }
+
+  processClipboardPrompt(): Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }> {
     return this.electronAPI.processClipboardPrompt();
   }
 
@@ -161,11 +167,11 @@ export class ElectronService {
     return this.electronAPI.savePreferences(preferences);
   }
 
-  getDefaultModel(): Promise<'openai' | 'gemini' | 'both' | 'lmstudio'> {
+  getDefaultModel(): Promise<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'> {
     return this.electronAPI.getDefaultModel();
   }
 
-  saveDefaultModel(defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio'): Promise<{ success: boolean; error?: string }> {
+  saveDefaultModel(defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveDefaultModel(defaultModel);
   }
 
@@ -184,6 +190,32 @@ export class ElectronService {
 
   saveGeminiApiKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveGeminiApiKey(apiKey);
+  }
+
+  // Z.AI API Key
+  getZAIApiKey(): Promise<string> {
+    return this.electronAPI.getZAIApiKey();
+  }
+
+  saveZAIApiKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveZAIApiKey(apiKey);
+  }
+
+  // Custom Model Names
+  getOpenAIModel(): Promise<string> {
+    return this.electronAPI.getOpenAIModel();
+  }
+
+  saveOpenAIModel(model: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveOpenAIModel(model);
+  }
+
+  getGeminiModel(): Promise<string> {
+    return this.electronAPI.getGeminiModel();
+  }
+
+  saveGeminiModel(model: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveGeminiModel(model);
   }
 
   // Custom System Prompt
@@ -251,6 +283,27 @@ export class ElectronService {
     return this.electronAPI.testLMStudioConnection();
   }
 
+  // Z.AI Settings
+  getZAISettings(): Promise<{ enabled: boolean; model: string }> {
+    return this.electronAPI.getZAISettings();
+  }
+
+  saveZAISettings(settings: { enabled: boolean; model: string }): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveZAISettings(settings);
+  }
+
+  testZAIConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
+    return this.electronAPI.testZAIConnection();
+  }
+
+  testOpenAIConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
+    return this.electronAPI.testOpenAIConnection();
+  }
+
+  testGeminiConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
+    return this.electronAPI.testGeminiConnection();
+  }
+
   // Documents
   openFileDialog(): Promise<{ canceled: boolean; filePath?: string }> {
     return this.electronAPI.openFileDialog();
@@ -309,16 +362,8 @@ export class ElectronService {
     return this.screenshotsCleared$.asObservable();
   }
 
-  onAnswerStyleChanged(): Observable<string> {
-    return this.answerStyleChanged$.asObservable();
-  }
-
-  onModelChanged(): Observable<'openai' | 'gemini' | 'both' | 'lmstudio'> {
+  onModelChanged(): Observable<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'> {
     return this.modelChanged$.asObservable();
-  }
-
-  onSwitchTab(): Observable<string> {
-    return this.switchTab$.asObservable();
   }
 
   onResponseCopied(): Observable<void> {
@@ -429,6 +474,8 @@ export class ElectronService {
       sendConversationToOpenAI: () => Promise.resolve('Mock OpenAI conversation response'),
       sendConversationToGemini: () => Promise.resolve('Mock Gemini conversation response'),
       sendConversationToLMStudio: () => Promise.resolve('Mock LM Studio conversation response'),
+      sendPromptToZAI: () => Promise.resolve('Mock Z.AI response'),
+      sendConversationToZAI: () => Promise.resolve('Mock Z.AI conversation response'),
       closeWindow: () => {},
       hideWindow: () => {},
       showWindow: () => {},
@@ -459,12 +506,16 @@ export class ElectronService {
       getGeminiApiKey: () => Promise.resolve(''),
       saveOpenAIApiKey: () => Promise.resolve({ success: false }),
       getOpenAIApiKey: () => Promise.resolve(''),
+      saveZAIApiKey: () => Promise.resolve({ success: false }),
+      getZAIApiKey: () => Promise.resolve(''),
       savePreferences: () => Promise.resolve({ success: false }),
       getPreferences: () => Promise.resolve({ preferredLanguage: 'python', answerStyle: 'explanation' }),
       saveDefaultModel: () => Promise.resolve({ success: false }),
       getDefaultModel: () => Promise.resolve('both'),
       saveOpenAIModel: () => Promise.resolve({ success: false }),
       getOpenAIModel: () => Promise.resolve(''),
+      saveGeminiModel: () => Promise.resolve({ success: false }),
+      getGeminiModel: () => Promise.resolve(''),
       saveCustomSystemPrompt: () => Promise.resolve({ success: false }),
       getCustomSystemPrompt: () => Promise.resolve(''),
       getUserPromptTemplates: () => Promise.resolve([]),
@@ -480,18 +531,21 @@ export class ElectronService {
       getLMStudioSettings: () => Promise.resolve({ enabled: false, endpoint: 'http://localhost:1234/v1', model: 'local-model' }),
       saveLMStudioSettings: () => Promise.resolve({ success: false }),
       testLMStudioConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      getZAISettings: () => Promise.resolve({ enabled: false, model: 'glm-4.7' }),
+      saveZAISettings: () => Promise.resolve({ success: false }),
+      testZAIConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      testOpenAIConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      testGeminiConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       copyLatestResponse: () => Promise.resolve({ success: false }),
       processClipboardPrompt: () => Promise.resolve({ success: false }),
       getScreenshots: () => Promise.resolve([]),
       removeScreenshot: () => Promise.resolve({ success: false }),
       onScreenshotTaken: () => () => {},
       onProcessScreenshots: () => () => {},
-      onAnswerStyleChanged: () => () => {},
       onModelChanged: () => () => {},
       onOpenAIModelChanged: () => () => {},
       onExtractTextFromScreenshots: () => () => {},
       onScreenshotsCleared: () => () => {},
-      onSwitchTab: () => () => {},
       onResponseCopied: () => () => {},
       onProcessClipboardPrompt: () => () => {},
       onTriggerRegionScreenshot: () => () => {},

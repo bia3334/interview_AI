@@ -19,8 +19,4 @@ export const SHORTCUTS: ShortcutInfo[] = [
   { action: 'Delete All Screenshots', keys: ['Ctrl/Cmd', 'Shift', 'D'] },
   { action: 'Process Clipboard as Prompt', keys: ['Ctrl/Cmd', 'Shift', 'Q'] },
   { action: 'Copy Response to Clipboard', keys: ['Ctrl/Cmd', 'Shift', 'C'] },
-  { action: 'Cycle Answer Style', keys: ['Ctrl/Cmd', 'Shift', 'L'] },
-  { action: 'Cycle AI Model', keys: ['Ctrl/Cmd', 'Shift', 'M'] },
-  { action: 'Next Tab', keys: ['Ctrl/Cmd', 'Shift', 'Space'] },
-  { action: 'Previous Tab', keys: ['Ctrl/Cmd', 'Shift', 'Tab'] },
 ];

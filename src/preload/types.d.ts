@@ -4,11 +4,13 @@ export interface ElectronAPI {
   sendPromptToOpenAI: (prompt: string) => Promise<string>;
   sendPromptToGemini: (prompt: string) => Promise<string>;
   sendPromptToLMStudio: (prompt: string) => Promise<string>;
+  sendPromptToZAI: (prompt: string) => Promise<string>;
   sendPromptWithScreenshotsToOpenAI: (prompt: string) => Promise<string>;
   sendPromptWithScreenshotsToGemini: (prompt: string) => Promise<string>;
   sendConversationToOpenAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
   sendConversationToGemini: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
   sendConversationToLMStudio: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
+  sendConversationToZAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
 
   closeWindow: () => void;
   hideWindow: () => void;
@@ -44,13 +46,17 @@ export interface ElectronAPI {
   getGeminiApiKey: () => Promise<string>;
   saveOpenAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
   getOpenAIApiKey: () => Promise<string>;
+  saveZAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
+  getZAIApiKey: () => Promise<string>;
   savePreferences: (preferences: { preferredLanguage: string; answerStyle?: 'code' | 'explanation' | 'multiple-choice' }) => Promise<{ success: boolean; error?: string }>;
   getPreferences: () => Promise<{ preferredLanguage: string; answerStyle: string }>;
-  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio') => Promise<{ success: boolean; error?: string }>;
-  getDefaultModel: () => Promise<'openai' | 'gemini' | 'both' | 'lmstudio'>;
+  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai') => Promise<{ success: boolean; error?: string }>;
+  getDefaultModel: () => Promise<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'>;
 
   saveOpenAIModel: (model: string) => Promise<{ success: boolean; error?: string }>;
   getOpenAIModel: () => Promise<string>;
+  saveGeminiModel: (model: string) => Promise<{ success: boolean; error?: string }>;
+  getGeminiModel: () => Promise<string>;
 
   saveCustomSystemPrompt: (prompt: string) => Promise<{ success: boolean; error?: string }>;
   getCustomSystemPrompt: () => Promise<string>;
@@ -76,20 +82,27 @@ export interface ElectronAPI {
   saveLMStudioSettings: (settings: { enabled: boolean; endpoint: string; model: string }) => Promise<{ success: boolean; error?: string }>;
   testLMStudioConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
 
+  // Z.AI Settings
+  getZAISettings: () => Promise<{ enabled: boolean; model: string }>;
+  saveZAISettings: (settings: { enabled: boolean; model: string }) => Promise<{ success: boolean; error?: string }>;
+  testZAIConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
+
+  // OpenAI & Gemini Test
+  testOpenAIConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
+  testGeminiConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
+
   copyLatestResponse: () => Promise<{ success: boolean; error?: string }>;
-  processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; error?: string }>;
+  processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }>;
 
   getScreenshots: () => Promise<string[]>;
   removeScreenshot: (index: number) => Promise<{ success: boolean; error?: string }>;
 
   onScreenshotTaken: (callback: (data: any) => void) => () => void;
   onProcessScreenshots: (callback: () => void) => () => void;
-  onAnswerStyleChanged: (callback: (style: string) => void) => () => void;
-  onModelChanged: (callback: (model: 'openai' | 'gemini' | 'both' | 'lmstudio') => void) => () => void;
+  onModelChanged: (callback: (model: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai') => void) => () => void;
   onOpenAIModelChanged: (callback: (model: string) => void) => () => void;
   onExtractTextFromScreenshots: (callback: () => void) => () => void;
   onScreenshotsCleared: (callback: () => void) => () => void;
-  onSwitchTab: (callback: (direction: string) => void) => () => void;
   onResponseCopied: (callback: () => void) => () => void;
   onProcessClipboardPrompt: (callback: () => void) => () => void;
   onTriggerRegionScreenshot: (callback: () => void) => () => void;

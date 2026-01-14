@@ -23,12 +23,30 @@ export class SettingsTabComponent implements OnInit {
   openaiApiKey: string = '';
   geminiApiKey: string = '';
   defaultModel: AIProvider = DEFAULTS.MODEL;
+  
+  // Provider enabled states (for flexible selection)
+  openaiEnabled: boolean = true;
+  geminiEnabled: boolean = true;
+  zaiEnabled: boolean = false;
+  
+  // Custom model names for cloud providers
+  openaiModel: string = 'gpt-4o';
+  geminiModel: string = 'gemini-2.0-flash';
+  
+  // Test loading states
+  openaiTestLoading: boolean = false;
+  geminiTestLoading: boolean = false;
 
   // LM Studio Settings
   lmstudioEnabled: boolean = false;
   lmstudioEndpoint: string = 'http://localhost:1234/v1';
   lmstudioModel: string = 'local-model';
   lmstudioTestLoading: boolean = false;
+
+  // Z.AI Settings
+  zaiApiKey: string = '';
+  zaiModel: string = 'glm-4.7';
+  zaiTestLoading: boolean = false;
 
   // AI Behavior
   preferredLanguage: string = DEFAULTS.LANGUAGE;
@@ -97,28 +115,102 @@ export class SettingsTabComponent implements OnInit {
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, preferences, defaultModel, customPrompt, lmstudioSettings] = await Promise.all([
+    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
+      this.electronService.getZAIApiKey(),
       this.electronService.getPreferences(),
       this.electronService.getDefaultModel(),
       this.electronService.getCustomSystemPrompt(),
-      this.electronService.getLMStudioSettings()
+      this.electronService.getLMStudioSettings(),
+      this.electronService.getZAISettings(),
+      this.electronService.getOpenAIModel(),
+      this.electronService.getGeminiModel()
     ]);
 
     this.openaiApiKey = openaiKey || '';
     this.geminiApiKey = geminiKey || '';
+    this.zaiApiKey = zaiKey || '';
     this.preferredLanguage = preferences.preferredLanguage || 'python';
     this.answerStyle = (preferences.answerStyle as any) || 'explanation';
     this.defaultModel = defaultModel;
     this.customSystemPrompt = customPrompt || '';
+    
+    // Custom model names
+    this.openaiModel = openaiModelSetting || 'gpt-4o';
+    this.geminiModel = geminiModelSetting || 'gemini-2.0-flash';
     
     // LM Studio settings
     this.lmstudioEnabled = lmstudioSettings.enabled;
     this.lmstudioEndpoint = lmstudioSettings.endpoint;
     this.lmstudioModel = lmstudioSettings.model;
     
+    // Z.AI settings
+    this.zaiModel = zaiSettings.model;
+    
+    // Parse enabled providers from defaultModel (for backward compatibility)
+    // or use new enabledProviders setting
+    this.parseEnabledProviders(defaultModel);
+    
     this.detectActiveTemplate();
+  }
+
+  // Parse the defaultModel setting into individual enabled states
+  parseEnabledProviders(model: string) {
+    // Try to parse as JSON array first (new format)
+    try {
+      const providers = JSON.parse(model);
+      if (Array.isArray(providers)) {
+        this.openaiEnabled = providers.includes('openai');
+        this.geminiEnabled = providers.includes('gemini');
+        this.zaiEnabled = providers.includes('zai');
+        return;
+      }
+    } catch {
+      // Not JSON, use legacy format
+    }
+    
+    // Legacy format compatibility
+    switch (model) {
+      case 'both':
+        this.openaiEnabled = true;
+        this.geminiEnabled = true;
+        this.zaiEnabled = false;
+        break;
+      case 'openai':
+        this.openaiEnabled = true;
+        this.geminiEnabled = false;
+        this.zaiEnabled = false;
+        break;
+      case 'gemini':
+        this.openaiEnabled = false;
+        this.geminiEnabled = true;
+        this.zaiEnabled = false;
+        break;
+      case 'zai':
+        this.openaiEnabled = false;
+        this.geminiEnabled = false;
+        this.zaiEnabled = true;
+        break;
+      default:
+        this.openaiEnabled = true;
+        this.geminiEnabled = true;
+        this.zaiEnabled = false;
+    }
+  }
+
+  // Get enabled providers as array
+  getEnabledProviders(): string[] {
+    const providers: string[] = [];
+    if (this.openaiEnabled) providers.push('openai');
+    if (this.geminiEnabled) providers.push('gemini');
+    if (this.zaiEnabled) providers.push('zai');
+    return providers;
+  }
+
+  // Handle provider toggle
+  onProviderToggle() {
+    // Just update UI, actual save happens on Save button click
   }
 
   async loadOCRSettings() {
@@ -233,6 +325,72 @@ export class SettingsTabComponent implements OnInit {
     });
   }
 
+  // Z.AI test connection
+  async testZAIConnection() {
+    this.zaiTestLoading = true;
+    this.cdr.detectChanges();
+
+    // Save the current Z.AI model before testing
+    await this.electronService.saveZAISettings({
+      enabled: true,  // Always enabled when testing
+      model: this.zaiModel,
+    });
+
+    const result = await this.electronService.testZAIConnection();
+    
+    this.ngZone.run(() => {
+      this.zaiTestLoading = false;
+      if (result.success) {
+        this.electronService.showToast('Z.AI connected successfully!');
+      } else {
+        this.electronService.showToast(result.error || 'Failed to connect to Z.AI');
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  // OpenAI test connection
+  async testOpenAIConnection() {
+    this.openaiTestLoading = true;
+    this.cdr.detectChanges();
+
+    // Save model before testing
+    await this.electronService.saveOpenAIModel(this.openaiModel.trim() || 'gpt-4o');
+
+    const result = await this.electronService.testOpenAIConnection();
+    
+    this.ngZone.run(() => {
+      this.openaiTestLoading = false;
+      if (result.success) {
+        this.electronService.showToast(`OpenAI connected! Model: ${result.model}`);
+      } else {
+        this.electronService.showToast(result.error || 'Failed to connect to OpenAI');
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  // Gemini test connection
+  async testGeminiConnection() {
+    this.geminiTestLoading = true;
+    this.cdr.detectChanges();
+
+    // Save model before testing
+    await this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-2.0-flash');
+
+    const result = await this.electronService.testGeminiConnection();
+    
+    this.ngZone.run(() => {
+      this.geminiTestLoading = false;
+      if (result.success) {
+        this.electronService.showToast(`Gemini connected! Model: ${result.model}`);
+      } else {
+        this.electronService.showToast(result.error || 'Failed to connect to Gemini');
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
   async loadTemplates() {
     const templates = await this.electronService.getPromptTemplates();
     this.ngZone.run(() => {
@@ -256,10 +414,6 @@ export class SettingsTabComponent implements OnInit {
   }
 
   setupEventListeners() {
-    this.electronService.onAnswerStyleChanged().subscribe((style) => {
-      this.answerStyle = style as any;
-    });
-
     this.electronService.onModelChanged().subscribe((model) => {
       this.defaultModel = model;
     });
@@ -277,6 +431,32 @@ export class SettingsTabComponent implements OnInit {
     if (this.geminiApiKey.trim()) {
       await this.electronService.saveGeminiApiKey(this.geminiApiKey.trim());
     }
+    if (this.zaiApiKey.trim()) {
+      await this.electronService.saveZAIApiKey(this.zaiApiKey.trim());
+    }
+    this.electronService.showToast('API Keys saved');
+  }
+
+  async saveModelSettings() {
+    // Save enabled providers as JSON array
+    const enabledProviders = this.getEnabledProviders();
+    await this.electronService.saveDefaultModel(JSON.stringify(enabledProviders) as any);
+    
+    // Save custom model names
+    if (this.openaiEnabled) {
+      await this.electronService.saveOpenAIModel(this.openaiModel.trim() || 'gpt-4o');
+    }
+    if (this.geminiEnabled) {
+      await this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-2.0-flash');
+    }
+    if (this.zaiEnabled) {
+      await this.electronService.saveZAISettings({
+        enabled: true,
+        model: this.zaiModel.trim() || 'glm-4.7'
+      });
+    }
+    
+    this.electronService.showToast(`Model settings saved (${enabledProviders.join(', ')})`);
   }
 
   async savePreferences() {
@@ -284,7 +464,6 @@ export class SettingsTabComponent implements OnInit {
       preferredLanguage: this.preferredLanguage,
       answerStyle: this.answerStyle
     });
-    await this.electronService.saveDefaultModel(this.defaultModel);
   }
 
   async saveSystemPrompt() {

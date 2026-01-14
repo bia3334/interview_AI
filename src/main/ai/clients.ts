@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai';
 const { GoogleGenAI } = require('@google/genai');
-import { AI_MODELS, DEFAULT_AI_PROVIDER, LMSTUDIO_CONFIG } from '../constants/ai';
+import { AI_MODELS, DEFAULT_AI_PROVIDER, LMSTUDIO_CONFIG, ZAI_CONFIG, OPENAI_COMPATIBLE_PROVIDERS, OpenAICompatibleProvider } from '../constants/ai';
 
 // AI Models Configuration
 export const AI_CONFIG = {
@@ -14,14 +14,19 @@ export const AI_CONFIG = {
   lmstudio: {
     endpoint: LMSTUDIO_CONFIG.DEFAULT_ENDPOINT,
     model: LMSTUDIO_CONFIG.DEFAULT_MODEL
+  },
+  zai: {
+    baseUrl: ZAI_CONFIG.BASE_URL,
+    model: ZAI_CONFIG.DEFAULT_MODEL
   }
 };
 
 // API Key Management
-export const getApiKey = (type: 'openai' | 'gemini', store: any, log: any) => {
+export const getApiKey = (type: 'openai' | 'gemini' | 'zai', store: any, log: any) => {
   const keys = {
     openai: store.get('openaiApiKey') || store.get('apiKey') || process.env.OPENAI_API_KEY || '',
-    gemini: store.get('geminiApiKey') || process.env.GEMINI_API_KEY || ''
+    gemini: store.get('geminiApiKey') || process.env.GEMINI_API_KEY || '',
+    zai: store.get('zaiApiKey') || process.env.ZAI_API_KEY || ''
   };
   
   const key = keys[type];
@@ -32,6 +37,133 @@ export const getApiKey = (type: 'openai' | 'gemini', store: any, log: any) => {
   }
   return key;
 };
+
+// ============================================================
+// UNIFIED OpenAI-Compatible Client
+// Works with OpenAI, Z.AI, LM Studio, and any OpenAI-compatible API
+// ============================================================
+
+export const getOpenAICompatibleClient = (providerId: string, store: any): OpenAI => {
+  const provider = OPENAI_COMPATIBLE_PROVIDERS[providerId];
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+
+  // Get API key (or use placeholder for providers that don't need one)
+  let apiKey = 'not-needed';
+  if (provider.requiresApiKey) {
+    apiKey = store.get(provider.apiKeyStore) || '';
+    if (!apiKey) {
+      throw new Error(`${provider.name} API key is not configured`);
+    }
+  }
+
+  // For LM Studio, use custom endpoint from settings
+  let baseURL = provider.baseURL;
+  if (providerId === 'lmstudio') {
+    baseURL = store.get('lmstudioEndpoint') || LMSTUDIO_CONFIG.DEFAULT_ENDPOINT;
+  }
+
+  return new OpenAI({
+    apiKey,
+    baseURL,
+  });
+};
+
+export const getOpenAICompatibleModel = (providerId: string, store: any): string => {
+  const provider = OPENAI_COMPATIBLE_PROVIDERS[providerId];
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+  return store.get(provider.modelStore) || provider.defaultModel;
+};
+
+// Unified send prompt for any OpenAI-compatible provider
+export const sendPromptToOpenAICompatible = async (
+  providerId: string,
+  prompt: string,
+  store: any
+): Promise<string> => {
+  const client = getOpenAICompatibleClient(providerId, store);
+  const model = getOpenAICompatibleModel(providerId, store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
+
+  console.log(`\n========== ${providerId.toUpperCase()} PROMPT ==========`);
+  console.log('Model:', model);
+  console.log('System Prompt:', systemPrompt || '(none)');
+  console.log('User Prompt:', prompt);
+  console.log('==========================================\n');
+
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+  });
+  return response.choices[0]?.message?.content || '';
+};
+
+// Unified conversation for any OpenAI-compatible provider
+export const sendConversationToOpenAICompatible = async (
+  providerId: string,
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+): Promise<string> => {
+  const client = getOpenAICompatibleClient(providerId, store);
+  const model = getOpenAICompatibleModel(providerId, store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+  if (systemPrompt) {
+    apiMessages.push({ role: 'system', content: systemPrompt });
+  }
+  apiMessages.push(...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+
+  console.log(`\n========== ${providerId.toUpperCase()} CONVERSATION ==========`);
+  console.log('Model:', model);
+  console.log('Messages:', JSON.stringify(apiMessages, null, 2));
+  console.log('==============================================\n');
+
+  const response = await client.chat.completions.create({
+    model,
+    messages: apiMessages,
+  });
+  return response.choices[0]?.message?.content || '';
+};
+
+// Test connection for any OpenAI-compatible provider
+export const testOpenAICompatibleConnection = async (
+  providerId: string,
+  store: any
+): Promise<{ success: boolean; model?: string; error?: string }> => {
+  try {
+    const client = getOpenAICompatibleClient(providerId, store);
+    const model = getOpenAICompatibleModel(providerId, store);
+    
+    // Send a simple test message
+    // Use max_completion_tokens for newer OpenAI models, max_tokens for others
+    const tokenParam = providerId === 'openai' 
+      ? { max_completion_tokens: 5 } 
+      : { max_tokens: 5 };
+    
+    await client.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: 'Hi' }],
+      ...tokenParam,
+    });
+    return { success: true, model };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Connection failed' };
+  }
+};
+
+// ============================================================
+// Legacy Individual Clients (for backward compatibility)
+// ============================================================
 
 // AI Client Management
 export const getOpenAIClient = (store: any) => {
@@ -50,12 +182,19 @@ export const getGeminiClient = (store: any) => {
   return new GoogleGenAI({ apiKey });
 };
 
+export const getZAIClient = (store: any) => {
+  return getOpenAICompatibleClient('zai', store);
+};
+
 // Model Management
 export const getCurrentOpenAIModel = (store: any) => 
   store.get('openaiModel') || AI_CONFIG.openai.model;
 
 export const getCurrentGeminiModel = (store: any) => 
   store.get('geminiModel') || AI_CONFIG.gemini.model;
+
+export const getCurrentZAIModel = (store: any) => 
+  store.get('zaiModel') || AI_CONFIG.zai.model;
 
 // Get custom system prompt
 export const getCustomSystemPrompt = (store: any): string => {
@@ -67,66 +206,87 @@ export const sendPromptToGemini = (prompt: string[], store: any) => {
   const ai = getGeminiClient(store);
   const { createUserContent } = require('@google/genai');
   const systemPrompt = getCustomSystemPrompt(store);
-  
-  // Prepend system prompt to the user prompt if it exists
-  const finalPrompt = systemPrompt 
-    ? [`[System Instructions]: ${systemPrompt}\n\n`, ...prompt]
-    : prompt;
 
-  console.log('Final Gemini Prompt:', finalPrompt);
-
-  return ai.models.generateContent({
+  // Build config with optional system instruction
+  const config: any = {
     model: getCurrentGeminiModel(store),
-    contents: [createUserContent(finalPrompt)],
-  });
-};
-
-export const sendPromptToOpenAI = async (prompt: string, store: any) => {
-  const openai = getOpenAIClient(store);
-  const systemPrompt = getCustomSystemPrompt(store);
+    contents: [createUserContent(prompt)],
+  };
   
-  const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
-
-  console.log('System Prompt:', systemPrompt);
-  
-  // Add system message if custom prompt exists
+  // Use proper systemInstruction parameter (supported in Gemini 1.5+)
   if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
+    config.systemInstruction = systemPrompt;
   }
-  messages.push({ role: 'user', content: prompt });
-  
-  const response = await openai.chat.completions.create({
-    model: getCurrentOpenAIModel(store),
-    messages: messages,
-  });
-  return response.choices[0]?.message?.content || '';
+
+  console.log('\n========== GEMINI PROMPT ==========');
+  console.log('Model:', config.model);
+  console.log('System Prompt:', systemPrompt || '(none)');
+  console.log('User Prompt:', prompt);
+  console.log('====================================\n');
+
+  return ai.models.generateContent(config);
 };
 
-// Conversation-aware prompt (with history)
+// These now use the unified function internally
+export const sendPromptToOpenAI = async (prompt: string, store: any) => {
+  return sendPromptToOpenAICompatible('openai', prompt, store);
+};
+
 export const sendConversationToOpenAI = async (
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
   store: any
 ) => {
-  const openai = getOpenAIClient(store);
-  const systemPrompt = getCustomSystemPrompt(store);
-  
-  const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
-  
-  // Add system message if custom prompt exists
-  if (systemPrompt) {
-    apiMessages.push({ role: 'system', content: systemPrompt });
+  return sendConversationToOpenAICompatible('openai', messages, store);
+};
+
+export const sendPromptToZAI = async (prompt: string, store: any) => {
+  return sendPromptToOpenAICompatible('zai', prompt, store);
+};
+
+export const sendConversationToZAI = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+) => {
+  return sendConversationToOpenAICompatible('zai', messages, store);
+};
+
+export const sendPromptToLMStudio = async (prompt: string, store: any) => {
+  return sendPromptToOpenAICompatible('lmstudio', prompt, store);
+};
+
+export const sendConversationToLMStudio = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+) => {
+  return sendConversationToOpenAICompatible('lmstudio', messages, store);
+};
+
+export const testZAIConnection = async (store: any) => {
+  return testOpenAICompatibleConnection('zai', store);
+};
+
+export const testLMStudioConnection = async (store: any) => {
+  return testOpenAICompatibleConnection('lmstudio', store);
+};
+
+export const testOpenAIConnection = async (store: any) => {
+  return testOpenAICompatibleConnection('openai', store);
+};
+
+export const testGeminiConnection = async (store: any): Promise<{ success: boolean; model?: string; error?: string }> => {
+  try {
+    const ai = getGeminiClient(store);
+    const model = getCurrentGeminiModel(store);
+    
+    // Send a simple test message
+    await ai.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: 'Hi' }] }],
+    });
+    return { success: true, model };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Connection failed' };
   }
-  
-  console.log('System Prompt for Conversation:', systemPrompt);
-  
-  // Add conversation messages
-  apiMessages.push(...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
-  
-  const response = await openai.chat.completions.create({
-    model: getCurrentOpenAIModel(store),
-    messages: apiMessages,
-  });
-  return response.choices[0]?.message?.content || '';
 };
 
 export const sendConversationToGemini = async (
@@ -142,15 +302,18 @@ export const sendConversationToGemini = async (
     parts: [{ text: m.content }]
   }));
   
-  // If there's a system prompt, prepend it to the first user message
-  if (systemPrompt && contents.length > 0 && contents[0].role === 'user') {
-    contents[0].parts[0].text = `[System Instructions]: ${systemPrompt}\n\n${contents[0].parts[0].text}`;
-  }
-  
-  const response = await ai.models.generateContent({
+  // Build config with optional system instruction
+  const config: any = {
     model: getCurrentGeminiModel(store),
     contents: contents,
-  });
+  };
+  
+  // Use proper systemInstruction parameter (supported in Gemini 1.5+)
+  if (systemPrompt) {
+    config.systemInstruction = systemPrompt;
+  }
+  
+  const response = await ai.models.generateContent(config);
   
   return response.text || '';
 };
@@ -203,7 +366,7 @@ export const extractKeyInfoFromDocument = async (
   throw new Error('No AI model configured for key information extraction');
 };
 
-// LM Studio Client Management
+// LM Studio Settings Helper (for backward compatibility)
 export const getLMStudioSettings = (store: any) => {
   return {
     enabled: store.get('lmstudioEnabled') || false,
@@ -213,81 +376,9 @@ export const getLMStudioSettings = (store: any) => {
 };
 
 export const getLMStudioClient = (store: any) => {
-  const settings = getLMStudioSettings(store);
-  if (!settings.enabled) {
-    throw new Error('LM Studio is not enabled');
-  }
-  // Use OpenAI client with custom baseURL (LM Studio is OpenAI-compatible)
-  return new OpenAI({
-    baseURL: settings.endpoint,
-    apiKey: 'not-needed', // LM Studio doesn't require API key
-  });
+  return getOpenAICompatibleClient('lmstudio', store);
 };
 
 export const getCurrentLMStudioModel = (store: any) => {
-  return store.get('lmstudioModel') || LMSTUDIO_CONFIG.DEFAULT_MODEL;
-};
-
-// LM Studio Request Functions
-export const sendPromptToLMStudio = async (prompt: string, store: any) => {
-  const lmstudio = getLMStudioClient(store);
-  const systemPrompt = getCustomSystemPrompt(store);
-  
-  const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
-  
-  // Add system message if custom prompt exists
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: prompt });
-  
-  const response = await lmstudio.chat.completions.create({
-    model: getCurrentLMStudioModel(store),
-    messages: messages,
-  });
-  return response.choices[0]?.message?.content || '';
-};
-
-export const sendConversationToLMStudio = async (
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-  store: any
-) => {
-  const lmstudio = getLMStudioClient(store);
-  const systemPrompt = getCustomSystemPrompt(store);
-  
-  const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
-  
-  // Add system message if custom prompt exists
-  if (systemPrompt) {
-    apiMessages.push({ role: 'system', content: systemPrompt });
-  }
-  
-  // Add conversation messages
-  apiMessages.push(...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
-  
-  const response = await lmstudio.chat.completions.create({
-    model: getCurrentLMStudioModel(store),
-    messages: apiMessages,
-  });
-  return response.choices[0]?.message?.content || '';
-};
-
-// Test LM Studio connection
-export const testLMStudioConnection = async (store: any): Promise<{ success: boolean; model?: string; error?: string }> => {
-  try {
-    const settings = getLMStudioSettings(store);
-    const response = await fetch(`${settings.endpoint}/models`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    const models = data.data || [];
-    const modelName = models.length > 0 ? models[0].id : settings.model;
-    
-    return { success: true, model: modelName };
-  } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
-  }
+  return getOpenAICompatibleModel('lmstudio', store);
 };

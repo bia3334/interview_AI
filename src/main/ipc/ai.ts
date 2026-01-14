@@ -2,31 +2,34 @@
  * AI prompt IPC handlers for OpenAI and Gemini
  */
 import { clipboard, ipcMain, IpcMainInvokeEvent } from 'electron';
-import * as path from 'path';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
-import { 
-  getApiKey, 
-  getCurrentOpenAIModel, 
-  getGeminiClient, 
-  getOpenAIClient, 
-  sendConversationToGemini, 
-  sendConversationToOpenAI, 
-  sendPromptToGemini, 
-  sendPromptToOpenAI,
-  sendPromptToLMStudio,
+import {
+  getApiKey,
+  getCurrentOpenAIModel,
+  getGeminiClient,
+  getOpenAIClient,
+  sendConversationToGemini,
   sendConversationToLMStudio,
+  sendConversationToOpenAI,
+  sendConversationToZAI,
+  sendPromptToGemini,
+  sendPromptToLMStudio,
+  sendPromptToOpenAI,
+  sendPromptToZAI,
   testLMStudioConnection,
-  getLMStudioSettings
+  testZAIConnection,
+  testOpenAIConnection,
+  testGeminiConnection
 } from '../ai/clients';
 import { generatePrompt } from '../ai/prompts';
+import { combineOCRResults, extractTextFromImages, isConfidenceAcceptable, OCRResult } from '../ocr';
+import type { AppStore } from '../store';
+import { imageToBase64 } from '../utils/files';
+import { getMainWindow } from '../window';
 import { buildDocContextPrefix } from './documents';
 import { overlayManager } from './overlay';
 import { getScreenshotQueue } from './screenshots';
-import { imageToBase64 } from '../utils/files';
-import { getMainWindow } from '../window';
-import type { AppStore } from '../store';
-import { extractTextFromImages, combineOCRResults, isConfidenceAcceptable, OCRResult } from '../ocr';
 
 const { createPartFromUri } = require('@google/genai');
 
@@ -127,7 +130,9 @@ export function registerAIIPC(
     try {
       log.info('Sending request to Google Gemini API');
       const docPrefix = buildDocContextPrefix();
-      const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
       const result = await sendPromptToGemini([finalPrompt], store);
 
       const assistantReply = result.text || 'No response from Google Gemini.';
@@ -145,7 +150,9 @@ export function registerAIIPC(
     try {
       log.info('Sending request to OpenAI API');
       const docPrefix = buildDocContextPrefix();
-      const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
       const assistantReply = await sendPromptToOpenAI(finalPrompt, store);
       
       handleAIResponse(assistantReply);
@@ -194,7 +201,9 @@ export function registerAIIPC(
     try {
       log.info('Sending request to LM Studio');
       const docPrefix = buildDocContextPrefix();
-      const finalPrompt = docPrefix ? `${docPrefix}\n\n${prompt}` : prompt;
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
       const assistantReply = await sendPromptToLMStudio(finalPrompt, store);
       
       handleAIResponse(assistantReply);
@@ -230,6 +239,77 @@ export function registerAIIPC(
       return result;
     } catch (error) {
       log.error('LM Studio connection test failed:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  // Z.AI handlers
+  ipcMain.handle('sendPromptToZAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+    try {
+      log.info('Sending request to Z.AI');
+      const docPrefix = buildDocContextPrefix();
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
+      const assistantReply = await sendPromptToZAI(finalPrompt, store);
+      
+      handleAIResponse(assistantReply);
+
+      log.info('Received response from Z.AI');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch from Z.AI:', error);
+      throw new Error(`Failed to fetch from Z.AI: ${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('sendConversationToZAI', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+    try {
+      log.info('Sending conversation request to Z.AI');
+      const assistantReply = await sendConversationToZAI(messages, store);
+      
+      handleAIResponse(assistantReply);
+
+      log.info('Received conversation response from Z.AI');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch conversation from Z.AI:', error);
+      throw new Error(`Failed to fetch conversation from Z.AI: ${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('testZAIConnection', async () => {
+    try {
+      log.info('Testing Z.AI connection');
+      const result = await testZAIConnection(store);
+      log.info('Z.AI connection test result:', result);
+      return result;
+    } catch (error) {
+      log.error('Z.AI connection test failed:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle('testOpenAIConnection', async () => {
+    try {
+      log.info('Testing OpenAI connection');
+      const result = await testOpenAIConnection(store);
+      log.info('OpenAI connection test result:', result);
+      return result;
+    } catch (error) {
+      log.error('OpenAI connection test failed:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle('testGeminiConnection', async () => {
+    try {
+      log.info('Testing Gemini connection');
+      const result = await testGeminiConnection(store);
+      log.info('Gemini connection test result:', result);
+      return result;
+    } catch (error) {
+      log.error('Gemini connection test failed:', error);
       return { success: false, error: (error as Error).message };
     }
   });
@@ -474,7 +554,8 @@ export function registerAIIPC(
       // Also force OCR when LM Studio is selected (since it's text-only)
       const defaultModel = store.get('defaultModel', 'both');
       const lmstudioEnabled = store.get('lmstudioEnabled', false);
-      const ocrEnabled = store.get('ocrEnabled', false) || (defaultModel === 'lmstudio' && lmstudioEnabled);
+      const isLmstudioMode = defaultModel === 'lmstudio';
+      const ocrEnabled = store.get('ocrEnabled', false) || (isLmstudioMode && lmstudioEnabled);
       
       if (ocrEnabled) {
         // Use Tesseract OCR (fast, free, local)
@@ -569,12 +650,51 @@ export function registerAIIPC(
       const docPrefix = buildDocContextPrefix();
       const promptText = generatePrompt(answerStyle, language, clipboardText, docPrefix);
 
+      // Parse enabled providers (supports both new JSON array format and legacy format)
+      let openaiEnabled = false;
+      let geminiEnabled = false;
+      let lmstudioMode = false;
+      let zaiEnabled = false;
+
+      try {
+        const providers = JSON.parse(defaultModel as string);
+        if (Array.isArray(providers)) {
+          openaiEnabled = providers.includes('openai');
+          geminiEnabled = providers.includes('gemini');
+          zaiEnabled = providers.includes('zai');
+        }
+      } catch {
+        // Legacy format
+        switch (defaultModel) {
+          case 'both':
+            openaiEnabled = true;
+            geminiEnabled = true;
+            break;
+          case 'openai':
+            openaiEnabled = true;
+            break;
+          case 'gemini':
+            geminiEnabled = true;
+            break;
+          case 'lmstudio':
+            lmstudioMode = true;
+            break;
+          case 'zai':
+            zaiEnabled = true;
+            break;
+          default:
+            openaiEnabled = true;
+            geminiEnabled = true;
+        }
+      }
+
       const promises = [];
       let openaiResponse = '';
       let geminiResponse = '';
       let lmstudioResponse = '';
+      let zaiResponse = '';
       
-      if (defaultModel === 'both' || defaultModel === 'openai') {
+      if (openaiEnabled && !lmstudioMode) {
         promises.push(
           sendPromptToOpenAI(promptText, store)
             .then(response => {
@@ -589,7 +709,7 @@ export function registerAIIPC(
         );
       }
       
-      if (defaultModel === 'both' || defaultModel === 'gemini') {
+      if (geminiEnabled && !lmstudioMode) {
         promises.push(
           sendPromptToGemini([promptText], store)
             .then((result: any) => {
@@ -606,7 +726,7 @@ export function registerAIIPC(
       }
 
       // LM Studio (local model)
-      if (defaultModel === 'lmstudio') {
+      if (lmstudioMode) {
         promises.push(
           sendPromptToLMStudio(promptText, store)
             .then(response => {
@@ -621,8 +741,24 @@ export function registerAIIPC(
         );
       }
 
+      // Z.AI
+      if (zaiEnabled && !lmstudioMode) {
+        promises.push(
+          sendPromptToZAI(promptText, store)
+            .then(response => {
+              zaiResponse = response;
+              handleAIResponse(response);
+              return response;
+            })
+            .catch((error: Error) => {
+              zaiResponse = `Z.AI Error: ${error.message}`;
+              return zaiResponse;
+            })
+        );
+      }
+
       await Promise.allSettled(promises);
-      const finalResponse = latestAIResponse || openaiResponse || geminiResponse || lmstudioResponse || 'No response received';
+      const finalResponse = latestAIResponse || openaiResponse || geminiResponse || lmstudioResponse || zaiResponse || 'No response received';
 
       if (finalResponse && finalResponse !== 'No response received') {
         clipboard.writeText(finalResponse);
@@ -633,7 +769,8 @@ export function registerAIIPC(
         prompt: clipboardText,
         openaiResponse,
         geminiResponse,
-        lmstudioResponse
+        lmstudioResponse,
+        zaiResponse
       };
     } catch (error) {
       log.error('Error processing clipboard prompt via IPC:', error);

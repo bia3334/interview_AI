@@ -2,7 +2,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { DEFAULT_PROMPT_TEMPLATES } from '../constants/prompts';
 import { OCR_CONFIG, OCRLanguage } from '../constants/ocr';
-import { LMSTUDIO_CONFIG } from '../constants/ai';
+import { LMSTUDIO_CONFIG, ZAI_CONFIG } from '../constants/ai';
 
 export interface OCRSettings {
   enabled: boolean;
@@ -15,12 +15,17 @@ export interface LMStudioSettings {
   model: string;
 }
 
+export interface ZAISettings {
+  enabled: boolean;
+  model: string;
+}
+
 export function registerPreferencesIPC(
   ipcMain: IpcMain,
   deps: {
     store: { get: (k: string, d?: any) => any; set: (k: string, v: any) => void };
     log: { info: (...args: any[]) => void; error: (...args: any[]) => void };
-    getApiKey: (type: 'openai' | 'gemini') => string;
+    getApiKey: (type: 'openai' | 'gemini' | 'zai') => string;
     mainWindow: () => Electron.BrowserWindow | null;
   }
 ) {
@@ -87,7 +92,7 @@ export function registerPreferencesIPC(
     answerStyle: store.get('answerStyle') || 'explanation',
   }));
 
-  ipcMain.handle('saveDefaultModel', (_event: IpcMainInvokeEvent, defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio') => {
+  ipcMain.handle('saveDefaultModel', (_event: IpcMainInvokeEvent, defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai') => {
     try {
       store.set('defaultModel', defaultModel);
       // Notify renderer of model change
@@ -111,6 +116,17 @@ export function registerPreferencesIPC(
       return { success: true };
     } catch (error: any) {
       log.error('Error saving OpenAI model preference:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('getGeminiModel', () => store.get('geminiModel'));
+  ipcMain.handle('saveGeminiModel', (_event: IpcMainInvokeEvent, model: string) => {
+    try {
+      store.set('geminiModel', model);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving Gemini model preference:', error);
       return { success: false, error: error.message };
     }
   });
@@ -255,6 +271,40 @@ export function registerPreferencesIPC(
       return { success: true };
     } catch (error: any) {
       log.error('Error saving LM Studio settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Z.AI API Key
+  ipcMain.handle('saveZAIApiKey', (_event: IpcMainInvokeEvent, apiKey: string) => {
+    try {
+      store.set('zaiApiKey', apiKey);
+      log.info('Z.AI API key saved successfully');
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving Z.AI API key:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('getZAIApiKey', () => getApiKey('zai'));
+
+  // Z.AI Settings
+  ipcMain.handle('getZAISettings', (): ZAISettings => {
+    return {
+      enabled: store.get('zaiEnabled', false),
+      model: store.get('zaiModel', ZAI_CONFIG.DEFAULT_MODEL),
+    };
+  });
+
+  ipcMain.handle('saveZAISettings', (_event: IpcMainInvokeEvent, settings: ZAISettings) => {
+    try {
+      store.set('zaiEnabled', settings.enabled);
+      store.set('zaiModel', settings.model);
+      log.info('Z.AI settings saved:', settings);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving Z.AI settings:', error);
       return { success: false, error: error.message };
     }
   });

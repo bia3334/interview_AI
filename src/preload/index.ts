@@ -7,11 +7,13 @@ const api: ElectronAPI = {
   sendPromptToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptToOpenAI', prompt),
   sendPromptToGemini: (prompt) => ipcRenderer.invoke('sendPromptToGemini', prompt),
   sendPromptToLMStudio: (prompt) => ipcRenderer.invoke('sendPromptToLMStudio', prompt),
+  sendPromptToZAI: (prompt) => ipcRenderer.invoke('sendPromptToZAI', prompt),
   sendPromptWithScreenshotsToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToOpenAI', prompt),
   sendPromptWithScreenshotsToGemini: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToGemini', prompt),
   sendConversationToOpenAI: (messages) => ipcRenderer.invoke('sendConversationToOpenAI', messages),
   sendConversationToGemini: (messages) => ipcRenderer.invoke('sendConversationToGemini', messages),
   sendConversationToLMStudio: (messages) => ipcRenderer.invoke('sendConversationToLMStudio', messages),
+  sendConversationToZAI: (messages) => ipcRenderer.invoke('sendConversationToZAI', messages),
 
   closeWindow: () => ipcRenderer.send('close-window'),
   hideWindow: () => ipcRenderer.send('hide-window'),
@@ -47,6 +49,8 @@ const api: ElectronAPI = {
   getGeminiApiKey: () => ipcRenderer.invoke('getGeminiApiKey'),
   saveOpenAIApiKey: (apiKey) => ipcRenderer.invoke('saveOpenAIApiKey', apiKey),
   getOpenAIApiKey: () => ipcRenderer.invoke('getOpenAIApiKey'),
+  saveZAIApiKey: (apiKey) => ipcRenderer.invoke('saveZAIApiKey', apiKey),
+  getZAIApiKey: () => ipcRenderer.invoke('getZAIApiKey'),
   savePreferences: (preferences) => ipcRenderer.invoke('save-preferences', preferences),
   getPreferences: () => ipcRenderer.invoke('get-preferences'),
   saveDefaultModel: (defaultModel) => ipcRenderer.invoke('saveDefaultModel', defaultModel),
@@ -54,6 +58,8 @@ const api: ElectronAPI = {
 
   saveOpenAIModel: (model) => ipcRenderer.invoke('saveOpenAIModel', model),
   getOpenAIModel: () => ipcRenderer.invoke('getOpenAIModel'),
+  saveGeminiModel: (model) => ipcRenderer.invoke('saveGeminiModel', model),
+  getGeminiModel: () => ipcRenderer.invoke('getGeminiModel'),
 
   saveCustomSystemPrompt: (prompt) => ipcRenderer.invoke('saveCustomSystemPrompt', prompt),
   getCustomSystemPrompt: () => ipcRenderer.invoke('getCustomSystemPrompt'),
@@ -79,6 +85,15 @@ const api: ElectronAPI = {
   saveLMStudioSettings: (settings) => ipcRenderer.invoke('saveLMStudioSettings', settings),
   testLMStudioConnection: () => ipcRenderer.invoke('testLMStudioConnection'),
 
+  // Z.AI Settings
+  getZAISettings: () => ipcRenderer.invoke('getZAISettings'),
+  saveZAISettings: (settings) => ipcRenderer.invoke('saveZAISettings', settings),
+  testZAIConnection: () => ipcRenderer.invoke('testZAIConnection'),
+
+  // OpenAI & Gemini Test
+  testOpenAIConnection: () => ipcRenderer.invoke('testOpenAIConnection'),
+  testGeminiConnection: () => ipcRenderer.invoke('testGeminiConnection'),
+
   copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
   processClipboardPrompt: () => ipcRenderer.invoke('processClipboardPrompt'),
 
@@ -87,12 +102,10 @@ const api: ElectronAPI = {
 
   onScreenshotTaken: (callback) => { ipcRenderer.on('screenshot-taken', (_e, d) => callback(d)); return () => ipcRenderer.removeAllListeners('screenshot-taken'); },
   onProcessScreenshots: (callback) => { ipcRenderer.on('process-screenshots', () => callback()); return () => ipcRenderer.removeAllListeners('process-screenshots'); },
-  onAnswerStyleChanged: (callback) => { ipcRenderer.on('answer-style-changed', (_e, s) => callback(s)); return () => ipcRenderer.removeAllListeners('answer-style-changed'); },
   onModelChanged: (callback) => { ipcRenderer.on('model-changed', (_e, m) => callback(m)); return () => ipcRenderer.removeAllListeners('model-changed'); },
   onOpenAIModelChanged: (callback) => { ipcRenderer.on('openai-model-changed', (_e, m) => callback(m)); return () => ipcRenderer.removeAllListeners('openai-model-changed'); },
   onExtractTextFromScreenshots: (callback) => { ipcRenderer.on('extract-text-from-screenshots', () => callback()); return () => ipcRenderer.removeAllListeners('extract-text-from-screenshots'); },
   onScreenshotsCleared: (callback) => { ipcRenderer.on('screenshots-cleared', () => callback()); return () => ipcRenderer.removeAllListeners('screenshots-cleared'); },
-  onSwitchTab: (callback) => { ipcRenderer.on('switch-tab', (_e, d) => callback(d)); return () => ipcRenderer.removeAllListeners('switch-tab'); },
   onResponseCopied: (callback) => { ipcRenderer.on('response-copied-to-clipboard', () => callback()); return () => ipcRenderer.removeAllListeners('response-copied-to-clipboard'); },
   onProcessClipboardPrompt: (callback) => { ipcRenderer.on('process-clipboard-prompt', () => callback()); return () => ipcRenderer.removeAllListeners('process-clipboard-prompt'); },
   onTriggerRegionScreenshot: (callback) => { ipcRenderer.on('trigger-region-screenshot', () => callback()); return () => ipcRenderer.removeAllListeners('trigger-region-screenshot'); },

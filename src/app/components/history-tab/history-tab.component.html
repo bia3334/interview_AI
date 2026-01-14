@@ -36,6 +36,7 @@
           <span *ngIf="item.openaiResponse" class="meta-badge openai">OpenAI ✓</span>
           <span *ngIf="item.geminiResponse" class="meta-badge gemini">Gemini ✓</span>
           <span *ngIf="item.lmstudioResponse" class="meta-badge lmstudio" style="background: linear-gradient(45deg, #10b981, #059669);">LM Studio ✓</span>
+          <span *ngIf="item.zaiResponse" class="meta-badge zai" style="background: linear-gradient(45deg, #2d2d2d, #1a1a1a);">Z.AI ✓</span>
         </div>
       </div>
     </div>
@@ -82,11 +83,19 @@
         </div>
 
         <div class="response-section" *ngIf="selectedItem.lmstudioResponse">
-          <div class="response-label" style="background: linear-gradient(45deg, #10b981, #059669);">
-            <span><mat-icon class="inline-icon">computer</mat-icon> LM Studio Response</span>
+          <div class="response-label">
+            <span>LM Studio Response</span>
             <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.lmstudioResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
           <div #lmstudioResponseContent class="response-container" [innerHTML]="selectedItem.lmstudioResponse"></div>
+        </div>
+
+        <div class="response-section" *ngIf="selectedItem.zaiResponse">
+          <div class="response-label">
+            <span>Z.AI Response</span>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.zaiResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
+          </div>
+          <div #zaiResponseContent class="response-container" [innerHTML]="selectedItem.zaiResponse"></div>
         </div>
       </div>
     </div>

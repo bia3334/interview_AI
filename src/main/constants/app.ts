@@ -48,9 +48,7 @@ export const IPC_CHANNELS = {
   
   // Events from main to renderer
   TOAST: 'toast',
-  SWITCH_TAB: 'switch-tab',
   SCROLL_CONTENT: 'scroll-content',
-  ANSWER_STYLE_CHANGED: 'answer-style-changed',
   MODEL_CHANGED: 'model-changed',
   PROCESS_SCREENSHOTS: 'process-screenshots',
   EXTRACT_TEXT_FROM_SCREENSHOTS: 'extract-text-from-screenshots',

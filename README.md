@@ -2,7 +2,7 @@
 
 > **Ace your coding interviews with AI-powered assistance**
 
-An invisible desktop overlay that captures your screen, analyzes questions with AI (OpenAI/Gemini), and provides instant answers — all without leaving your interview window.
+An invisible desktop overlay that captures your screen, analyzes questions with AI (OpenAI/Gemini/Z.AI), and provides instant answers — all without leaving your interview window.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Electron](https://img.shields.io/badge/electron-28-green)
@@ -10,36 +10,43 @@ An invisible desktop overlay that captures your screen, analyzes questions with 
 
 ---
 
-## ✨ Features
+## Features
 
-### 📸 Smart Screenshot Analysis
+### Smart Screenshot Analysis
 - **Full screen capture** — Grab everything with one hotkey
 - **Region selection** — Select specific areas for focused analysis
 - **Multi-image support** — Queue up to 5 screenshots for context
 
-### 🤖 Dual AI Models
+### Multiple AI Providers
 - **OpenAI GPT** — Powerful reasoning and code generation
 - **Google Gemini** — Fast responses with great accuracy
-- **Compare both** — See answers from both models side-by-side
+- **Z.AI (GLM)** — OpenAI-compatible endpoint support
+- **LM Studio** — Local AI models for offline use
+- **Flexible selection** — Enable any combination of providers to compare side-by-side
 
-### 📄 Document Q&A with Key Info Extraction
+### Document Q&A with Key Info Extraction
 - **Import PDFs & text files** — Load study materials, lecture notes
 - **Auto-extracts key information** — AI summarizes important facts, formulas, concepts
 - **Smart context** — AI answers based on your documents first
 
-### 🎨 Answer Styles
+### OCR Text Extraction
+- **Tesseract OCR** — Extract text from screenshots locally
+- **Multi-language support** — English, Vietnamese, and more
+- **Automatic for local AI** — Enabled automatically when using LM Studio
+
+### Answer Styles
 - **Code mode** — Get clean, working code with explanations
 - **Explanation mode** — Detailed step-by-step breakdowns
 - **Multiple choice mode** — Just the answer, no fluff
 
-### ⚡ Built for Speed
+### Built for Speed
 - **Global hotkeys** — Works even when app is hidden
 - **Invisible overlay** — Stays on top without blocking your screen
 - **Clipboard integration** — Copy questions, paste answers instantly
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Windows 10/11
@@ -63,12 +70,13 @@ npm start
 ### First Time Setup
 1. Open the app (it appears as a small window)
 2. Go to **Settings** tab
-3. Enter your **OpenAI API key** and/or **Gemini API key**
-4. Press `Ctrl+Shift+A` to hide the window — it's now invisible!
+3. Enter your API keys (OpenAI, Gemini, and/or Z.AI)
+4. Select which AI providers to enable (checkboxes)
+5. Press `Ctrl+Shift+A` to hide the window — it's now invisible!
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## ⌨Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -85,7 +93,7 @@ npm start
 
 ---
 
-## 📖 How to Use
+## How to Use
 
 ### During a Coding Interview
 
@@ -112,12 +120,25 @@ npm start
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
 ### API Keys
 Get your keys from:
 - OpenAI: https://platform.openai.com/api-keys
 - Gemini: https://makersuite.google.com/app/apikey
+- Z.AI: https://z.ai/manage-apikey/apikey-list
+
+### AI Provider Selection
+- Go to **Settings → API & Models**
+- Check the providers you want to use (OpenAI ✓, Gemini ✓, Z.AI ✓)
+- Configure custom model names for each provider
+- Click **Save Model Settings**
+- All enabled providers will show responses side-by-side
+
+### LM Studio (Local AI)
+- Enable LM Studio for offline, free AI responses
+- Configure the endpoint (default: `http://localhost:1234/v1`)
+- OCR is automatically enabled for text-only local models
 
 ### AI Behavior Settings
 - **Custom System Prompts** — Define how AI should respond
@@ -127,7 +148,7 @@ Get your keys from:
 
 ---
 
-## 📦 Building for Distribution
+## Building for Distribution
 
 ```bash
 # Build production release
@@ -138,17 +159,19 @@ npm run build
 
 ---
 
-## 🏗️ Tech Stack
+## Tech Stack
 
 - **Electron** — Cross-platform desktop app
 - **Angular** — Frontend UI framework
 - **OpenAI API** — GPT models for analysis
 - **Google Gemini API** — Alternative AI provider
+- **Z.AI / LM Studio** — OpenAI-compatible endpoints
+- **Tesseract.js** — Local OCR text extraction
 - **KaTeX** — Math equation rendering
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 - ✅ **Local processing** — Your API keys stay on your machine
 - ✅ **No data collection** — We don't store or transmit your screenshots
@@ -157,7 +180,7 @@ npm run build
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **App not responding to shortcuts?**
 - Make sure no other app is using the same hotkeys
@@ -182,13 +205,13 @@ MIT License — feel free to use, modify, and distribute.
 
 ---
 
-## 🙏 Contributing
+## Contributing
 
 Pull requests welcome! Please open an issue first to discuss major changes.
 
 ---
 
 <p align="center">
-  <b>Good luck with your interviews! 🍀</b>
+  <b>Good luck with your interviews/exams! 🍀</b>
 </p>
 

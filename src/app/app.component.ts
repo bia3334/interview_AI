@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ElectronService } from './services/electron.service';
 import { HistoryItem } from './components/history-tab/history-tab.component';
-import { TABS, TAB_IDS, DEFAULT_TAB, TAB, TabConfig, TabId } from './constants/tabs';
+import { TABS, DEFAULT_TAB, TAB, TabConfig, TabId } from './constants/tabs';
 
 @Component({
   selector: 'app-root',
@@ -19,19 +19,6 @@ export class AppComponent implements OnInit {
 
   ngOnInit() {
     console.log('AppComponent: Initialized');
-    // Subscribe to tab switching events from main process
-    this.electronService.onSwitchTab().subscribe((direction: string) => {
-      const currentIndex = TAB_IDS.indexOf(this.activeTab as TabId);
-      let nextIndex: number;
-      
-      if (direction === 'previous') {
-        nextIndex = (currentIndex - 1 + TAB_IDS.length) % TAB_IDS.length;
-      } else {
-        nextIndex = (currentIndex + 1) % TAB_IDS.length;
-      }
-      
-      this.activeTab = TAB_IDS[nextIndex] as TabId;
-    });
   }
 
   switchTab(tabName: TabId) {

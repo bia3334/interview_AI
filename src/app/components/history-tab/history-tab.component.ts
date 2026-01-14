@@ -9,6 +9,8 @@ export interface HistoryItem {
   screenshotCount: number;
   openaiResponse?: string;
   geminiResponse?: string;
+  lmstudioResponse?: string;
+  zaiResponse?: string;
 }
 
 @Component({
@@ -25,6 +27,8 @@ export class HistoryTabComponent implements OnInit, AfterViewChecked {
 
   @ViewChild('openaiResponseContent') openaiResponseContent!: ElementRef;
   @ViewChild('geminiResponseContent') geminiResponseContent!: ElementRef;
+  @ViewChild('lmstudioResponseContent') lmstudioResponseContent!: ElementRef;
+  @ViewChild('zaiResponseContent') zaiResponseContent!: ElementRef;
 
   constructor(
     private electronService: ElectronService,
@@ -45,6 +49,12 @@ export class HistoryTabComponent implements OnInit, AfterViewChecked {
     }
     if (this.geminiResponseContent?.nativeElement) {
       this.markdownService.renderMathInElement(this.geminiResponseContent.nativeElement);
+    }
+    if (this.lmstudioResponseContent?.nativeElement) {
+      this.markdownService.renderMathInElement(this.lmstudioResponseContent.nativeElement);
+    }
+    if (this.zaiResponseContent?.nativeElement) {
+      this.markdownService.renderMathInElement(this.zaiResponseContent.nativeElement);
     }
   }
 

@@ -55,6 +55,19 @@
           Your Gemini API key is stored locally and never sent to our servers.
         </small>
       </div>
+      <div class="form-group">
+        <label for="zaiApiKey">Z.AI API Key</label>
+        <input 
+          type="password" 
+          id="zaiApiKey" 
+          [(ngModel)]="zaiApiKey"
+          class="prompt-input" 
+          placeholder="your-Z.AI-api-key" 
+        />
+        <small class="hint-text">
+          Your Z.AI API key is stored locally and never sent to our servers.
+        </small>
+      </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="saveApiKeys()">Save API Keys</button>
       </div>
@@ -62,19 +75,81 @@
 
     <!-- Model Selection (hidden when LM Studio is enabled) -->
     <div class="settings-group" *ngIf="!lmstudioEnabled">
-      <h3>Model Selection</h3>
-      <div class="form-group">
-        <label for="defaultModel">Default AI Model</label>
-        <select 
-          id="defaultModel" 
-          [(ngModel)]="defaultModel"
-          class="prompt-input"
-          (change)="savePreferences()"
-        >
-          <option value="both">Both OpenAI and Gemini</option>
-          <option value="openai">OpenAI Only</option>
-          <option value="gemini">Gemini Only</option>
-        </select>
+      <h3>Cloud Model Selection</h3>
+      <p class="group-description">Select one or more AI providers to use. When multiple are selected, responses will be shown side by side.</p>
+      
+      <!-- Provider Checkboxes -->
+      <div class="provider-checkboxes" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+        <!-- OpenAI -->
+        <div class="provider-option" style="background: rgba(16, 163, 127, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(16, 163, 127, 0.3);">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <input type="checkbox" [(ngModel)]="openaiEnabled" (change)="onProviderToggle()" />
+            <span style="font-weight: 600; color: #10a37f;">OpenAI</span>
+          </label>
+          <div *ngIf="openaiEnabled" style="margin-left: 24px;">
+            <input 
+              type="text" 
+              [(ngModel)]="openaiModel"
+              class="prompt-input" 
+              placeholder="gpt-5.2"
+              style="margin-bottom: 4px;"
+            />
+            <small class="hint-text">Model name (e.g., gpt-5.2, gpt-5.2-mini, gpt-5.2-turbo)</small>
+          </div>
+        </div>
+
+        <!-- Gemini -->
+        <div class="provider-option" style="background: rgba(66, 133, 244, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(66, 133, 244, 0.3);">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <input type="checkbox" [(ngModel)]="geminiEnabled" (change)="onProviderToggle()" />
+            <span style="font-weight: 600; color: #4285f4;">Gemini</span>
+          </label>
+          <div *ngIf="geminiEnabled" style="margin-left: 24px;">
+            <input 
+              type="text" 
+              [(ngModel)]="geminiModel"
+              class="prompt-input" 
+              placeholder="gemini-2.5-flash"
+              style="margin-bottom: 4px;"
+            />
+            <small class="hint-text">Model name (e.g., gemini-2.5-flash, gemini-3-pro)</small>
+          </div>
+        </div>
+
+        <!-- Z.AI -->
+        <div class="provider-option" style="background: rgba(45, 45, 45, 0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(45, 45, 45, 0.5);">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <input type="checkbox" [(ngModel)]="zaiEnabled" (change)="onProviderToggle()" />
+            <span style="font-weight: 600; color: #e0e0e0;">Z.AI</span>
+          </label>
+          <div *ngIf="zaiEnabled" style="margin-left: 24px;">
+            <input 
+              type="text" 
+              [(ngModel)]="zaiModel"
+              class="prompt-input" 
+              placeholder="GLM-4.6V-Flash"
+              style="margin-bottom: 4px;"
+            />
+            <small class="hint-text">Model name (e.g., GLM-4.7, GLM-4.6V-Flash)</small>
+          </div>
+        </div>
+      </div>
+
+      <small class="hint-text" *ngIf="!openaiEnabled && !geminiEnabled && !zaiEnabled" style="color: #f59e0b; display: block; margin-bottom: 12px;">
+        <mat-icon class="inline-icon small">warning</mat-icon> Please select at least one provider.
+      </small>
+      
+      <div class="form-actions" style="gap: 8px;">
+        <button class="btn btn-primary" (click)="saveModelSettings()" [disabled]="!openaiEnabled && !geminiEnabled && !zaiEnabled">Save Model Settings</button>
+        <button class="btn" *ngIf="openaiEnabled" (click)="testOpenAIConnection()" [disabled]="openaiTestLoading">
+          {{ openaiTestLoading ? 'Testing...' : 'Test OpenAI' }}
+        </button>
+        <button class="btn" *ngIf="geminiEnabled" (click)="testGeminiConnection()" [disabled]="geminiTestLoading">
+          {{ geminiTestLoading ? 'Testing...' : 'Test Gemini' }}
+        </button>
+        <button class="btn" *ngIf="zaiEnabled" (click)="testZAIConnection()" [disabled]="zaiTestLoading">
+          {{ zaiTestLoading ? 'Testing...' : 'Test Z.AI' }}
+        </button>
       </div>
     </div>
 

@@ -6,14 +6,9 @@ import { clipboard, globalShortcut } from 'electron';
 import { overlayManager } from './ipc/overlay';
 import { addScreenshot, clearScreenshots, takeScreenshot } from './ipc/screenshots';
 import { getLatestAIResponse } from './ipc/ai';
-import { getMainWindow, moveWindow, notifyRenderer, toggleMainWindow, toggleMouseEvents } from './window';
+import { getMainWindow, moveWindow, toggleMainWindow, toggleMouseEvents } from './window';
 import { SHORTCUTS } from './constants/shortcuts';
-import { ANSWER_STYLES } from './constants/answer-styles';
-import { AI_PROVIDER } from './constants/ai';
 import type { AppStore } from './store';
-
-/** All AI providers in order for cycling */
-const AI_PROVIDERS = [AI_PROVIDER.BOTH, AI_PROVIDER.OPENAI, AI_PROVIDER.GEMINI];
 
 /** Debounce tracking for shortcuts */
 const lastTriggerTime: Map<string, number> = new Map();
@@ -54,24 +49,6 @@ export function registerGlobalShortcuts(
       overlayManager.show(latestResponse, preloadPath);
       if (!state.isPinned) overlayManager.togglePin();
     }
-  });
-
-  // Answer style cycling
-  globalShortcut.register(SHORTCUTS.CYCLE_ANSWER_STYLE, () => {
-    const current = store.get('answerStyle') || ANSWER_STYLES[0];
-    const currentIndex = ANSWER_STYLES.indexOf(current);
-    const newStyle = ANSWER_STYLES[(currentIndex + 1) % ANSWER_STYLES.length];
-    store.set('answerStyle', newStyle);
-    notifyRenderer('answer-style-changed', newStyle);
-  });
-
-  // Model cycling
-  globalShortcut.register(SHORTCUTS.CYCLE_MODEL, () => {
-    const currentModel = store.get('defaultModel') || AI_PROVIDERS[0];
-    const currentIndex = AI_PROVIDERS.indexOf(currentModel);
-    const newModel = AI_PROVIDERS[(currentIndex + 1) % AI_PROVIDERS.length];
-    store.set('defaultModel', newModel);
-    notifyRenderer('model-changed', newModel);
   });
 
   // Full screenshot
@@ -143,17 +120,6 @@ export function registerGlobalShortcuts(
 
   globalShortcut.register(SHORTCUTS.OVERLAY_MOVE_RIGHT, () => {
     if (overlayManager.getState().isVisible) overlayManager.moveToCorner('bottom-right');
-  });
-
-  // Tab navigation
-  globalShortcut.register(SHORTCUTS.TAB_NEXT, () => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) mainWindow.webContents.send('switch-tab', 'next');
-  });
-
-  globalShortcut.register(SHORTCUTS.TAB_PREVIOUS, () => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) mainWindow.webContents.send('switch-tab', 'previous');
   });
 
   // Developer tools

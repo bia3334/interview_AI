@@ -108,7 +108,7 @@
       // Support Ctrl + mouse wheel scrolling when content exceeds bounds
       let hideOverflowTimer = null;
       window.addEventListener('wheel', (e) => {
-        if (!e.ctrlKey) return; // only scroll when Ctrl is held
+        // if (!e.ctrlKey) return; // only scroll when Ctrl is held
         e.preventDefault();
         e.stopPropagation();
         const lh = getLineHeightPx();

@@ -15,10 +15,6 @@ export const SHORTCUTS = {
   OVERLAY_MOVE_LEFT: 'CommandOrControl+Left',
   OVERLAY_MOVE_RIGHT: 'CommandOrControl+Right',
   
-  // Answer style & model
-  CYCLE_ANSWER_STYLE: 'CommandOrControl+Shift+L',
-  CYCLE_MODEL: 'CommandOrControl+Shift+M',
-  
   // Screenshots
   FULL_SCREENSHOT: 'CommandOrControl+Shift+S',
   REGION_SCREENSHOT: 'CommandOrControl+Shift+Z',
@@ -29,10 +25,6 @@ export const SHORTCUTS = {
   // Clipboard
   PROCESS_CLIPBOARD: 'CommandOrControl+Shift+Q',
   COPY_RESPONSE: 'CommandOrControl+Shift+C',
-  
-  // Navigation
-  TAB_NEXT: 'CommandOrControl+Shift+Space',
-  TAB_PREVIOUS: 'CommandOrControl+Shift+Tab',
   
   // Window movement (with Shift)
   MOVE_UP: 'CommandOrControl+Shift+Up',
