@@ -21,6 +21,18 @@ type ImportedDoc = {
 };
 let importedDocs: ImportedDoc[] = [];
 
+// User Notes
+type UserNote = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+};
+let userNotes: UserNote[] = [];
+let activeNoteId: string | null = null;
+let activeNoteContent: string | null = null;
+
 /**
  * Initialize documents from store (call on app start)
  */
@@ -30,9 +42,15 @@ export const initDocumentsFromStore = (storeInstance: any, log: any) => {
     const savedDocs = store.get('importedDocuments') || [];
     importedDocs = savedDocs;
     log.info(`Loaded ${importedDocs.length} documents from store`);
+    
+    // Load user notes
+    const savedNotes = store.get('userNotes') || [];
+    userNotes = savedNotes;
+    log.info(`Loaded ${userNotes.length} user notes from store`);
   } catch (e) {
     log.warn('Failed to load documents from store', e);
     importedDocs = [];
+    userNotes = [];
   }
 };
 
@@ -43,6 +61,211 @@ const saveDocsToStore = () => {
   if (store) {
     store.set('importedDocuments', importedDocs);
   }
+};
+
+/**
+ * Save notes to store
+ */
+const saveNotesToStore = () => {
+  if (store) {
+    store.set('userNotes', userNotes);
+  }
+};
+
+/**
+ * Generate unique note ID
+ */
+const generateNoteId = (): string => {
+  return `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+/**
+ * Create a new note
+ */
+export const createNote = (
+  title: string,
+  content: string,
+  mainWindow: BrowserWindow | null,
+  log: any
+): { success: boolean; note?: UserNote; error?: string } => {
+  try {
+    const now = Date.now();
+    const newNote: UserNote = {
+      id: generateNoteId(),
+      title: title.trim() || 'Untitled Note',
+      content,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    userNotes.push(newNote);
+    saveNotesToStore();
+    
+    log.info(`Created note: ${newNote.title}`);
+    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('notes-updated');
+      mainWindow.webContents.send('toast', `Note created: ${newNote.title}`);
+    }
+    
+    return { success: true, note: newNote };
+  } catch (e: any) {
+    log.error('Failed to create note', e);
+    return { success: false, error: e.message };
+  }
+};
+
+/**
+ * Update an existing note
+ */
+export const updateNote = (
+  noteId: string,
+  updates: { title?: string; content?: string },
+  mainWindow: BrowserWindow | null,
+  log: any
+): { success: boolean; note?: UserNote; error?: string } => {
+  try {
+    const idx = userNotes.findIndex(n => n.id === noteId);
+    if (idx < 0) return { success: false, error: 'Note not found' };
+    
+    if (updates.title !== undefined) {
+      userNotes[idx].title = updates.title.trim() || 'Untitled Note';
+    }
+    if (updates.content !== undefined) {
+      userNotes[idx].content = updates.content;
+    }
+    userNotes[idx].updatedAt = Date.now();
+    
+    saveNotesToStore();
+    
+    // Update active note content if this is the active note
+    if (activeNoteId === noteId) {
+      activeNoteContent = userNotes[idx].content;
+    }
+    
+    log.info(`Updated note: ${userNotes[idx].title}`);
+    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('notes-updated');
+    }
+    
+    return { success: true, note: userNotes[idx] };
+  } catch (e: any) {
+    log.error('Failed to update note', e);
+    return { success: false, error: e.message };
+  }
+};
+
+/**
+ * Delete a note
+ */
+export const deleteNote = (
+  noteId: string,
+  mainWindow: BrowserWindow | null,
+  log: any
+): { success: boolean; error?: string } => {
+  try {
+    const idx = userNotes.findIndex(n => n.id === noteId);
+    if (idx < 0) return { success: false, error: 'Note not found' };
+    
+    const noteName = userNotes[idx].title;
+    userNotes.splice(idx, 1);
+    saveNotesToStore();
+    
+    // Clear active note if it was deleted
+    if (activeNoteId === noteId) {
+      activeNoteId = null;
+      activeNoteContent = null;
+    }
+    
+    log.info(`Deleted note: ${noteName}`);
+    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('notes-updated');
+      mainWindow.webContents.send('toast', `Note deleted: ${noteName}`);
+    }
+    
+    return { success: true };
+  } catch (e: any) {
+    log.error('Failed to delete note', e);
+    return { success: false, error: e.message };
+  }
+};
+
+/**
+ * Get all notes for UI
+ */
+export const getNotesForUI = () => {
+  return userNotes.map(n => ({
+    id: n.id,
+    title: n.title,
+    contentPreview: n.content.slice(0, 100) + (n.content.length > 100 ? '...' : ''),
+    length: n.content.length,
+    createdAt: n.createdAt,
+    updatedAt: n.updatedAt,
+    active: activeNoteId === n.id
+  }));
+};
+
+/**
+ * Get a specific note
+ */
+export const getNote = (noteId: string) => {
+  return userNotes.find(n => n.id === noteId);
+};
+
+/**
+ * Set active note
+ */
+export const setActiveNote = (
+  noteId: string | null,
+  mainWindow: BrowserWindow | null,
+  log: any
+): { success: boolean; error?: string } => {
+  try {
+    if (noteId === null) {
+      activeNoteId = null;
+      activeNoteContent = null;
+      log.info('Cleared active note');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('toast', 'Note context cleared');
+      }
+      return { success: true };
+    }
+    
+    const note = getNote(noteId);
+    if (!note) return { success: false, error: 'Note not found' };
+    
+    activeNoteId = noteId;
+    activeNoteContent = note.content;
+    
+    log.info(`Set active note: ${note.title}`);
+    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('toast', `Note activated: ${note.title}`);
+    }
+    
+    return { success: true };
+  } catch (e: any) {
+    log.error('Failed to set active note', e);
+    return { success: false, error: e.message };
+  }
+};
+
+/**
+ * Get active note info
+ */
+export const getActiveNoteInfo = () => {
+  if (!activeNoteId || !activeNoteContent) {
+    return { hasActiveNote: false };
+  }
+  const note = getNote(activeNoteId);
+  return {
+    hasActiveNote: true,
+    id: activeNoteId,
+    title: note?.title,
+    length: activeNoteContent.length
+  };
 };
 
 /**
@@ -101,38 +324,59 @@ export const clearActiveDocContext = (mainWindow: BrowserWindow | null, log: any
 /**
  * Build document context prefix for AI prompts
  * Uses extracted key info as the primary reference if available
+ * Also includes user notes if active
  */
 export const buildDocContextPrefix = () => {
-  if (!activeDocContext && !activeDocKeyInfo) return '';
-  const name = activeDocPath ? path.basename(activeDocPath) : 'document';
+  const parts: string[] = [];
   
-  // If we have extracted key info, use it as primary context
-  if (activeDocKeyInfo) {
-    return [
-      `Use the following KEY INFORMATION extracted from the document "${name}" as your primary reference. Answer questions based on this information first. If the key info doesn't cover the question, you may refer to the full document context below.`,
-      '',
-      '--- KEY INFORMATION START ---',
-      activeDocKeyInfo,
-      '--- KEY INFORMATION END ---',
-      '',
-      activeDocContext ? [
-        '--- FULL DOCUMENT CONTEXT (for reference) ---',
-        activeDocContext.slice(0, 50000), // Limit full context to avoid token issues
-        activeDocContext.length > 50000 ? '\n[Document truncated for context...]' : '',
-        '--- END DOCUMENT ---'
-      ].join('\n') : ''
-    ].join('\n');
+  // Add user note context if active
+  if (activeNoteContent) {
+    const note = activeNoteId ? getNote(activeNoteId) : null;
+    const noteTitle = note?.title || 'User Note';
+    parts.push([
+      `--- USER NOTE: "${noteTitle}" ---`,
+      activeNoteContent,
+      '--- END USER NOTE ---',
+      ''
+    ].join('\n'));
   }
   
-  // Fallback to original behavior if no key info
-  return [
-    `Use the following DOCUMENT CONTEXT as the primary reference. Prefer answers grounded in it before using screenshots or general knowledge. If the context doesn't cover the answer, say so briefly and proceed.`,
-    '',
-    `— Document: ${name}`,
-    '--- DOCUMENT CONTEXT START ---',
-    activeDocContext,
-    '--- DOCUMENT CONTEXT END ---'
-  ].join('\n');
+  // Add document context if active
+  if (activeDocContext || activeDocKeyInfo) {
+    const name = activeDocPath ? path.basename(activeDocPath) : 'document';
+    
+    // If we have extracted key info, use it as primary context
+    if (activeDocKeyInfo) {
+      parts.push([
+        `Use the following KEY INFORMATION extracted from the document "${name}" as your primary reference. Answer questions based on this information first. If the key info doesn't cover the question, you may refer to the full document context below.`,
+        '',
+        '--- KEY INFORMATION START ---',
+        activeDocKeyInfo,
+        '--- KEY INFORMATION END ---',
+        '',
+        activeDocContext ? [
+          '--- FULL DOCUMENT CONTEXT (for reference) ---',
+          activeDocContext.slice(0, 50000), // Limit full context to avoid token issues
+          activeDocContext.length > 50000 ? '\n[Document truncated for context...]' : '',
+          '--- END DOCUMENT ---'
+        ].join('\n') : ''
+      ].join('\n'));
+    } else {
+      // Fallback to original behavior if no key info
+      parts.push([
+        `Use the following DOCUMENT CONTEXT as the primary reference. Prefer answers grounded in it before using screenshots or general knowledge. If the context doesn't cover the answer, say so briefly and proceed.`,
+        '',
+        `— Document: ${name}`,
+        '--- DOCUMENT CONTEXT START ---',
+        activeDocContext,
+        '--- DOCUMENT CONTEXT END ---'
+      ].join('\n'));
+    }
+  }
+  
+  if (parts.length === 0) return '';
+  
+  return parts.join('\n\n');
 };
 
 /**
@@ -326,5 +570,44 @@ export function registerDocumentsIPC(
       deps.log.error('docs:rename error', err);
       return { success: false, error: err.message };
     }
+  });
+
+  // =====================
+  // Notes IPC Handlers
+  // =====================
+
+  ipcMain.handle('notes:list', () => {
+    return { success: true, notes: getNotesForUI() };
+  });
+
+  ipcMain.handle('notes:get', (_e, noteId: string) => {
+    try {
+      const note = getNote(noteId);
+      if (!note) return { success: false, error: 'Note not found' };
+      return { success: true, note };
+    } catch (err: any) {
+      deps.log.error('notes:get error', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('notes:create', (_e, title: string, content: string) => {
+    return createNote(title, content, deps.mainWindow(), deps.log);
+  });
+
+  ipcMain.handle('notes:update', (_e, noteId: string, updates: { title?: string; content?: string }) => {
+    return updateNote(noteId, updates, deps.mainWindow(), deps.log);
+  });
+
+  ipcMain.handle('notes:delete', (_e, noteId: string) => {
+    return deleteNote(noteId, deps.mainWindow(), deps.log);
+  });
+
+  ipcMain.handle('notes:setActive', (_e, noteId: string | null) => {
+    return setActiveNote(noteId, deps.mainWindow(), deps.log);
+  });
+
+  ipcMain.handle('notes:getActiveInfo', () => {
+    return getActiveNoteInfo();
   });
 }

@@ -9,6 +9,9 @@ interface SystemPromptTemplate {
   prompt: string;
 }
 
+// Provider types for connection testing
+type ProviderType = 'openai' | 'gemini' | 'zai' | 'lmstudio';
+
 @Component({
   selector: 'app-settings-tab',
   templateUrl: './settings-tab.component.html',
@@ -30,23 +33,26 @@ export class SettingsTabComponent implements OnInit {
   zaiEnabled: boolean = false;
   
   // Custom model names for cloud providers
-  openaiModel: string = 'gpt-4o';
-  geminiModel: string = 'gemini-2.0-flash';
+  openaiModel: string = 'gpt-5.2';
+  geminiModel: string = 'gemini-3.0-flash-review';
   
-  // Test loading states
-  openaiTestLoading: boolean = false;
-  geminiTestLoading: boolean = false;
+  // Unified loading state for all testable services
+  loadingState: Record<string, boolean> = {
+    openai: false,
+    gemini: false,
+    zai: false,
+    lmstudio: false,
+    ocr: false
+  };
 
   // LM Studio Settings
   lmstudioEnabled: boolean = false;
   lmstudioEndpoint: string = 'http://localhost:1234/v1';
   lmstudioModel: string = 'local-model';
-  lmstudioTestLoading: boolean = false;
 
   // Z.AI Settings
   zaiApiKey: string = '';
-  zaiModel: string = 'glm-4.7';
-  zaiTestLoading: boolean = false;
+  zaiModel: string = 'GLM-4.6V-Flash';
 
   // AI Behavior
   preferredLanguage: string = DEFAULTS.LANGUAGE;
@@ -88,6 +94,112 @@ export class SettingsTabComponent implements OnInit {
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef
   ) {}
+
+  // =====================
+  // Helper Methods
+  // =====================
+
+  /**
+   * Run a function inside NgZone and trigger change detection.
+   * Removes the boilerplate of this.ngZone.run(...) + this.cdr.detectChanges()
+   */
+  private runInZone(fn: () => void): void {
+    this.ngZone.run(() => {
+      fn();
+      this.cdr.detectChanges();
+    });
+  }
+
+  /**
+   * Unified connection test for all providers.
+   * Auto-saves the provider's settings before testing.
+   */
+  async testConnection(provider: ProviderType): Promise<void> {
+    if (this.loadingState[provider]) return; // Prevent double-click
+
+    this.loadingState[provider] = true;
+    this.cdr.detectChanges();
+
+    try {
+      // Save provider settings before testing
+      await this.saveProviderSettings(provider);
+
+      // Call the appropriate test method
+      let result: { success: boolean; model?: string; error?: string };
+      switch (provider) {
+        case 'openai':
+          result = await this.electronService.testOpenAIConnection();
+          break;
+        case 'gemini':
+          result = await this.electronService.testGeminiConnection();
+          break;
+        case 'zai':
+          result = await this.electronService.testZAIConnection();
+          break;
+        case 'lmstudio':
+          result = await this.electronService.testLMStudioConnection();
+          break;
+        default:
+          result = { success: false, error: 'Unknown provider' };
+      }
+
+      // Show result toast
+      this.runInZone(() => {
+        this.loadingState[provider] = false;
+        if (result.success) {
+          const modelInfo = result.model ? ` Model: ${result.model}` : '';
+          this.electronService.showToast(`${this.getProviderDisplayName(provider)} connected!${modelInfo}`);
+        } else {
+          this.electronService.showToast(result.error || `Failed to connect to ${this.getProviderDisplayName(provider)}`);
+        }
+      });
+    } catch (error: any) {
+      this.runInZone(() => {
+        this.loadingState[provider] = false;
+        this.electronService.showToast(`Error: ${error.message}`);
+      });
+    }
+  }
+
+  /**
+   * Save settings for a specific provider before testing.
+   */
+  private async saveProviderSettings(provider: ProviderType): Promise<void> {
+    switch (provider) {
+      case 'openai':
+        await this.electronService.saveOpenAIModel(this.openaiModel.trim() || 'gpt-5.2');
+        break;
+      case 'gemini':
+        await this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-3-flash-preview');
+        break;
+      case 'zai':
+        await this.electronService.saveZAISettings({
+          enabled: true,
+          model: this.zaiModel.trim() || 'GLM-4.6V-Flash'
+        });
+        break;
+      case 'lmstudio':
+        await this.electronService.saveLMStudioSettings({
+          enabled: this.lmstudioEnabled,
+          endpoint: this.lmstudioEndpoint,
+          model: this.lmstudioModel
+        });
+        break;
+    }
+  }
+
+  /**
+   * Get human-readable provider name for toasts.
+   */
+  private getProviderDisplayName(provider: ProviderType): string {
+    const names: Record<ProviderType, string> = {
+      openai: 'OpenAI',
+      gemini: 'Gemini',
+      zai: 'Z.AI',
+      lmstudio: 'LM Studio'
+    };
+    return names[provider];
+  }
 
   ngOnInit() {
     this.loadSettings();
@@ -157,46 +269,31 @@ export class SettingsTabComponent implements OnInit {
 
   // Parse the defaultModel setting into individual enabled states
   parseEnabledProviders(model: string) {
-    // Try to parse as JSON array first (new format)
+    let providers: string[] = [];
+
+    // 1. Try to parse as JSON array (New Format)
     try {
-      const providers = JSON.parse(model);
-      if (Array.isArray(providers)) {
-        this.openaiEnabled = providers.includes('openai');
-        this.geminiEnabled = providers.includes('gemini');
-        this.zaiEnabled = providers.includes('zai');
-        return;
-      }
+      const parsed = JSON.parse(model);
+      if (Array.isArray(parsed)) providers = parsed;
     } catch {
-      // Not JSON, use legacy format
+      // Not JSON, proceed to legacy check
     }
-    
-    // Legacy format compatibility
-    switch (model) {
-      case 'both':
-        this.openaiEnabled = true;
-        this.geminiEnabled = true;
-        this.zaiEnabled = false;
-        break;
-      case 'openai':
-        this.openaiEnabled = true;
-        this.geminiEnabled = false;
-        this.zaiEnabled = false;
-        break;
-      case 'gemini':
-        this.openaiEnabled = false;
-        this.geminiEnabled = true;
-        this.zaiEnabled = false;
-        break;
-      case 'zai':
-        this.openaiEnabled = false;
-        this.geminiEnabled = false;
-        this.zaiEnabled = true;
-        break;
-      default:
-        this.openaiEnabled = true;
-        this.geminiEnabled = true;
-        this.zaiEnabled = false;
+
+    // 2. If not found yet, map Legacy Aliases to Arrays
+    if (providers.length === 0) {
+      const legacyAliases: Record<string, string[]> = {
+        'all':    ['openai', 'gemini', 'zai'],
+        'openai': ['openai'],
+        'gemini': ['gemini'],
+        'zai':    ['zai'],
+      };
+      providers = legacyAliases[model] || [];
     }
+
+    // 3. Apply State (Single Source of Truth)
+    this.openaiEnabled = providers.includes('openai');
+    this.geminiEnabled = providers.includes('gemini');
+    this.zaiEnabled = providers.includes('zai');
   }
 
   // Get enabled providers as array
@@ -215,10 +312,9 @@ export class SettingsTabComponent implements OnInit {
 
   async loadOCRSettings() {
     const settings = await this.electronService.getOCRSettings();
-    this.ngZone.run(() => {
+    this.runInZone(() => {
       this.ocrEnabled = settings.enabled;
       this.ocrLanguage = settings.language;
-      this.cdr.detectChanges();
     });
   }
 
@@ -237,14 +333,14 @@ export class SettingsTabComponent implements OnInit {
   ocrTestLoading: boolean = false;
 
   async testOCR() {
-    this.ocrTestLoading = true;
+    this.loadingState['ocr'] = true;
     this.ocrTestResult = null;
     this.cdr.detectChanges();
 
     const result = await this.electronService.testOCR();
     
-    this.ngZone.run(() => {
-      this.ocrTestLoading = false;
+    this.runInZone(() => {
+      this.loadingState['ocr'] = false;
       if (result.success && result.text) {
         this.ocrTestResult = {
           text: result.text,
@@ -254,7 +350,6 @@ export class SettingsTabComponent implements OnInit {
       } else {
         this.electronService.showToast(result.error || 'OCR failed');
       }
-      this.cdr.detectChanges();
     });
   }
 
@@ -305,98 +400,14 @@ export class SettingsTabComponent implements OnInit {
     }
   }
 
-  async testLMStudioConnection() {
-    this.lmstudioTestLoading = true;
-    this.cdr.detectChanges();
-
-    // Save settings first before testing
-    await this.saveLMStudioSettings();
-
-    const result = await this.electronService.testLMStudioConnection();
-    
-    this.ngZone.run(() => {
-      this.lmstudioTestLoading = false;
-      if (result.success) {
-        this.electronService.showToast('LM Studio connected successfully!');
-      } else {
-        this.electronService.showToast(result.error || 'Failed to connect to LM Studio');
-      }
-      this.cdr.detectChanges();
-    });
-  }
-
-  // Z.AI test connection
-  async testZAIConnection() {
-    this.zaiTestLoading = true;
-    this.cdr.detectChanges();
-
-    // Save the current Z.AI model before testing
-    await this.electronService.saveZAISettings({
-      enabled: true,  // Always enabled when testing
-      model: this.zaiModel,
-    });
-
-    const result = await this.electronService.testZAIConnection();
-    
-    this.ngZone.run(() => {
-      this.zaiTestLoading = false;
-      if (result.success) {
-        this.electronService.showToast('Z.AI connected successfully!');
-      } else {
-        this.electronService.showToast(result.error || 'Failed to connect to Z.AI');
-      }
-      this.cdr.detectChanges();
-    });
-  }
-
-  // OpenAI test connection
-  async testOpenAIConnection() {
-    this.openaiTestLoading = true;
-    this.cdr.detectChanges();
-
-    // Save model before testing
-    await this.electronService.saveOpenAIModel(this.openaiModel.trim() || 'gpt-4o');
-
-    const result = await this.electronService.testOpenAIConnection();
-    
-    this.ngZone.run(() => {
-      this.openaiTestLoading = false;
-      if (result.success) {
-        this.electronService.showToast(`OpenAI connected! Model: ${result.model}`);
-      } else {
-        this.electronService.showToast(result.error || 'Failed to connect to OpenAI');
-      }
-      this.cdr.detectChanges();
-    });
-  }
-
-  // Gemini test connection
-  async testGeminiConnection() {
-    this.geminiTestLoading = true;
-    this.cdr.detectChanges();
-
-    // Save model before testing
-    await this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-2.0-flash');
-
-    const result = await this.electronService.testGeminiConnection();
-    
-    this.ngZone.run(() => {
-      this.geminiTestLoading = false;
-      if (result.success) {
-        this.electronService.showToast(`Gemini connected! Model: ${result.model}`);
-      } else {
-        this.electronService.showToast(result.error || 'Failed to connect to Gemini');
-      }
-      this.cdr.detectChanges();
-    });
-  }
+  // Unified test connection method replaces individual test methods
+  // Use: testConnection('lmstudio'), testConnection('zai'), etc.
 
   async loadTemplates() {
     const templates = await this.electronService.getPromptTemplates();
-    this.ngZone.run(() => {
+    this.runInZone(() => {
       this.templates = templates;
       this.detectActiveTemplate();
-      this.cdr.detectChanges();
     });
   }
 
@@ -404,12 +415,11 @@ export class SettingsTabComponent implements OnInit {
     const result = await this.electronService.listDocs();
     const docInfo = await this.electronService.getActiveDocInfo();
     
-    this.ngZone.run(() => {
+    this.runInZone(() => {
       if (result.success) {
         this.documents = result.docs;
       }
       this.activeDocInfo = docInfo;
-      this.cdr.detectChanges();
     });
   }
 
@@ -440,22 +450,27 @@ export class SettingsTabComponent implements OnInit {
   async saveModelSettings() {
     // Save enabled providers as JSON array
     const enabledProviders = this.getEnabledProviders();
-    await this.electronService.saveDefaultModel(JSON.stringify(enabledProviders) as any);
     
-    // Save custom model names
+    // Build parallel save tasks
+    const saveTasks: Promise<any>[] = [
+      this.electronService.saveDefaultModel(JSON.stringify(enabledProviders) as any)
+    ];
+
+    // Add provider-specific saves in parallel
     if (this.openaiEnabled) {
-      await this.electronService.saveOpenAIModel(this.openaiModel.trim() || 'gpt-4o');
+      saveTasks.push(this.electronService.saveOpenAIModel(this.openaiModel.trim() || 'gpt-5.2'));
     }
     if (this.geminiEnabled) {
-      await this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-2.0-flash');
+      saveTasks.push(this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-3-flash-preview'));
     }
     if (this.zaiEnabled) {
-      await this.electronService.saveZAISettings({
+      saveTasks.push(this.electronService.saveZAISettings({
         enabled: true,
-        model: this.zaiModel.trim() || 'glm-4.7'
-      });
+        model: this.zaiModel.trim() || 'GLM-4.6V-Flash'
+      }));
     }
-    
+
+    await Promise.all(saveTasks);
     this.electronService.showToast(`Model settings saved (${enabledProviders.join(', ')})`);
   }
 
@@ -555,10 +570,9 @@ export class SettingsTabComponent implements OnInit {
     if (confirm('Reset all templates to defaults? Your custom templates will be removed.')) {
       await this.electronService.resetPromptTemplates();
       await this.loadTemplates();
-      this.ngZone.run(() => {
+      this.runInZone(() => {
         this.customSystemPrompt = '';
         this.activeTemplateId = null;
-        this.cdr.detectChanges();
       });
       await this.saveSystemPrompt();
     }
@@ -625,7 +639,7 @@ export class SettingsTabComponent implements OnInit {
     
     try {
       const result = await this.electronService.getDocKeyInfo(filePath);
-      this.ngZone.run(() => {
+      this.runInZone(() => {
         if (result.success && result.hasKeyInfo) {
           this.keyInfoData = { ...result, filePath };
           this.currentKeyInfoFilePath = filePath;
@@ -634,7 +648,6 @@ export class SettingsTabComponent implements OnInit {
         } else if (!result.success) {
           console.error('Error loading key info:', result.error);
         }
-        this.cdr.detectChanges();
       });
     } catch (error) {
       console.error('Error viewing key info:', error);
@@ -674,7 +687,7 @@ export class SettingsTabComponent implements OnInit {
     
     try {
       const result = await this.electronService.saveDocKeyInfo(this.currentKeyInfoFilePath, this.editedKeyInfo);
-      this.ngZone.run(() => {
+      this.runInZone(() => {
         if (result.success) {
           // Update local data
           if (this.keyInfoData) {
@@ -687,7 +700,6 @@ export class SettingsTabComponent implements OnInit {
           console.error('Error saving key info:', result.error);
           this.electronService.showToast('Failed to save key info');
         }
-        this.cdr.detectChanges();
       });
     } catch (error) {
       console.error('Error saving key info:', error);

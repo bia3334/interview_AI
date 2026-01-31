@@ -24,6 +24,8 @@ export interface ElectronAPI {
   analyzeScreenshots: (options: { language?: string }) => Promise<any>;
   analyzeScreenshotsWithOpenAI: (options: { language?: string }) => Promise<any>;
   analyzeScreenshotsWithGemini: (options: { language?: string }) => Promise<any>;
+  analyzeScreenshotsWithZAI: (options: { language?: string }) => Promise<any>;
+  sendPromptWithScreenshotsToZAI: (prompt: string) => Promise<string>;
   extractTextFromScreenshots: () => Promise<any>;
   importClipboardImage: () => Promise<{ success: boolean; path?: string; error?: string }>;
 
@@ -39,6 +41,15 @@ export interface ElectronAPI {
   renameDoc: (filePath: string, newName: string) => Promise<{ success: boolean; fileName?: string; error?: string }>;
   getDocKeyInfo: (filePath: string) => Promise<{ success: boolean; fileName?: string; keyInfo?: string; hasKeyInfo?: boolean; contentLength?: number; keyInfoLength?: number; error?: string }>;
   saveDocKeyInfo: (filePath: string, keyInfo: string) => Promise<{ success: boolean; keyInfoLength?: number; error?: string }>;
+
+  // User Notes
+  listNotes: () => Promise<{ success: boolean; notes: Array<{ id: string; title: string; contentPreview: string; length: number; createdAt: number; updatedAt: number; active: boolean }> }>;
+  getNote: (noteId: string) => Promise<{ success: boolean; note?: { id: string; title: string; content: string; createdAt: number; updatedAt: number }; error?: string }>;
+  createNote: (title: string, content: string) => Promise<{ success: boolean; note?: { id: string; title: string; content: string; createdAt: number; updatedAt: number }; error?: string }>;
+  updateNote: (noteId: string, updates: { title?: string; content?: string }) => Promise<{ success: boolean; note?: { id: string; title: string; content: string; createdAt: number; updatedAt: number }; error?: string }>;
+  deleteNote: (noteId: string) => Promise<{ success: boolean; error?: string }>;
+  setActiveNote: (noteId: string | null) => Promise<{ success: boolean; error?: string }>;
+  getActiveNoteInfo: () => Promise<{ hasActiveNote: boolean; id?: string; title?: string; length?: number }>;
 
   saveApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
   getApiKey: () => Promise<string>;
@@ -110,6 +121,7 @@ export interface ElectronAPI {
   onToast: (callback: (msg: string) => void) => () => void;
   onWindowShown: (callback: () => void) => () => void;
   onDocumentsUpdated: (callback: () => void) => () => void;
+  onNotesUpdated: (callback: () => void) => () => void;
 }
 
 declare global {

@@ -39,6 +39,79 @@
     </div>
   </div>
 
+  <!-- Notes Context Section -->
+  <div class="notes-context-section">
+    <div class="notes-context-header" (click)="toggleNotesSection()">
+      <span class="notes-icon"><mat-icon class="inline-icon">note</mat-icon></span>
+      <span *ngIf="getActiveNote()" class="active-note-label">
+        {{ getActiveNote()?.title }}
+        <span class="note-length-badge">{{ (getActiveNote()?.length || 0) }} chars</span>
+      </span>
+      <span *ngIf="!getActiveNote()" class="no-note-label">No note selected</span>
+      <span class="notes-toggle-icon">{{ showNotesSection ? '▲' : '▼' }}</span>
+    </div>
+    
+    <div class="notes-panel" *ngIf="showNotesSection">
+      <!-- Note Editor -->
+      <div class="note-editor" *ngIf="showNoteEditor">
+        <input 
+          type="text" 
+          class="note-title-input" 
+          [(ngModel)]="noteTitle" 
+          placeholder="Note title (optional)"
+        />
+        <textarea 
+          class="note-content-input" 
+          [(ngModel)]="noteContent" 
+          placeholder="Type your notes here... (formulas, definitions, context, etc.)"
+          rows="5"
+        ></textarea>
+        <div class="note-editor-actions">
+          <button class="btn btn-primary btn-small" (click)="saveNote()">
+            <mat-icon class="inline-icon">save</mat-icon> {{ isEditingNote ? 'Update' : 'Save' }}
+          </button>
+          <button class="btn btn-small" (click)="closeNoteEditor()">
+            <mat-icon class="inline-icon">close</mat-icon> Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- Notes List -->
+      <div class="notes-list" *ngIf="!showNoteEditor">
+        <button class="btn btn-small btn-new-note" (click)="openNewNoteEditor()">
+          <mat-icon class="inline-icon">add</mat-icon> New Note
+        </button>
+        
+        <div 
+          class="note-option" 
+          [class.active]="!getActiveNote()"
+          (click)="clearActiveNote()"
+        >
+          <span>None (no note context)</span>
+        </div>
+        
+        <div 
+          *ngFor="let note of notes" 
+          class="note-option"
+          [class.active]="note.active"
+        >
+          <div class="note-option-main" (click)="setActiveNote(note.id)">
+            <span class="note-name">{{ note.title }}</span>
+            <span class="note-preview">{{ note.contentPreview }}</span>
+          </div>
+          <div class="note-option-actions">
+            <button class="btn-icon" (click)="openEditNoteEditor(note.id)" title="Edit">
+              <mat-icon class="inline-icon small">edit</mat-icon>
+            </button>
+            <button class="btn-icon btn-icon-danger" (click)="deleteNote(note.id)" title="Delete">
+              <mat-icon class="inline-icon small">delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Screenshots Preview Section -->
   <div *ngIf="screenshots.length > 0" class="screenshots-preview">
     <div class="screenshots-header">

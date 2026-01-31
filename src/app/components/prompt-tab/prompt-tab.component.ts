@@ -30,6 +30,15 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   documents: Array<{ filePath: string; fileName: string; length: number; addedAt: number; active: boolean; hasKeyInfo?: boolean }> = [];
   showDocumentSelector: boolean = false;
 
+  // Notes context
+  notes: Array<{ id: string; title: string; contentPreview: string; length: number; createdAt: number; updatedAt: number; active: boolean }> = [];
+  showNotesSection: boolean = false;
+  showNoteEditor: boolean = false;
+  currentNoteId: string | null = null;
+  noteTitle: string = '';
+  noteContent: string = '';
+  isEditingNote: boolean = false;
+
   // Conversation history for context
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
   isConversationMode: boolean = false;
@@ -54,6 +63,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.loadSettings();
     this.loadScreenshots();
     this.loadDocuments();
+    this.loadNotes();
     this.setupEventListeners();
   }
 
@@ -144,6 +154,94 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     return this.documents.find(d => d.active);
   }
 
+  // =====================
+  // Notes Methods
+  // =====================
+
+  async loadNotes() {
+    const result = await this.electronService.listNotes();
+    this.ngZone.run(() => {
+      if (result.success) {
+        this.notes = result.notes;
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  toggleNotesSection() {
+    this.showNotesSection = !this.showNotesSection;
+    if (!this.showNotesSection) {
+      this.closeNoteEditor();
+    }
+  }
+
+  getActiveNote() {
+    return this.notes.find(n => n.active);
+  }
+
+  openNewNoteEditor() {
+    this.isEditingNote = false;
+    this.currentNoteId = null;
+    this.noteTitle = '';
+    this.noteContent = '';
+    this.showNoteEditor = true;
+  }
+
+  async openEditNoteEditor(noteId: string) {
+    const result = await this.electronService.getNote(noteId);
+    if (result.success && result.note) {
+      this.isEditingNote = true;
+      this.currentNoteId = noteId;
+      this.noteTitle = result.note.title;
+      this.noteContent = result.note.content;
+      this.showNoteEditor = true;
+      this.cdr.detectChanges();
+    }
+  }
+
+  closeNoteEditor() {
+    this.showNoteEditor = false;
+    this.currentNoteId = null;
+    this.noteTitle = '';
+    this.noteContent = '';
+    this.isEditingNote = false;
+  }
+
+  async saveNote() {
+    if (!this.noteContent.trim()) {
+      return;
+    }
+
+    if (this.isEditingNote && this.currentNoteId) {
+      // Update existing note
+      await this.electronService.updateNote(this.currentNoteId, {
+        title: this.noteTitle,
+        content: this.noteContent
+      });
+    } else {
+      // Create new note
+      await this.electronService.createNote(this.noteTitle, this.noteContent);
+    }
+
+    this.closeNoteEditor();
+    await this.loadNotes();
+  }
+
+  async deleteNote(noteId: string) {
+    await this.electronService.deleteNote(noteId);
+    await this.loadNotes();
+  }
+
+  async setActiveNote(noteId: string) {
+    await this.electronService.setActiveNote(noteId);
+    await this.loadNotes();
+  }
+
+  async clearActiveNote() {
+    await this.electronService.setActiveNote(null);
+    await this.loadNotes();
+  }
+
   async clearScreenshots() {
     // Remove all screenshots one by one from end to start
     for (let i = this.screenshots.length - 1; i >= 0; i--) {
@@ -183,57 +281,43 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   // Parse the defaultModel setting into individual enabled states
   parseEnabledProviders(model: string) {
-    // Try to parse as JSON array first (new format)
+    let providers: string[] = [];
+
+    // 1. Try to parse as JSON array
     try {
-      const providers = JSON.parse(model);
-      if (Array.isArray(providers)) {
-        this.openaiEnabled = providers.includes('openai');
-        this.geminiEnabled = providers.includes('gemini');
-        this.zaiEnabled = providers.includes('zai');
-        this.lmstudioMode = false;
-        return;
-      }
+      const parsed = JSON.parse(model);
+      if (Array.isArray(parsed)) providers = parsed;
     } catch {
-      // Not JSON, use legacy format
+      // Ignore error, providers remains empty
     }
-    
-    // Legacy format compatibility
-    switch (model) {
-      case 'lmstudio':
-        this.lmstudioMode = true;
-        this.openaiEnabled = false;
-        this.geminiEnabled = false;
-        this.zaiEnabled = false;
-        break;
-      case 'both':
-        this.lmstudioMode = false;
-        this.openaiEnabled = true;
-        this.geminiEnabled = true;
-        this.zaiEnabled = false;
-        break;
-      case 'openai':
-        this.lmstudioMode = false;
-        this.openaiEnabled = true;
-        this.geminiEnabled = false;
-        this.zaiEnabled = false;
-        break;
-      case 'gemini':
-        this.lmstudioMode = false;
-        this.openaiEnabled = false;
-        this.geminiEnabled = true;
-        this.zaiEnabled = false;
-        break;
-      case 'zai':
-        this.lmstudioMode = false;
-        this.openaiEnabled = false;
-        this.geminiEnabled = false;
-        this.zaiEnabled = true;
-        break;
-      default:
-        this.lmstudioMode = false;
-        this.openaiEnabled = true;
-        this.geminiEnabled = true;
-        this.zaiEnabled = false;
+
+    // 2. If not JSON, map legacy aliases to arrays
+    if (providers.length === 0) {
+      const legacyAliases: Record<string, string[]> = {
+        'lmstudio': ['lmstudio'],
+        'both':     ['openai', 'gemini'],
+        'openai':   ['openai'],
+        'gemini':   ['gemini'],
+        'zai':      ['zai']
+      };
+      // Default fallback (equivalent to your 'default' case)
+      providers = legacyAliases[model] || ['openai', 'gemini'];
+    }
+
+    // 3. Apply State (Single source of truth)
+    // Check for 'lmstudio' first as it acts as an exclusive mode in your logic
+    this.lmstudioMode = providers.includes('lmstudio');
+
+    if (this.lmstudioMode) {
+      // If local mode is on, disable cloud providers
+      this.openaiEnabled = false;
+      this.geminiEnabled = false;
+      this.zaiEnabled = false;
+    } else {
+      // Otherwise, check inclusion for each cloud provider
+      this.openaiEnabled = providers.includes('openai');
+      this.geminiEnabled = providers.includes('gemini');
+      this.zaiEnabled = providers.includes('zai');
     }
   }
 
@@ -287,6 +371,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.electronService.onDocumentsUpdated().subscribe(() => {
       this.loadDocuments();
     });
+
+    // Notes updated - reload notes list
+    this.electronService.onNotesUpdated().subscribe(() => {
+      this.loadNotes();
+    });
   }
 
   updateViewMode() {
@@ -316,137 +405,202 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     return providers.length > 0 ? providers.join(' + ') : 'No provider';
   }
 
+  // =====================
+  // Generic Provider Request Handler
+  // =====================
+
+  /**
+   * Generic handler for any AI provider request.
+   * Handles try/catch, markdown rendering, and UI updates in a unified way.
+   * @param apiCall - The async function that returns the raw string response.
+   * @param updateFn - The callback to update the specific UI property.
+   * @returns Promise<string> - The raw response (or empty string on error) for history tracking.
+   */
+  private async handleProviderRequest(
+    apiCall: () => Promise<string>,
+    updateFn: (formattedHtml: string) => void
+  ): Promise<string> {
+    try {
+      const raw = await apiCall();
+      const formatted = this.markdownService.renderMarkdown(raw);
+      this.ngZone.run(() => {
+        updateFn(formatted);
+        this.cdr.detectChanges();
+      });
+      return raw; // Return raw text for history/conversation
+    } catch (err: any) {
+      const errorMsg = `**Error:** ${err.message || 'Request failed'}`;
+      const formattedError = this.markdownService.renderMarkdown(errorMsg);
+      this.ngZone.run(() => {
+        updateFn(formattedError);
+        this.cdr.detectChanges();
+      });
+      return ''; // Return empty so history ignores errors
+    }
+  }
+
+  /**
+   * Handler for screenshot analysis requests (returns { success, analysis, error }).
+   */
+  private async handleScreenshotAnalysis(
+    apiCall: () => Promise<{ success: boolean; analysis?: string; error?: string }>,
+    updateFn: (formattedHtml: string) => void
+  ): Promise<string> {
+    try {
+      const result = await apiCall();
+      let formatted: string;
+      if (result.success && result.analysis) {
+        formatted = this.markdownService.renderMarkdown(result.analysis);
+      } else {
+        formatted = this.markdownService.renderMarkdown(`**Error:** ${result.error || 'Failed to analyze screenshots'}`);
+      }
+      this.ngZone.run(() => {
+        updateFn(formatted);
+        this.cdr.detectChanges();
+      });
+      return result.success && result.analysis ? result.analysis : '';
+    } catch (err: any) {
+      const errorMsg = `**Error:** ${err.message || 'Analysis failed'}`;
+      const formattedError = this.markdownService.renderMarkdown(errorMsg);
+      this.ngZone.run(() => {
+        updateFn(formattedError);
+        this.cdr.detectChanges();
+      });
+      return '';
+    }
+  }
+
   async sendPrompt() {
     const prompt = this.userInput.trim();
     if (!prompt) return;
 
+    // Immediately clear input and set loading state
+    const savedPrompt = prompt;
+    this.userInput = '';
     this.isLoading = true;
-    this.openaiResponse = '';
-    this.geminiResponse = '';
-    this.lmstudioResponse = '';
-    this.zaiResponse = '';
-
-    let rawOpenaiResponse = '';
-    let rawGeminiResponse = '';
-    let rawLmstudioResponse = '';
-    let rawZaiResponse = '';
 
     // Check if we have screenshots to include
     const hasScreenshots = this.screenshots.length > 0;
 
     // Add user message to conversation history if in conversation mode
     if (this.isConversationMode) {
-      this.conversationHistory.push({ role: 'user', content: prompt });
+      this.conversationHistory.push({ role: 'user', content: savedPrompt });
+    }
+
+    // Set loading indicators for all active providers
+    if (this.openaiEnabled && !this.lmstudioMode) {
+      this.openaiResponse = '<p>Loading...</p>';
+    }
+    if (this.geminiEnabled && !this.lmstudioMode) {
+      this.geminiResponse = '<p>Loading...</p>';
+    }
+    if (this.zaiEnabled && !this.lmstudioMode) {
+      this.zaiResponse = '<p>Loading...</p>';
+    }
+    if (this.lmstudioMode) {
+      this.lmstudioResponse = '<p>Loading...</p>';
+    }
+    this.cdr.detectChanges();
+
+    // Build array of parallel tasks
+    interface ProviderTask {
+      name: 'openai' | 'gemini' | 'zai' | 'lmstudio';
+      promise: Promise<string>;
+    }
+    const tasks: ProviderTask[] = [];
+
+    // OpenAI
+    if (this.openaiEnabled && !this.lmstudioMode) {
+      const apiCall = () => {
+        if (this.isConversationMode) {
+          return this.electronService.sendConversationToOpenAI(this.conversationHistory);
+        } else if (hasScreenshots) {
+          return this.electronService.sendPromptWithScreenshotsToOpenAI(savedPrompt);
+        } else {
+          return this.electronService.sendPromptToOpenAI(savedPrompt);
+        }
+      };
+      tasks.push({
+        name: 'openai',
+        promise: this.handleProviderRequest(apiCall, (html) => this.openaiResponse = html)
+      });
+    }
+
+    // Gemini
+    if (this.geminiEnabled && !this.lmstudioMode) {
+      const apiCall = () => {
+        if (this.isConversationMode) {
+          return this.electronService.sendConversationToGemini(this.conversationHistory);
+        } else if (hasScreenshots) {
+          return this.electronService.sendPromptWithScreenshotsToGemini(savedPrompt);
+        } else {
+          return this.electronService.sendPromptToGemini(savedPrompt);
+        }
+      };
+      tasks.push({
+        name: 'gemini',
+        promise: this.handleProviderRequest(apiCall, (html) => this.geminiResponse = html)
+      });
+    }
+
+    // Z.AI (now supports screenshots via vision model)
+    if (this.zaiEnabled && !this.lmstudioMode) {
+      const apiCall = () => {
+        if (this.isConversationMode) {
+          return this.electronService.sendConversationToZAI(this.conversationHistory);
+        } else if (hasScreenshots) {
+          return this.electronService.sendPromptWithScreenshotsToZAI(savedPrompt);
+        } else {
+          return this.electronService.sendPromptToZAI(savedPrompt);
+        }
+      };
+      tasks.push({
+        name: 'zai',
+        promise: this.handleProviderRequest(apiCall, (html) => this.zaiResponse = html)
+      });
+    }
+
+    // LM Studio (local, text-only)
+    if (this.lmstudioMode) {
+      const apiCall = () => {
+        if (this.isConversationMode) {
+          return this.electronService.sendConversationToLMStudio(this.conversationHistory);
+        } else {
+          return this.electronService.sendPromptToLMStudio(savedPrompt);
+        }
+      };
+      tasks.push({
+        name: 'lmstudio',
+        promise: this.handleProviderRequest(apiCall, (html) => this.lmstudioResponse = html)
+      });
     }
 
     try {
-      if (this.openaiEnabled && !this.lmstudioMode) {
-        this.openaiResponse = '<p>Loading...</p>';
-        this.cdr.detectChanges();
-        try {
-          // Use conversation API if in conversation mode, otherwise use simple prompt
-          // Use screenshot-aware API if screenshots are present
-          if (this.isConversationMode) {
-            rawOpenaiResponse = await this.electronService.sendConversationToOpenAI(this.conversationHistory);
-          } else if (hasScreenshots) {
-            rawOpenaiResponse = await this.electronService.sendPromptWithScreenshotsToOpenAI(prompt);
-          } else {
-            rawOpenaiResponse = await this.electronService.sendPromptToOpenAI(prompt);
-          }
-          this.ngZone.run(() => {
-            this.openaiResponse = this.markdownService.renderMarkdown(rawOpenaiResponse);
-            this.cdr.detectChanges();
-          });
-        } catch (error: any) {
-          this.ngZone.run(() => {
-            this.openaiResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to get response'}`);
-            this.cdr.detectChanges();
-          });
-        }
-      }
+      // Execute all provider requests in parallel
+      const results = await Promise.all(tasks.map(t => t.promise));
 
-      if (this.geminiEnabled && !this.lmstudioMode) {
-        this.geminiResponse = '<p>Loading...</p>';
-        this.cdr.detectChanges();
-        try {
-          // Use conversation API if in conversation mode, otherwise use simple prompt
-          // Use screenshot-aware API if screenshots are present
-          if (this.isConversationMode) {
-            rawGeminiResponse = await this.electronService.sendConversationToGemini(this.conversationHistory);
-          } else if (hasScreenshots) {
-            rawGeminiResponse = await this.electronService.sendPromptWithScreenshotsToGemini(prompt);
-          } else {
-            rawGeminiResponse = await this.electronService.sendPromptToGemini(prompt);
-          }
-          this.ngZone.run(() => {
-            this.geminiResponse = this.markdownService.renderMarkdown(rawGeminiResponse);
-            this.cdr.detectChanges();
-          });
-        } catch (error: any) {
-          this.ngZone.run(() => {
-            this.geminiResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to get response'}`);
-            this.cdr.detectChanges();
-          });
-        }
-      }
+      // Map results back to provider names
+      const responseMap: Record<string, string> = {};
+      tasks.forEach((task, index) => {
+        responseMap[task.name] = results[index];
+      });
 
-      // LM Studio (local model)
-      if (this.lmstudioMode) {
-        this.lmstudioResponse = '<p>Loading...</p>';
-        this.cdr.detectChanges();
-        try {
-          // Use conversation API if in conversation mode, otherwise use simple prompt
-          // Note: LM Studio doesn't support screenshots (text-only)
-          if (this.isConversationMode) {
-            rawLmstudioResponse = await this.electronService.sendConversationToLMStudio(this.conversationHistory);
-          } else {
-            rawLmstudioResponse = await this.electronService.sendPromptToLMStudio(prompt);
-          }
-          this.ngZone.run(() => {
-            this.lmstudioResponse = this.markdownService.renderMarkdown(rawLmstudioResponse);
-            this.cdr.detectChanges();
-          });
-        } catch (error: any) {
-          this.ngZone.run(() => {
-            this.lmstudioResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to get response from LM Studio'}`);
-            this.cdr.detectChanges();
-          });
-        }
-      }
-
-      // Z.AI
-      if (this.zaiEnabled && !this.lmstudioMode) {
-        this.zaiResponse = '<p>Loading...</p>';
-        this.cdr.detectChanges();
-        try {
-          // Use conversation API if in conversation mode, otherwise use simple prompt
-          // Note: Z.AI doesn't support screenshots (text-only)
-          if (this.isConversationMode) {
-            rawZaiResponse = await this.electronService.sendConversationToZAI(this.conversationHistory);
-          } else {
-            rawZaiResponse = await this.electronService.sendPromptToZAI(prompt);
-          }
-          this.ngZone.run(() => {
-            this.zaiResponse = this.markdownService.renderMarkdown(rawZaiResponse);
-            this.cdr.detectChanges();
-          });
-        } catch (error: any) {
-          this.ngZone.run(() => {
-            this.zaiResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to get response from Z.AI'}`);
-            this.cdr.detectChanges();
-          });
-        }
-      }
+      const rawOpenai = responseMap['openai'] || '';
+      const rawGemini = responseMap['gemini'] || '';
+      const rawZai = responseMap['zai'] || '';
+      const rawLmstudio = responseMap['lmstudio'] || '';
 
       // Add assistant response to conversation history if in conversation mode
-      if (this.isConversationMode && (rawOpenaiResponse || rawGeminiResponse || rawLmstudioResponse || rawZaiResponse)) {
-        // Use the appropriate response as the assistant response
-        const assistantResponse = rawOpenaiResponse || rawGeminiResponse || rawLmstudioResponse || rawZaiResponse;
-        this.conversationHistory.push({ role: 'assistant', content: assistantResponse });
+      if (this.isConversationMode) {
+        const assistantResponse = rawOpenai || rawGemini || rawLmstudio || rawZai;
+        if (assistantResponse) {
+          this.conversationHistory.push({ role: 'assistant', content: assistantResponse });
+        }
       }
 
       // Save or update history
-      if (rawOpenaiResponse || rawGeminiResponse || rawLmstudioResponse || rawZaiResponse) {
+      const hasAnyResponse = rawOpenai || rawGemini || rawLmstudio || rawZai;
+      if (hasAnyResponse) {
         if (this.isConversationMode && this.currentHistoryItemId) {
           // Update existing history item with the full conversation
           const allPrompts = this.conversationHistory
@@ -468,7 +622,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
           this.electronService.saveHistoryItem({
             id: Date.now().toString(),
             timestamp: new Date(),
-            prompt: prompt,
+            prompt: savedPrompt,
             screenshotCount: hasScreenshots ? this.screenshots.length : 0,
             openaiResponse: this.openaiResponse,
             geminiResponse: this.geminiResponse,
@@ -480,7 +634,6 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     } finally {
       this.ngZone.run(() => {
         this.isLoading = false;
-        this.userInput = ''; // Clear input after sending
         this.cdr.detectChanges();
       });
     }
@@ -584,80 +737,91 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       return;
     }
 
-    try {
-      this.isLoading = true;
-      this.openaiResponse = '<p>Analyzing screenshots...</p>';
-      this.geminiResponse = '<p>Analyzing screenshots...</p>';
-      this.zaiResponse = '<p>Analyzing screenshots...</p>';
-      this.cdr.detectChanges();
+    this.isLoading = true;
 
+    // Set loading indicators for all active providers
+    if (this.openaiEnabled && !this.lmstudioMode) {
+      this.openaiResponse = '<p>Analyzing screenshots...</p>';
+    }
+    if (this.geminiEnabled && !this.lmstudioMode) {
+      this.geminiResponse = '<p>Analyzing screenshots...</p>';
+    }
+    if (this.zaiEnabled && !this.lmstudioMode) {
+      this.zaiResponse = '<p>Analyzing screenshots...</p>';
+    }
+    if (this.lmstudioMode) {
+      this.lmstudioResponse = '<p>LM Studio does not support image analysis</p>';
+    }
+    this.cdr.detectChanges();
+
+    try {
       const preferences = await this.electronService.getPreferences();
       const language = preferences.preferredLanguage || 'python';
 
-      let savedOpenaiResponse = '';
-      let savedGeminiResponse = '';
-      let savedZaiResponse = '';
+      // Build array of parallel tasks
+      interface ProviderTask {
+        name: 'openai' | 'gemini' | 'zai';
+        promise: Promise<string>;
+      }
+      const tasks: ProviderTask[] = [];
 
+      // OpenAI
       if (this.openaiEnabled && !this.lmstudioMode) {
-        try {
-          const result = await this.electronService.analyzeScreenshotsWithOpenAI({ language });
-          if (result.success && result.analysis) {
-            savedOpenaiResponse = this.markdownService.renderMarkdown(result.analysis);
-          } else {
-            savedOpenaiResponse = this.markdownService.renderMarkdown(`**Error:** ${result.error || 'Failed to analyze screenshots'}`);
-          }
-          this.ngZone.run(() => {
-            this.openaiResponse = savedOpenaiResponse;
-            this.cdr.detectChanges();
-          });
-        } catch (error: any) {
-          savedOpenaiResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to analyze with OpenAI'}`);
-          this.ngZone.run(() => {
-            this.openaiResponse = savedOpenaiResponse;
-            this.cdr.detectChanges();
-          });
-        }
+        tasks.push({
+          name: 'openai',
+          promise: this.handleScreenshotAnalysis(
+            () => this.electronService.analyzeScreenshotsWithOpenAI({ language }),
+            (html) => this.openaiResponse = html
+          )
+        });
       }
 
+      // Gemini
       if (this.geminiEnabled && !this.lmstudioMode) {
-        try {
-          const result = await this.electronService.analyzeScreenshotsWithGemini({ language });
-          if (result.success && result.analysis) {
-            savedGeminiResponse = this.markdownService.renderMarkdown(result.analysis);
-          } else {
-            savedGeminiResponse = this.markdownService.renderMarkdown(`**Error:** ${result.error || 'Failed to analyze screenshots'}`);
-          }
-          this.ngZone.run(() => {
-            this.geminiResponse = savedGeminiResponse;
-            this.cdr.detectChanges();
-          });
-        } catch (error: any) {
-          savedGeminiResponse = this.markdownService.renderMarkdown(`**Error:** ${error.message || 'Failed to analyze with Gemini'}`);
-          this.ngZone.run(() => {
-            this.geminiResponse = savedGeminiResponse;
-            this.cdr.detectChanges();
-          });
-        }
+        tasks.push({
+          name: 'gemini',
+          promise: this.handleScreenshotAnalysis(
+            () => this.electronService.analyzeScreenshotsWithGemini({ language }),
+            (html) => this.geminiResponse = html
+          )
+        });
       }
 
-      // Note: Z.AI doesn't support screenshot analysis directly (text-only)
-      // But we can include it if we implement OCR first
+      // Z.AI (supports vision via GLM-4.6V-Flash model)
       if (this.zaiEnabled && !this.lmstudioMode) {
-        // Z.AI is text-only, skip screenshot analysis
-        this.zaiResponse = '';
+        tasks.push({
+          name: 'zai',
+          promise: this.handleScreenshotAnalysis(
+            () => this.electronService.analyzeScreenshotsWithZAI({ language }),
+            (html) => this.zaiResponse = html
+          )
+        });
       }
 
-      // Save to history using the locally tracked responses
-      if (savedOpenaiResponse || savedGeminiResponse || savedZaiResponse) {
+      // Execute all provider requests in parallel
+      const results = await Promise.all(tasks.map(t => t.promise));
+
+      // Map results back to provider names
+      const responseMap: Record<string, string> = {};
+      tasks.forEach((task, index) => {
+        responseMap[task.name] = results[index];
+      });
+
+      const rawOpenai = responseMap['openai'] || '';
+      const rawGemini = responseMap['gemini'] || '';
+      const rawZai = responseMap['zai'] || '';
+
+      // Save to history if we got responses
+      if (rawOpenai || rawGemini || rawZai) {
         this.electronService.saveHistoryItem({
           id: Date.now().toString(),
           timestamp: new Date(),
           prompt: `Screenshot analysis (${screenshotCount} image${screenshotCount > 1 ? 's' : ''})`,
           screenshotCount: screenshotCount,
-          openaiResponse: savedOpenaiResponse,
-          geminiResponse: savedGeminiResponse,
+          openaiResponse: this.openaiResponse,
+          geminiResponse: this.geminiResponse,
           lmstudioResponse: '',
-          zaiResponse: savedZaiResponse
+          zaiResponse: this.zaiResponse
         } as any);
       }
     } catch (error: any) {

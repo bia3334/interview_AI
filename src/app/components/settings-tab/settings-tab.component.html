@@ -141,14 +141,14 @@
       
       <div class="form-actions" style="gap: 8px;">
         <button class="btn btn-primary" (click)="saveModelSettings()" [disabled]="!openaiEnabled && !geminiEnabled && !zaiEnabled">Save Model Settings</button>
-        <button class="btn" *ngIf="openaiEnabled" (click)="testOpenAIConnection()" [disabled]="openaiTestLoading">
-          {{ openaiTestLoading ? 'Testing...' : 'Test OpenAI' }}
+        <button class="btn" *ngIf="openaiEnabled" (click)="testConnection('openai')" [disabled]="loadingState['openai']">
+          {{ loadingState['openai'] ? 'Testing...' : 'Test OpenAI' }}
         </button>
-        <button class="btn" *ngIf="geminiEnabled" (click)="testGeminiConnection()" [disabled]="geminiTestLoading">
-          {{ geminiTestLoading ? 'Testing...' : 'Test Gemini' }}
+        <button class="btn" *ngIf="geminiEnabled" (click)="testConnection('gemini')" [disabled]="loadingState['gemini']">
+          {{ loadingState['gemini'] ? 'Testing...' : 'Test Gemini' }}
         </button>
-        <button class="btn" *ngIf="zaiEnabled" (click)="testZAIConnection()" [disabled]="zaiTestLoading">
-          {{ zaiTestLoading ? 'Testing...' : 'Test Z.AI' }}
+        <button class="btn" *ngIf="zaiEnabled" (click)="testConnection('zai')" [disabled]="loadingState['zai']">
+          {{ loadingState['zai'] ? 'Testing...' : 'Test Z.AI' }}
         </button>
       </div>
     </div>
@@ -210,8 +210,8 @@
       </div>
       <div class="form-actions" *ngIf="lmstudioEnabled">
         <button class="btn btn-primary" (click)="saveLMStudioSettings()">Save Settings</button>
-        <button class="btn" (click)="testLMStudioConnection()" [disabled]="lmstudioTestLoading">
-          {{ lmstudioTestLoading ? 'Testing...' : 'Test Connection' }}
+        <button class="btn" (click)="testConnection('lmstudio')" [disabled]="loadingState['lmstudio']">
+          {{ loadingState['lmstudio'] ? 'Testing...' : 'Test Connection' }}
         </button>
       </div>
     </div>
@@ -485,10 +485,10 @@
         <button 
           class="btn btn-primary" 
           (click)="testOCR()" 
-          [disabled]="ocrTestLoading"
+          [disabled]="loadingState['ocr']"
         >
-          <ng-container *ngIf="ocrTestLoading"><mat-icon class="inline-icon spinning">hourglass_empty</mat-icon> Extracting...</ng-container>
-          <ng-container *ngIf="!ocrTestLoading"><mat-icon class="inline-icon">search</mat-icon> Test OCR</ng-container>
+          <ng-container *ngIf="loadingState['ocr']"><mat-icon class="inline-icon spinning">hourglass_empty</mat-icon> Extracting...</ng-container>
+          <ng-container *ngIf="!loadingState['ocr']"><mat-icon class="inline-icon">search</mat-icon> Test OCR</ng-container>
         </button>
         <button 
           class="btn" 

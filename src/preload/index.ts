@@ -27,6 +27,8 @@ const api: ElectronAPI = {
   analyzeScreenshots: (options) => ipcRenderer.invoke('analyze-screenshots', options),
   analyzeScreenshotsWithOpenAI: (options) => ipcRenderer.invoke('analyzeScreenshotsWithOpenAI', options),
   analyzeScreenshotsWithGemini: (options) => ipcRenderer.invoke('analyzeScreenshotsWithGemini', options),
+  analyzeScreenshotsWithZAI: (options) => ipcRenderer.invoke('analyzeScreenshotsWithZAI', options),
+  sendPromptWithScreenshotsToZAI: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToZAI', prompt),
   extractTextFromScreenshots: () => ipcRenderer.invoke('extractTextFromScreenshots'),
   importClipboardImage: () => ipcRenderer.invoke('import-clipboard-image'),
 
@@ -42,6 +44,15 @@ const api: ElectronAPI = {
   renameDoc: (filePath, newName) => ipcRenderer.invoke('docs:rename', filePath, newName),
   getDocKeyInfo: (filePath) => ipcRenderer.invoke('docs:getKeyInfo', filePath),
   saveDocKeyInfo: (filePath, keyInfo) => ipcRenderer.invoke('docs:saveKeyInfo', filePath, keyInfo),
+
+  // User Notes
+  listNotes: () => ipcRenderer.invoke('notes:list'),
+  getNote: (noteId) => ipcRenderer.invoke('notes:get', noteId),
+  createNote: (title, content) => ipcRenderer.invoke('notes:create', title, content),
+  updateNote: (noteId, updates) => ipcRenderer.invoke('notes:update', noteId, updates),
+  deleteNote: (noteId) => ipcRenderer.invoke('notes:delete', noteId),
+  setActiveNote: (noteId) => ipcRenderer.invoke('notes:setActive', noteId),
+  getActiveNoteInfo: () => ipcRenderer.invoke('notes:getActiveInfo'),
 
   saveApiKey: (apiKey) => ipcRenderer.invoke('save-api-key', apiKey),
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
@@ -113,5 +124,6 @@ const api: ElectronAPI = {
   onToast: (callback) => { ipcRenderer.on('toast', (_e, m: string) => callback(m)); return () => ipcRenderer.removeAllListeners('toast'); },
   onWindowShown: (callback) => { ipcRenderer.on('window-shown', () => callback()); return () => ipcRenderer.removeAllListeners('window-shown'); },
   onDocumentsUpdated: (callback) => { ipcRenderer.on('documents-updated', () => callback()); return () => ipcRenderer.removeAllListeners('documents-updated'); },
+  onNotesUpdated: (callback) => { ipcRenderer.on('notes-updated', () => callback()); return () => ipcRenderer.removeAllListeners('notes-updated'); },
 };
 contextBridge.exposeInMainWorld('electronAPI', api);

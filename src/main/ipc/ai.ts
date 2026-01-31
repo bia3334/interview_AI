@@ -411,6 +411,71 @@ export function registerAIIPC(
     }
   });
 
+  // Z.AI with screenshots (vision-capable)
+  ipcMain.handle('sendPromptWithScreenshotsToZAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+    const screenshotQueue = getScreenshotQueue();
+    if (screenshotQueue.length === 0) {
+      return ipcMain.emit('sendPromptToZAI', _event, prompt);
+    }
+
+    try {
+      log.info('Sending prompt with screenshots to Z.AI API');
+      const zaiApiKey = store.get('zaiApiKey');
+      if (!zaiApiKey) {
+        throw new Error('Z.AI API key is not configured');
+      }
+
+      const screenshots = [...screenshotQueue];
+      const docPrefix = buildDocContextPrefix();
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const finalPrompt = `${docPrefix ? docPrefix + '\n\n' : ''}${ocrPrefix}${prompt}`;
+
+      const content: ChatCompletionContentPart[] = [{ type: "text", text: finalPrompt }];
+
+      // Only include images if OCR mode requires it
+      if (shouldIncludeImages) {
+        for (const screenshotPath of screenshots) {
+          try {
+            const base64Image = imageToBase64(screenshotPath);
+            content.push({
+              type: "image_url",
+              image_url: { url: `data:image/png;base64,${base64Image}` }
+            } as ChatCompletionContentPart);
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
+        }
+      }
+
+      // Use Z.AI vision model
+      const { OpenAI } = require('openai');
+      const zaiClient = new OpenAI({
+        apiKey: zaiApiKey,
+        baseURL: 'https://api.z.ai/api/paas/v4/',
+      });
+
+      const zaiModel = store.get('zaiModel') || 'GLM-4.6V-Flash';
+
+      const response = await zaiClient.chat.completions.create({
+        model: zaiModel,
+        messages: [{ role: 'user', content }],
+      });
+
+      const assistantReply = response.choices[0]?.message?.content || 'No response from Z.AI.';
+      handleAIResponse(assistantReply);
+
+      log.info('Received response from Z.AI API with screenshots');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch from Z.AI with screenshots:', error);
+      throw new Error(`Failed to fetch from Z.AI: ${(error as Error).message}`);
+    }
+  });
+
   // Screenshot Analysis
   const analyzeScreenshotsWithGemini = async (options: { language?: string }) => {
     const screenshotQueue = getScreenshotQueue();
@@ -508,12 +573,81 @@ export function registerAIIPC(
     }
   };
 
+  // Z.AI Screenshot Analysis (uses OpenAI-compatible vision API)
+  const analyzeScreenshotsWithZAI = async (options: { language?: string }) => {
+    const screenshotQueue = getScreenshotQueue();
+    if (screenshotQueue.length === 0) {
+      return { success: false, error: 'No screenshots available to analyze' };
+    }
+
+    try {
+      const zaiApiKey = store.get('zaiApiKey');
+      if (!zaiApiKey) {
+        return { success: false, error: 'Z.AI API key is not configured' };
+      }
+
+      const screenshots = [...screenshotQueue];
+      const language = options.language || store.get('preferredLanguage') || 'python';
+      const answerStyle = store.get('answerStyle') || 'code';
+      const docPrefix = buildDocContextPrefix();
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const promptText = generatePrompt(answerStyle, language, undefined, docPrefix ? `${docPrefix}\n\n${ocrPrefix}` : ocrPrefix);
+
+      // Build content with images for Z.AI vision model
+      const content: ChatCompletionContentPart[] = [{ type: "text", text: promptText }];
+
+      // Only include images if OCR mode requires it
+      if (shouldIncludeImages) {
+        for (const screenshotPath of screenshots) {
+          try {
+            const base64Image = imageToBase64(screenshotPath);
+            content.push({
+              type: "image_url",
+              image_url: { url: `data:image/png;base64,${base64Image}` }
+            } as ChatCompletionContentPart);
+          } catch (error) {
+            log.error(`Error processing image ${screenshotPath}:`, error);
+          }
+        }
+      }
+
+      // Use Z.AI vision model (GLM-4.6V-Flash for vision tasks)
+      const { OpenAI } = require('openai');
+      const zaiClient = new OpenAI({
+        apiKey: zaiApiKey,
+        baseURL: 'https://api.z.ai/api/paas/v4/',
+      });
+
+      // Use vision-capable model for image analysis
+      const zaiModel = store.get('zaiModel') || 'GLM-4.6V-Flash';
+
+      const response = await zaiClient.chat.completions.create({
+        model: zaiModel,
+        messages: [{ role: 'user', content }],
+      });
+
+      const analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
+      handleAIResponse(analysis);
+
+      return { success: true, analysis, screenshots };
+    } catch (error) {
+      log.error('Error analyzing screenshots with Z.AI:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  };
+
   ipcMain.handle('analyze-screenshots', async (_event, options: { language?: string }) => 
     analyzeScreenshotsWithGemini(options));
   ipcMain.handle('analyzeScreenshotsWithGemini', async (_event, options: { language?: string }) => 
     analyzeScreenshotsWithGemini(options));
   ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event, options: { language?: string }) => 
     analyzeScreenshotsWithOpenAI(options));
+  ipcMain.handle('analyzeScreenshotsWithZAI', async (_event, options: { language?: string }) => 
+    analyzeScreenshotsWithZAI(options));
 
   // Text extraction from screenshots
   const extractWithOpenAI = async (screenshots: string[], extractPrompt: string): Promise<string> => {

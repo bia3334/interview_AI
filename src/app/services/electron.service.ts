@@ -33,6 +33,7 @@ export class ElectronService {
   private historyUpdated$ = new Subject<void>();
   private windowShown$ = new Subject<void>();
   private documentsUpdated$ = new Subject<void>();
+  private notesUpdated$ = new Subject<void>();
 
   // Local history storage key
   private readonly HISTORY_KEY = STORAGE_KEYS.HISTORY;
@@ -63,6 +64,7 @@ export class ElectronService {
     this.electronAPI.onToast((msg) => this.toast$.next(msg));
     this.electronAPI.onWindowShown(() => this.windowShown$.next());
     this.electronAPI.onDocumentsUpdated(() => this.documentsUpdated$.next());
+    this.electronAPI.onNotesUpdated(() => this.notesUpdated$.next());
   }
 
   // Window controls
@@ -152,6 +154,14 @@ export class ElectronService {
 
   analyzeScreenshotsWithGemini(options: { language?: string }): Promise<any> {
     return this.electronAPI.analyzeScreenshotsWithGemini(options);
+  }
+
+  analyzeScreenshotsWithZAI(options: { language?: string }): Promise<any> {
+    return this.electronAPI.analyzeScreenshotsWithZAI(options);
+  }
+
+  sendPromptWithScreenshotsToZAI(prompt: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToZAI(prompt);
   }
 
   extractTextFromScreenshots(): Promise<any> {
@@ -349,6 +359,35 @@ export class ElectronService {
     return this.electronAPI.importDocumentWithKeyInfo(filePath);
   }
 
+  // User Notes
+  listNotes(): Promise<{ success: boolean; notes: Array<{ id: string; title: string; contentPreview: string; length: number; createdAt: number; updatedAt: number; active: boolean }> }> {
+    return this.electronAPI.listNotes();
+  }
+
+  getNote(noteId: string): Promise<{ success: boolean; note?: { id: string; title: string; content: string; createdAt: number; updatedAt: number }; error?: string }> {
+    return this.electronAPI.getNote(noteId);
+  }
+
+  createNote(title: string, content: string): Promise<{ success: boolean; note?: { id: string; title: string; content: string; createdAt: number; updatedAt: number }; error?: string }> {
+    return this.electronAPI.createNote(title, content);
+  }
+
+  updateNote(noteId: string, updates: { title?: string; content?: string }): Promise<{ success: boolean; note?: { id: string; title: string; content: string; createdAt: number; updatedAt: number }; error?: string }> {
+    return this.electronAPI.updateNote(noteId, updates);
+  }
+
+  deleteNote(noteId: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.deleteNote(noteId);
+  }
+
+  setActiveNote(noteId: string | null): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.setActiveNote(noteId);
+  }
+
+  getActiveNoteInfo(): Promise<{ hasActiveNote: boolean; id?: string; title?: string; length?: number }> {
+    return this.electronAPI.getActiveNoteInfo();
+  }
+
   // Event Observables - return shared subjects to avoid memory leaks
   onScreenshotTaken(): Observable<any> {
     return this.screenshotTaken$.asObservable();
@@ -396,6 +435,10 @@ export class ElectronService {
 
   onDocumentsUpdated(): Observable<void> {
     return this.documentsUpdated$.asObservable();
+  }
+
+  onNotesUpdated(): Observable<void> {
+    return this.notesUpdated$.asObservable();
   }
 
   // Show toast message
@@ -487,6 +530,8 @@ export class ElectronService {
       analyzeScreenshots: () => Promise.resolve({ success: false }),
       analyzeScreenshotsWithOpenAI: () => Promise.resolve({ success: false }),
       analyzeScreenshotsWithGemini: () => Promise.resolve({ success: false }),
+      analyzeScreenshotsWithZAI: () => Promise.resolve({ success: false }),
+      sendPromptWithScreenshotsToZAI: () => Promise.resolve('Mock Z.AI with screenshots response'),
       extractTextFromScreenshots: () => Promise.resolve({ success: false }),
       importClipboardImage: () => Promise.resolve({ success: false }),
       openFileDialog: () => Promise.resolve({ canceled: true }),
@@ -500,6 +545,13 @@ export class ElectronService {
       renameDoc: () => Promise.resolve({ success: false }),
       getDocKeyInfo: () => Promise.resolve({ success: false }),
       saveDocKeyInfo: () => Promise.resolve({ success: false }),
+      listNotes: () => Promise.resolve({ success: false, notes: [] }),
+      getNote: () => Promise.resolve({ success: false }),
+      createNote: () => Promise.resolve({ success: false }),
+      updateNote: () => Promise.resolve({ success: false }),
+      deleteNote: () => Promise.resolve({ success: false }),
+      setActiveNote: () => Promise.resolve({ success: false }),
+      getActiveNoteInfo: () => Promise.resolve({ hasActiveNote: false }),
       saveApiKey: () => Promise.resolve({ success: false }),
       getApiKey: () => Promise.resolve(''),
       saveGeminiApiKey: () => Promise.resolve({ success: false }),
@@ -552,7 +604,8 @@ export class ElectronService {
       onOverlayUpdate: () => () => {},
       onToast: () => () => {},
       onWindowShown: () => () => {},
-      onDocumentsUpdated: () => () => {}
+      onDocumentsUpdated: () => () => {},
+      onNotesUpdated: () => () => {},
     } as ElectronAPI;
   }
 }
