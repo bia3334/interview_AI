@@ -29,6 +29,8 @@ export interface StoreSchema {
   lmstudioEnabled: boolean;
   lmstudioEndpoint: string;
   lmstudioModel: string;
+  // Voice transcription settings
+  voiceTranscriptionProvider: 'openai' | 'gemini';
 }
 
 export const STORE_DEFAULTS: StoreSchema = {
@@ -47,6 +49,8 @@ export const STORE_DEFAULTS: StoreSchema = {
   lmstudioEnabled: false,
   lmstudioEndpoint: LMSTUDIO_CONFIG.DEFAULT_ENDPOINT,
   lmstudioModel: LMSTUDIO_CONFIG.DEFAULT_MODEL,
+  // Voice transcription default
+  voiceTranscriptionProvider: 'openai',
 };
 
 export function createStore() {

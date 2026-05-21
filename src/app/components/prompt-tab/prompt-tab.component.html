@@ -137,7 +137,22 @@
       (keydown)="onKeyDown($event)"
     />
     <button class="btn btn-primary" (click)="sendPrompt()">Send</button>
-    <div style="display: flex; gap: 0.5rem;">
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+      <button
+        class="btn btn-primary"
+        [style.background]="isRecording ? 'linear-gradient(45deg, #dc2626, #991b1b)' : 'linear-gradient(45deg, #8b5cf6, #6366f1)'"
+        [disabled]="isTranscribing"
+        (click)="toggleVoiceRecording()"
+        title="Toggle voice recording (Ctrl+Shift+V). Captures system audio (Zoom) + screenshot.">
+        <mat-icon class="inline-icon">{{ isRecording ? 'stop_circle' : 'mic' }}</mat-icon>
+        <ng-container *ngIf="!isRecording && !isTranscribing">Voice</ng-container>
+        <ng-container *ngIf="isRecording">Stop ({{ formatRecordingTime() }})</ng-container>
+        <ng-container *ngIf="isTranscribing">Transcribing…</ng-container>
+      </button>
+      <span *ngIf="isRecording" style="display: inline-flex; align-items: center; gap: 0.35rem; color: #fca5a5; font-size: 0.85rem;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: pulse 1.2s ease-in-out infinite;"></span>
+        Recording system audio…
+      </span>
       <button class="btn" (click)="processClipboardPrompt()"><mat-icon class="inline-icon">content_paste</mat-icon> Process Clipboard</button>
       <button class="btn btn-primary" style="background: linear-gradient(45deg, #3b82f6, #6366f1);" (click)="takeFullScreenshot()"><mat-icon class="inline-icon">screenshot_monitor</mat-icon> Full Screenshot</button>
       <button class="btn btn-primary" style="background: linear-gradient(45deg, #ff6b6b, #feca57);" (click)="takeRegionScreenshot()"><mat-icon class="inline-icon">crop</mat-icon> Region Screenshot</button>

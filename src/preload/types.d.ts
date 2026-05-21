@@ -105,6 +105,11 @@ export interface ElectronAPI {
   copyLatestResponse: () => Promise<{ success: boolean; error?: string }>;
   processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }>;
 
+  // Voice transcription
+  transcribeAudio: (audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini') => Promise<{ success: boolean; text?: string; error?: string }>;
+  getVoiceProvider: () => Promise<'openai' | 'gemini'>;
+  saveVoiceProvider: (provider: 'openai' | 'gemini') => Promise<{ success: boolean; error?: string }>;
+
   getScreenshots: () => Promise<string[]>;
   removeScreenshot: (index: number) => Promise<{ success: boolean; error?: string }>;
 
@@ -122,6 +127,7 @@ export interface ElectronAPI {
   onWindowShown: (callback: () => void) => () => void;
   onDocumentsUpdated: (callback: () => void) => () => void;
   onNotesUpdated: (callback: () => void) => () => void;
+  onToggleVoiceRecording: (callback: () => void) => () => void;
 }
 
 declare global {

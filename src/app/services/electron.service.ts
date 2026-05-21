@@ -34,6 +34,7 @@ export class ElectronService {
   private windowShown$ = new Subject<void>();
   private documentsUpdated$ = new Subject<void>();
   private notesUpdated$ = new Subject<void>();
+  private toggleVoiceRecording$ = new Subject<void>();
 
   // Local history storage key
   private readonly HISTORY_KEY = STORAGE_KEYS.HISTORY;
@@ -65,6 +66,7 @@ export class ElectronService {
     this.electronAPI.onWindowShown(() => this.windowShown$.next());
     this.electronAPI.onDocumentsUpdated(() => this.documentsUpdated$.next());
     this.electronAPI.onNotesUpdated(() => this.notesUpdated$.next());
+    this.electronAPI.onToggleVoiceRecording(() => this.toggleVoiceRecording$.next());
   }
 
   // Window controls
@@ -312,6 +314,23 @@ export class ElectronService {
 
   testGeminiConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
     return this.electronAPI.testGeminiConnection();
+  }
+
+  // Voice transcription
+  transcribeAudio(audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini'): Promise<{ success: boolean; text?: string; error?: string }> {
+    return this.electronAPI.transcribeAudio(audio, mimeType, provider);
+  }
+
+  getVoiceProvider(): Promise<'openai' | 'gemini'> {
+    return this.electronAPI.getVoiceProvider();
+  }
+
+  saveVoiceProvider(provider: 'openai' | 'gemini'): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveVoiceProvider(provider);
+  }
+
+  onToggleVoiceRecording(): Observable<void> {
+    return this.toggleVoiceRecording$.asObservable();
   }
 
   // Documents
@@ -606,6 +625,10 @@ export class ElectronService {
       onWindowShown: () => () => {},
       onDocumentsUpdated: () => () => {},
       onNotesUpdated: () => () => {},
+      onToggleVoiceRecording: () => () => {},
+      transcribeAudio: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      getVoiceProvider: () => Promise.resolve('openai'),
+      saveVoiceProvider: () => Promise.resolve({ success: false }),
     } as ElectronAPI;
   }
 }

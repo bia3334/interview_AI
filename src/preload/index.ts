@@ -108,6 +108,11 @@ const api: ElectronAPI = {
   copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
   processClipboardPrompt: () => ipcRenderer.invoke('processClipboardPrompt'),
 
+  // Voice transcription
+  transcribeAudio: (audio, mimeType, provider) => ipcRenderer.invoke('transcribe-audio', { audio, mimeType, provider }),
+  getVoiceProvider: () => ipcRenderer.invoke('getVoiceProvider'),
+  saveVoiceProvider: (provider) => ipcRenderer.invoke('saveVoiceProvider', provider),
+
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
   removeScreenshot: (index) => ipcRenderer.invoke('remove-screenshot', index),
 
@@ -125,5 +130,6 @@ const api: ElectronAPI = {
   onWindowShown: (callback) => { ipcRenderer.on('window-shown', () => callback()); return () => ipcRenderer.removeAllListeners('window-shown'); },
   onDocumentsUpdated: (callback) => { ipcRenderer.on('documents-updated', () => callback()); return () => ipcRenderer.removeAllListeners('documents-updated'); },
   onNotesUpdated: (callback) => { ipcRenderer.on('notes-updated', () => callback()); return () => ipcRenderer.removeAllListeners('notes-updated'); },
+  onToggleVoiceRecording: (callback) => { ipcRenderer.on('toggle-voice-recording', () => callback()); return () => ipcRenderer.removeAllListeners('toggle-voice-recording'); },
 };
 contextBridge.exposeInMainWorld('electronAPI', api);

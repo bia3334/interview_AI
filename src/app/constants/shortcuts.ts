@@ -19,4 +19,5 @@ export const SHORTCUTS: ShortcutInfo[] = [
   { action: 'Delete All Screenshots', keys: ['Ctrl/Cmd', 'Shift', 'D'] },
   { action: 'Process Clipboard as Prompt', keys: ['Ctrl/Cmd', 'Shift', 'Q'] },
   { action: 'Copy Response to Clipboard', keys: ['Ctrl/Cmd', 'Shift', 'C'] },
+  { action: 'Toggle Voice Recording (audio + screenshot)', keys: ['Ctrl/Cmd', 'Shift', 'V'] },
 ];

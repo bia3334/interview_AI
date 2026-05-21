@@ -1,6 +1,7 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, NgZone, ChangeDetectorRef, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 import { ElectronService, HistoryItem } from '../../services/electron.service';
 import { MarkdownService } from '../../services/markdown.service';
+import { VoiceRecorderService } from '../../services/voice-recorder.service';
 import { DEFAULTS, AIProvider } from '../../constants/settings';
 
 @Component({
@@ -44,6 +45,13 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   isConversationMode: boolean = false;
   currentHistoryItemId: string | null = null;
 
+  // Voice recording state
+  isRecording: boolean = false;
+  isTranscribing: boolean = false;
+  recordingSeconds: number = 0;
+  private recordingTimer: any = null;
+  private voiceProvider: 'openai' | 'gemini' = 'openai';
+
   @Input() continuedItem: HistoryItem | null = null;
   @Output() itemLoaded = new EventEmitter<void>();
 
@@ -55,6 +63,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   constructor(
     private electronService: ElectronService,
     private markdownService: MarkdownService,
+    private voiceRecorder: VoiceRecorderService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef
   ) {}
@@ -64,7 +73,16 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.loadScreenshots();
     this.loadDocuments();
     this.loadNotes();
+    this.loadVoiceProvider();
     this.setupEventListeners();
+  }
+
+  async loadVoiceProvider() {
+    try {
+      this.voiceProvider = await this.electronService.getVoiceProvider();
+    } catch {
+      this.voiceProvider = 'openai';
+    }
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -376,6 +394,119 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.electronService.onNotesUpdated().subscribe(() => {
       this.loadNotes();
     });
+
+    // Voice recording shortcut (Ctrl+Shift+V)
+    this.electronService.onToggleVoiceRecording().subscribe(() => {
+      this.toggleVoiceRecording();
+    });
+  }
+
+  async toggleVoiceRecording() {
+    if (this.isTranscribing) return;
+    if (this.isRecording) {
+      await this.stopVoiceRecording();
+    } else {
+      await this.startVoiceRecording();
+    }
+  }
+
+  async startVoiceRecording() {
+    try {
+      // Refresh provider in case the user changed it in settings
+      await this.loadVoiceProvider();
+      await this.voiceRecorder.start();
+      this.ngZone.run(() => {
+        this.isRecording = true;
+        this.recordingSeconds = 0;
+        this.recordingTimer = setInterval(() => {
+          this.ngZone.run(() => {
+            this.recordingSeconds += 1;
+            this.cdr.detectChanges();
+          });
+        }, 1000);
+        this.cdr.detectChanges();
+      });
+    } catch (err: any) {
+      this.electronService.showToast(`Voice: ${err.message || 'Failed to start recording'}`);
+      this.ngZone.run(() => {
+        this.isRecording = false;
+        this.cdr.detectChanges();
+      });
+    }
+  }
+
+  async stopVoiceRecording() {
+    if (!this.isRecording) return;
+
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+      this.recordingTimer = null;
+    }
+
+    let recording: { blob: Blob; mimeType: string; durationMs: number };
+    try {
+      recording = await this.voiceRecorder.stop();
+    } catch (err: any) {
+      this.electronService.showToast(`Voice: ${err.message || 'Recording failed'}`);
+      this.ngZone.run(() => {
+        this.isRecording = false;
+        this.cdr.detectChanges();
+      });
+      return;
+    }
+
+    this.ngZone.run(() => {
+      this.isRecording = false;
+      this.isTranscribing = true;
+      this.cdr.detectChanges();
+    });
+
+    // Take a screenshot at the moment the user stops speaking, then transcribe.
+    // Run both in parallel for speed.
+    try {
+      const audioBuffer = await recording.blob.arrayBuffer();
+      const [screenshotResult, transcription] = await Promise.all([
+        this.electronService.takeScreenshot(),
+        this.electronService.transcribeAudio(audioBuffer, recording.mimeType, this.voiceProvider),
+      ]);
+
+      if (!transcription.success || !transcription.text || !transcription.text.trim()) {
+        this.electronService.showToast(transcription.error || 'No speech detected');
+        this.ngZone.run(() => {
+          this.isTranscribing = false;
+          this.cdr.detectChanges();
+        });
+        return;
+      }
+
+      // Reload screenshots so the queue reflects the new capture
+      if (screenshotResult.success) {
+        await this.loadScreenshots();
+      }
+
+      const transcript = transcription.text.trim();
+      this.ngZone.run(() => {
+        this.userInput = transcript;
+        this.isTranscribing = false;
+        this.cdr.detectChanges();
+      });
+
+      // Hand off to the existing prompt pipeline — it already handles screenshots.
+      await this.sendPrompt();
+    } catch (err: any) {
+      this.electronService.showToast(`Voice: ${err.message || 'Failed to process recording'}`);
+      this.ngZone.run(() => {
+        this.isTranscribing = false;
+        this.cdr.detectChanges();
+      });
+    }
+  }
+
+  formatRecordingTime(): string {
+    const s = this.recordingSeconds;
+    const mm = Math.floor(s / 60).toString().padStart(2, '0');
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
   }
 
   updateViewMode() {

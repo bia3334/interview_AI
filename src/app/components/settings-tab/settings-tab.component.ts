@@ -54,6 +54,9 @@ export class SettingsTabComponent implements OnInit {
   zaiApiKey: string = '';
   zaiModel: string = 'GLM-4.6V-Flash';
 
+  // Voice Transcription
+  voiceProvider: 'openai' | 'gemini' = 'openai';
+
   // AI Behavior
   preferredLanguage: string = DEFAULTS.LANGUAGE;
   answerStyle: AnswerStyle = DEFAULTS.ANSWER_STYLE;
@@ -227,7 +230,7 @@ export class SettingsTabComponent implements OnInit {
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting] = await Promise.all([
+    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, voiceProvider] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
       this.electronService.getZAIApiKey(),
@@ -237,8 +240,10 @@ export class SettingsTabComponent implements OnInit {
       this.electronService.getLMStudioSettings(),
       this.electronService.getZAISettings(),
       this.electronService.getOpenAIModel(),
-      this.electronService.getGeminiModel()
+      this.electronService.getGeminiModel(),
+      this.electronService.getVoiceProvider()
     ]);
+    this.voiceProvider = voiceProvider || 'openai';
 
     this.openaiApiKey = openaiKey || '';
     this.geminiApiKey = geminiKey || '';
@@ -325,6 +330,15 @@ export class SettingsTabComponent implements OnInit {
     });
     if (result.success) {
       this.electronService.showToast('OCR settings saved');
+    }
+  }
+
+  async saveVoiceProvider() {
+    const result = await this.electronService.saveVoiceProvider(this.voiceProvider);
+    if (result.success) {
+      this.electronService.showToast(`Voice transcription: ${this.voiceProvider === 'openai' ? 'OpenAI Whisper' : 'Gemini'}`);
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save voice setting');
     }
   }
 

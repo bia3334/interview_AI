@@ -73,6 +73,29 @@
       </div>
     </div>
 
+    <!-- Voice Transcription -->
+    <div class="settings-group">
+      <h3><mat-icon class="inline-icon">mic</mat-icon> Voice Transcription</h3>
+      <p class="group-description">
+        Press <strong>Ctrl/Cmd+Shift+V</strong> to record system audio (e.g. Zoom interviewer) + capture a screenshot,
+        then auto-send to your AI providers. Uses the API key for the selected provider below.
+      </p>
+      <div class="form-group">
+        <label for="voiceProvider">Transcription Provider</label>
+        <select
+          id="voiceProvider"
+          [(ngModel)]="voiceProvider"
+          class="prompt-input"
+          (change)="saveVoiceProvider()">
+          <option value="openai">OpenAI Whisper (whisper-1) — recommended</option>
+          <option value="gemini">Google Gemini (audio-capable model)</option>
+        </select>
+        <small class="hint-text">
+          Whisper needs an OpenAI key. Gemini needs a Gemini key. Both are configured above.
+        </small>
+      </div>
+    </div>
+
     <!-- Model Selection (hidden when LM Studio is enabled) -->
     <div class="settings-group" *ngIf="!lmstudioEnabled">
       <h3>Cloud Model Selection</h3>

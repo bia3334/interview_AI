@@ -102,6 +102,12 @@ export function registerGlobalShortcuts(
     if (latestResponse) clipboard.writeText(latestResponse);
   }));
 
+  // Toggle voice recording
+  globalShortcut.register(SHORTCUTS.TOGGLE_VOICE_RECORDING, () => debounced('voice-toggle', () => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) mainWindow.webContents.send('toggle-voice-recording');
+  }));
+
   // Arrow key shortcuts for window movement and content scrolling
   ['Up', 'Down', 'Left', 'Right'].forEach(dir => {
     globalShortcut.register(`CommandOrControl+Shift+${dir}`, () => 

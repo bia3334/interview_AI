@@ -25,6 +25,9 @@ export const SHORTCUTS = {
   // Clipboard
   PROCESS_CLIPBOARD: 'CommandOrControl+Shift+Q',
   COPY_RESPONSE: 'CommandOrControl+Shift+C',
+
+  // Voice
+  TOGGLE_VOICE_RECORDING: 'CommandOrControl+Shift+V',
   
   // Window movement (with Shift)
   MOVE_UP: 'CommandOrControl+Shift+Up',

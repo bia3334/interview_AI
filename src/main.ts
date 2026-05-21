@@ -5,7 +5,7 @@
  * Individual functionality is delegated to dedicated modules.
  */
 import * as dotenv from 'dotenv';
-import { app, dialog, ipcMain } from 'electron';
+import { app, desktopCapturer, dialog, ipcMain, session } from 'electron';
 import * as electronLog from 'electron-log';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -18,6 +18,7 @@ import { registerOverlayIPC } from './main/ipc/overlay';
 import { registerPreferencesIPC } from './main/ipc/preferences';
 import { registerScreenshotsIPC } from './main/ipc/screenshots';
 import { registerAIIPC } from './main/ipc/ai';
+import { registerVoiceIPC } from './main/ipc/voice';
 import { registerGlobalShortcuts, unregisterAllShortcuts } from './main/shortcuts';
 import { createStore } from './main/store';
 import { createWindow, getMainWindow, hideMainWindow, moveWindow, showMainWindow } from './main/window';
@@ -59,6 +60,7 @@ const preloadPath = path.join(__dirname, 'preload', 'index.js');
 // Register all IPC modules
 registerScreenshotsIPC({ log, preloadPath });
 registerAIIPC({ store, log, preloadPath });
+registerVoiceIPC({ store, log });
 registerFilesIPC(ipcMain, { 
   dialog, 
   log, 
@@ -80,6 +82,20 @@ ipcMain.on('move-window', (_event, direction) => moveWindow(direction));
 
 // Application lifecycle
 app.whenReady().then(() => {
+  // Enable system audio loopback so renderer's getDisplayMedia can capture Zoom/system audio
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      if (sources.length > 0) {
+        callback({ video: sources[0], audio: 'loopback' });
+      } else {
+        callback({});
+      }
+    }).catch((err) => {
+      log.error('desktopCapturer.getSources failed:', err);
+      callback({});
+    });
+  });
+
   createWindow(store, preloadPath);
   initDocumentsFromStore(store, log);
   registerGlobalShortcuts({ store, log, preloadPath });
