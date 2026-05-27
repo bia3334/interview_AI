@@ -109,6 +109,10 @@ export interface ElectronAPI {
   transcribeAudio: (audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini') => Promise<{ success: boolean; text?: string; error?: string }>;
   getVoiceProvider: () => Promise<'openai' | 'gemini'>;
   saveVoiceProvider: (provider: 'openai' | 'gemini') => Promise<{ success: boolean; error?: string }>;
+  getVoiceScreenshotMode: () => Promise<'full' | 'region' | 'none'>;
+  saveVoiceScreenshotMode: (mode: 'full' | 'region' | 'none') => Promise<{ success: boolean; error?: string }>;
+  getAutoInteractionOnShow: () => Promise<boolean>;
+  saveAutoInteractionOnShow: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
 
   getScreenshots: () => Promise<string[]>;
   removeScreenshot: (index: number) => Promise<{ success: boolean; error?: string }>;

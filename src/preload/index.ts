@@ -112,6 +112,10 @@ const api: ElectronAPI = {
   transcribeAudio: (audio, mimeType, provider) => ipcRenderer.invoke('transcribe-audio', { audio, mimeType, provider }),
   getVoiceProvider: () => ipcRenderer.invoke('getVoiceProvider'),
   saveVoiceProvider: (provider) => ipcRenderer.invoke('saveVoiceProvider', provider),
+  getVoiceScreenshotMode: () => ipcRenderer.invoke('getVoiceScreenshotMode'),
+  saveVoiceScreenshotMode: (mode) => ipcRenderer.invoke('saveVoiceScreenshotMode', mode),
+  getAutoInteractionOnShow: () => ipcRenderer.invoke('getAutoInteractionOnShow'),
+  saveAutoInteractionOnShow: (enabled) => ipcRenderer.invoke('saveAutoInteractionOnShow', enabled),
 
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
   removeScreenshot: (index) => ipcRenderer.invoke('remove-screenshot', index),

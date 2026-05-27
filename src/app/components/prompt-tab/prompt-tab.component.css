@@ -313,6 +313,44 @@
   justify-content: flex-end;
 }
 
+/* Live preview pane inside the note editor — shows rendered markdown + KaTeX
+   so the user can verify LaTeX formulas without saving + re-opening. */
+.note-content-preview {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  max-height: 240px;
+  overflow-y: auto;
+  color: #ffffff;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.note-preview-label {
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.35rem;
+}
+
+.note-preview-body :first-child { margin-top: 0; }
+.note-preview-body :last-child  { margin-bottom: 0; }
+.note-preview-body p { margin: 0.4em 0; }
+.note-preview-body code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.note-preview-body pre {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
 /* Notes List */
 .notes-list {
   display: flex;

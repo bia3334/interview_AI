@@ -56,6 +56,10 @@ export class SettingsTabComponent implements OnInit {
 
   // Voice Transcription
   voiceProvider: 'openai' | 'gemini' = 'openai';
+  voiceScreenshotMode: 'full' | 'region' | 'none' = 'full';
+
+  // Window Behavior
+  autoInteractionOnShow: boolean = false;
 
   // AI Behavior
   preferredLanguage: string = DEFAULTS.LANGUAGE;
@@ -230,7 +234,7 @@ export class SettingsTabComponent implements OnInit {
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, voiceProvider] = await Promise.all([
+    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
       this.electronService.getZAIApiKey(),
@@ -241,9 +245,13 @@ export class SettingsTabComponent implements OnInit {
       this.electronService.getZAISettings(),
       this.electronService.getOpenAIModel(),
       this.electronService.getGeminiModel(),
-      this.electronService.getVoiceProvider()
+      this.electronService.getVoiceProvider(),
+      this.electronService.getVoiceScreenshotMode(),
+      this.electronService.getAutoInteractionOnShow()
     ]);
     this.voiceProvider = voiceProvider || 'openai';
+    this.voiceScreenshotMode = voiceScreenshotMode || 'full';
+    this.autoInteractionOnShow = !!autoInteractionOnShow;
 
     this.openaiApiKey = openaiKey || '';
     this.geminiApiKey = geminiKey || '';
@@ -339,6 +347,30 @@ export class SettingsTabComponent implements OnInit {
       this.electronService.showToast(`Voice transcription: ${this.voiceProvider === 'openai' ? 'OpenAI Whisper' : 'Gemini'}`);
     } else {
       this.electronService.showToast(result.error || 'Failed to save voice setting');
+    }
+  }
+
+  async saveVoiceScreenshotMode() {
+    const result = await this.electronService.saveVoiceScreenshotMode(this.voiceScreenshotMode);
+    if (result.success) {
+      const label = this.voiceScreenshotMode === 'full' ? 'Full screen' :
+                    this.voiceScreenshotMode === 'region' ? 'Region select' : 'No screenshot';
+      this.electronService.showToast(`Voice auto-capture: ${label}`);
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save screenshot setting');
+    }
+  }
+
+  async saveAutoInteractionOnShow() {
+    const result = await this.electronService.saveAutoInteractionOnShow(this.autoInteractionOnShow);
+    if (result.success) {
+      this.electronService.showToast(
+        this.autoInteractionOnShow
+          ? 'Auto-interaction on show: ON'
+          : 'Auto-interaction on show: OFF'
+      );
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save window behavior setting');
     }
   }
 

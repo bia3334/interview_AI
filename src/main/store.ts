@@ -31,6 +31,9 @@ export interface StoreSchema {
   lmstudioModel: string;
   // Voice transcription settings
   voiceTranscriptionProvider: 'openai' | 'gemini';
+  voiceScreenshotMode: 'full' | 'region' | 'none';
+  // Window behavior
+  autoInteractionOnShow: boolean;
 }
 
 export const STORE_DEFAULTS: StoreSchema = {
@@ -51,6 +54,10 @@ export const STORE_DEFAULTS: StoreSchema = {
   lmstudioModel: LMSTUDIO_CONFIG.DEFAULT_MODEL,
   // Voice transcription default
   voiceTranscriptionProvider: 'openai',
+  voiceScreenshotMode: 'full',
+  // Window behavior default — keep current click-through-on-show behavior
+  // unless the user opts in to auto-interaction.
+  autoInteractionOnShow: false,
 };
 
 export function createStore() {

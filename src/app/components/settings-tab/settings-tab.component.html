@@ -94,6 +94,45 @@
           Whisper needs an OpenAI key. Gemini needs a Gemini key. Both are configured above.
         </small>
       </div>
+      <div class="form-group">
+        <label for="voiceScreenshotMode">Auto-Screenshot On Stop</label>
+        <select
+          id="voiceScreenshotMode"
+          [(ngModel)]="voiceScreenshotMode"
+          class="prompt-input"
+          (change)="saveVoiceScreenshotMode()">
+          <option value="full">Full screen (default — fastest)</option>
+          <option value="region">Region (drag to select — focused context for AI)</option>
+          <option value="none">No screenshot (transcript only)</option>
+        </select>
+        <small class="hint-text">
+          Region sends less data to the AI which can be faster and more accurate, but requires you to drag a selection after stopping the recording.
+        </small>
+      </div>
+    </div>
+
+    <!-- Window Behavior -->
+    <div class="settings-group">
+      <h3><mat-icon class="inline-icon">touch_app</mat-icon> Window Behavior</h3>
+      <p class="group-description">
+        By default, after pressing <strong>Ctrl/Cmd+Shift+A</strong> to hide and re-show the window,
+        you have to press <strong>Ctrl/Cmd+Shift+W</strong> again to make it clickable. Turn this on
+        so the window is interactive automatically whenever it appears.
+      </p>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [(ngModel)]="autoInteractionOnShow"
+            (change)="saveAutoInteractionOnShow()"
+            style="margin-right: 8px;" />
+          <span>Auto-enable interaction when window appears</span>
+        </label>
+        <small class="hint-text">
+          When off (default): the window starts in click-through mode after every show; you press Ctrl/Cmd+Shift+W to interact.<br />
+          When on: every show makes the window immediately clickable. You can still press Ctrl/Cmd+Shift+W to toggle back to click-through.
+        </small>
+      </div>
     </div>
 
     <!-- Model Selection (hidden when LM Studio is enabled) -->

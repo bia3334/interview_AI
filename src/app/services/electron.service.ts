@@ -329,6 +329,22 @@ export class ElectronService {
     return this.electronAPI.saveVoiceProvider(provider);
   }
 
+  getVoiceScreenshotMode(): Promise<'full' | 'region' | 'none'> {
+    return this.electronAPI.getVoiceScreenshotMode();
+  }
+
+  saveVoiceScreenshotMode(mode: 'full' | 'region' | 'none'): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveVoiceScreenshotMode(mode);
+  }
+
+  getAutoInteractionOnShow(): Promise<boolean> {
+    return this.electronAPI.getAutoInteractionOnShow();
+  }
+
+  saveAutoInteractionOnShow(enabled: boolean): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveAutoInteractionOnShow(enabled);
+  }
+
   onToggleVoiceRecording(): Observable<void> {
     return this.toggleVoiceRecording$.asObservable();
   }
@@ -629,6 +645,10 @@ export class ElectronService {
       transcribeAudio: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       getVoiceProvider: () => Promise.resolve('openai'),
       saveVoiceProvider: () => Promise.resolve({ success: false }),
+      getVoiceScreenshotMode: () => Promise.resolve('full'),
+      saveVoiceScreenshotMode: () => Promise.resolve({ success: false }),
+      getAutoInteractionOnShow: () => Promise.resolve(false),
+      saveAutoInteractionOnShow: () => Promise.resolve({ success: false }),
     } as ElectronAPI;
   }
 }

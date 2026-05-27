@@ -52,4 +52,20 @@ export function registerVoiceIPC(deps: { store: AppStore; log: any }) {
       return { success: false, error: error.message || 'Save failed' };
     }
   });
+
+  ipcMain.handle('getVoiceScreenshotMode', () => {
+    const mode = store.get('voiceScreenshotMode');
+    return mode === 'region' || mode === 'none' ? mode : 'full';
+  });
+
+  ipcMain.handle('saveVoiceScreenshotMode', (_event: IpcMainInvokeEvent, mode: 'full' | 'region' | 'none') => {
+    try {
+      const normalized = mode === 'region' || mode === 'none' ? mode : 'full';
+      store.set('voiceScreenshotMode', normalized);
+      return { success: true };
+    } catch (error: any) {
+      log.error('saveVoiceScreenshotMode error:', error);
+      return { success: false, error: error.message || 'Save failed' };
+    }
+  });
 }

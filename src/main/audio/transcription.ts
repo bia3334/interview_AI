@@ -40,6 +40,7 @@ async function transcribeWithWhisper(
   const response = await openai.audio.transcriptions.create({
     file,
     model: 'whisper-1',
+    language: 'en',
   });
   return { success: true, text: response.text || '' };
 }
@@ -61,7 +62,7 @@ async function transcribeWithGemini(
     contents: [{
       role: 'user',
       parts: [
-        { text: 'Transcribe the spoken content of the following audio. Return only the transcribed text with no commentary or formatting.' },
+        { text: 'Transcribe the spoken English content of the following audio. The audio is in English; transcribe verbatim in English only. Return only the transcribed text with no commentary or formatting.' },
         { inlineData: { mimeType, data: base64Audio } },
       ],
     }],

@@ -131,6 +131,18 @@ export function registerPreferencesIPC(
     }
   });
 
+  // Window behavior — auto-interaction on show
+  ipcMain.handle('getAutoInteractionOnShow', () => !!store.get('autoInteractionOnShow'));
+  ipcMain.handle('saveAutoInteractionOnShow', (_event: IpcMainInvokeEvent, enabled: boolean) => {
+    try {
+      store.set('autoInteractionOnShow', !!enabled);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving autoInteractionOnShow:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Custom System Prompt
   ipcMain.handle('getCustomSystemPrompt', () => store.get('customSystemPrompt') || '');
   ipcMain.handle('saveCustomSystemPrompt', (_event: IpcMainInvokeEvent, prompt: string) => {

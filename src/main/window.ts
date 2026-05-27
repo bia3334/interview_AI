@@ -40,6 +40,20 @@ export function hideMainWindow(store: any) {
 }
 
 /**
+ * If the user enabled the auto-interaction setting, make the window
+ * immediately interactive (clicks land on the window, not on apps behind it)
+ * whenever it becomes visible. Without this setting, hide+show resets to
+ * click-through, forcing the user to re-press Ctrl/Cmd+Shift+W every time.
+ */
+function applyAutoInteractionIfEnabled(store: any) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (store.get('autoInteractionOnShow')) {
+    isIgnoringMouseEvents = false;
+    mainWindow.setIgnoreMouseEvents(false, { forward: true });
+  }
+}
+
+/**
  * Show main window
  */
 export function showMainWindow(store: any) {
@@ -60,7 +74,9 @@ export function showMainWindow(store: any) {
     mainWindow.setOpacity(1);
     mainWindow.show();
     isWindowVisible = true;
-    
+
+    applyAutoInteractionIfEnabled(store);
+
     // Notify renderer to refresh screenshots when window becomes visible
     mainWindow.webContents.send('window-shown');
   }
@@ -186,6 +202,10 @@ export function createWindow(store: any, preloadPath: string) {
   );
 
   mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
+
+  // Honour the auto-interaction setting on the very first launch too, so the
+  // window starts interactive instead of click-through if the user chose that.
+  applyAutoInteractionIfEnabled(store);
 
   mainWindow.on('moved', () => {
     if (mainWindow) {

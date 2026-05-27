@@ -38,6 +38,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   currentNoteId: string | null = null;
   noteTitle: string = '';
   noteContent: string = '';
+  renderedNoteContent: string = '';
   isEditingNote: boolean = false;
 
   // Conversation history for context
@@ -51,6 +52,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   recordingSeconds: number = 0;
   private recordingTimer: any = null;
   private voiceProvider: 'openai' | 'gemini' = 'openai';
+  private voiceScreenshotMode: 'full' | 'region' | 'none' = 'full';
 
   @Input() continuedItem: HistoryItem | null = null;
   @Output() itemLoaded = new EventEmitter<void>();
@@ -59,6 +61,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   @ViewChild('geminiResponseContainer') geminiResponseContainer!: ElementRef;
   @ViewChild('lmstudioResponseContainer') lmstudioResponseContainer!: ElementRef;
   @ViewChild('zaiResponseContainer') zaiResponseContainer!: ElementRef;
+  @ViewChild('notePreviewContainer') notePreviewContainer?: ElementRef;
 
   constructor(
     private electronService: ElectronService,
@@ -79,9 +82,15 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   async loadVoiceProvider() {
     try {
-      this.voiceProvider = await this.electronService.getVoiceProvider();
+      const [provider, screenshotMode] = await Promise.all([
+        this.electronService.getVoiceProvider(),
+        this.electronService.getVoiceScreenshotMode(),
+      ]);
+      this.voiceProvider = provider;
+      this.voiceScreenshotMode = screenshotMode;
     } catch {
       this.voiceProvider = 'openai';
+      this.voiceScreenshotMode = 'full';
     }
   }
 
@@ -202,6 +211,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.currentNoteId = null;
     this.noteTitle = '';
     this.noteContent = '';
+    this.updateNotePreview();
     this.showNoteEditor = true;
   }
 
@@ -212,6 +222,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.currentNoteId = noteId;
       this.noteTitle = result.note.title;
       this.noteContent = result.note.content;
+      this.updateNotePreview();
       this.showNoteEditor = true;
       this.cdr.detectChanges();
     }
@@ -222,7 +233,20 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.currentNoteId = null;
     this.noteTitle = '';
     this.noteContent = '';
+    this.renderedNoteContent = '';
     this.isEditingNote = false;
+  }
+
+  /**
+   * Re-render the live markdown+KaTeX preview from the textarea content.
+   * Called on every keystroke via (ngModelChange) so the user can verify
+   * LaTeX renders correctly as they type. KaTeX auto-render is applied
+   * separately in ngAfterViewChecked after the DOM updates.
+   */
+  updateNotePreview() {
+    this.renderedNoteContent = this.noteContent
+      ? this.markdownService.renderMarkdown(this.noteContent)
+      : '';
   }
 
   async saveNote() {
@@ -287,6 +311,9 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     }
     if (this.zaiResponseContainer?.nativeElement) {
       this.markdownService.renderMathInElement(this.zaiResponseContainer.nativeElement);
+    }
+    if (this.notePreviewContainer?.nativeElement) {
+      this.markdownService.renderMathInElement(this.notePreviewContainer.nativeElement);
     }
   }
 
@@ -461,14 +488,29 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.cdr.detectChanges();
     });
 
-    // Take a screenshot at the moment the user stops speaking, then transcribe.
-    // Run both in parallel for speed.
+    // A voice recording owns its own screenshot context: prior captures (from
+    // earlier voice turns or manual snips) must not leak into a fresh question,
+    // so we wipe the queue first and then capture per the selected mode:
+    //   full   — entire primary display (default, fastest)
+    //   region — user drags to select a region (focused context)
+    //   none   — skip the screenshot entirely (transcript-only prompt)
     try {
       const audioBuffer = await recording.blob.arrayBuffer();
-      const [screenshotResult, transcription] = await Promise.all([
-        this.electronService.takeScreenshot(),
-        this.electronService.transcribeAudio(audioBuffer, recording.mimeType, this.voiceProvider),
-      ]);
+
+      // Kick off transcription immediately — it doesn't depend on screenshots.
+      const transcriptionPromise = this.electronService.transcribeAudio(
+        audioBuffer, recording.mimeType, this.voiceProvider,
+      );
+
+      await this.clearScreenshots();
+      const screenshotResult: any =
+        this.voiceScreenshotMode === 'none'
+          ? { success: true }
+          : this.voiceScreenshotMode === 'region'
+            ? await this.electronService.takeRegionScreenshot()
+            : await this.electronService.takeScreenshot();
+
+      const transcription = await transcriptionPromise;
 
       if (!transcription.success || !transcription.text || !transcription.text.trim()) {
         this.electronService.showToast(transcription.error || 'No speech detected');

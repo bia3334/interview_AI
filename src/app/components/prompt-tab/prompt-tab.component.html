@@ -60,12 +60,17 @@
           [(ngModel)]="noteTitle" 
           placeholder="Note title (optional)"
         />
-        <textarea 
-          class="note-content-input" 
-          [(ngModel)]="noteContent" 
-          placeholder="Type your notes here... (formulas, definitions, context, etc.)"
+        <textarea
+          class="note-content-input"
+          [(ngModel)]="noteContent"
+          (ngModelChange)="updateNotePreview()"
+          placeholder="Type your notes here... Markdown + LaTeX supported, e.g. $x^2$ for inline math, $$x^2$$ for block math."
           rows="5"
         ></textarea>
+        <div class="note-content-preview response-container" *ngIf="renderedNoteContent">
+          <div class="note-preview-label">Preview</div>
+          <div #notePreviewContainer class="note-preview-body" [innerHTML]="renderedNoteContent"></div>
+        </div>
         <div class="note-editor-actions">
           <button class="btn btn-primary btn-small" (click)="saveNote()">
             <mat-icon class="inline-icon">save</mat-icon> {{ isEditingNote ? 'Update' : 'Save' }}
