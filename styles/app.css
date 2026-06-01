@@ -128,3 +128,84 @@ mat-icon.inline-icon.small {
 mat-icon.spinning {
   animation: spin 1s linear infinite;
 }
+
+/* ============================================================
+   Motion & transitions (app-wide polish)
+   ============================================================ */
+
+/* Tab switch entrance — replays each time a tab becomes visible */
+@keyframes tabFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+app-prompt-tab:not([hidden]),
+app-history-tab:not([hidden]),
+app-settings-tab:not([hidden]),
+app-shortcuts-tab:not([hidden]) {
+  animation: tabFade 0.3s cubic-bezier(.2, .7, .2, 1);
+}
+
+/* Tab buttons: dim when inactive, smooth highlight on hover/active */
+.tab { color: rgba(248, 250, 252, 0.55); transition: color 0.2s ease, border-color 0.2s ease; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); }
+
+/* Button press feedback */
+.btn { transition: background 0.2s ease, border-color 0.2s ease, transform 0.08s ease; }
+.btn:active { transform: translateY(1px); }
+
+/* List / card entrance */
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.screenshot-item,
+.history-item,
+.doc-item,
+.template-item,
+.shortcut-item,
+.response-section {
+  animation: itemIn 0.28s ease both;
+}
+
+/* Hover affordance on interactive cards */
+.screenshot-item,
+.history-item,
+.doc-item,
+.template-item {
+  transition: border-color 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
+}
+.history-item:hover,
+.doc-item:hover,
+.template-item:hover { border-color: var(--primary); }
+.screenshot-item:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+
+/* Dialog & modal entrance */
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialogIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.dialog-overlay,
+.modal-overlay { animation: overlayIn 0.2s ease; }
+.dialog,
+.modal-dialog { animation: dialogIn 0.26s cubic-bezier(.2, .7, .2, 1); }
+
+/* Inputs: smooth focus */
+.prompt-input { transition: border-color 0.2s ease, background 0.2s ease; }
+
+/* Status indicator: subtle "alive" pulse */
+@keyframes statusPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+  50%      { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+.status-indicator { animation: statusPulse 2.4s ease-in-out infinite; }
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

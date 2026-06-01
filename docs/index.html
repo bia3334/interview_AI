@@ -338,6 +338,31 @@
       .mock-left { border-right: none; border-bottom: 1px solid var(--card-border); }
       .sc-grid { grid-template-columns: 1fr; }
     }
+
+    /* ---------- Scroll reveal transitions ---------- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1);
+      will-change: opacity, transform;
+    }
+    .reveal.in { opacity: 1; transform: none; }
+
+    /* Hero entrance (plays on load) */
+    .hero-anim { opacity: 0; transform: translateY(20px); animation: heroIn .9s cubic-bezier(.2,.7,.2,1) forwards; }
+    .hero-anim.d1 { animation-delay: .05s; }
+    .hero-anim.d2 { animation-delay: .15s; }
+    .hero-anim.d3 { animation-delay: .25s; }
+    .hero-anim.d4 { animation-delay: .35s; }
+    .hero-anim.d5 { animation-delay: .5s; }
+    @keyframes heroIn { to { opacity: 1; transform: none; } }
+
+    /* Respect users who prefer no motion */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .hero-anim { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
+      .ring, .scan, .typing, .answer-text p, .stat::before { animation: none !important; }
+      html { scroll-behavior: auto; }
+    }
   </style>
 </head>
 <body>
@@ -364,17 +389,17 @@
 
   <header>
     <div class="wrap">
-      <span class="pill"><span class="dot"></span> Invisible on screen shares &amp; recordings</span>
-      <h1>Your <span class="grad">invisible AI copilot</span><br/>for the moments that matter</h1>
-      <p class="sub">Screen Genius floats silently over any app, reads what's on your screen, and delivers instant AI answers — without ever showing up on a screen share, recording, or capture.</p>
-      <div class="hero-cta">
+      <span class="pill hero-anim d1"><span class="dot"></span> Invisible on screen shares &amp; recordings</span>
+      <h1 class="hero-anim d2">Your <span class="grad">invisible AI copilot</span><br/>for the moments that matter</h1>
+      <p class="sub hero-anim d3">Screen Genius floats silently over any app, reads what's on your screen, and delivers instant AI answers — without ever showing up on a screen share, recording, or capture.</p>
+      <div class="hero-cta hero-anim d4">
         <a href="#get" class="btn btn-primary">Download free</a>
         <a href="#how" class="btn btn-ghost">See how it works</a>
       </div>
-      <p class="hero-note">100% free · Bring your own AI key · Works fully offline with LM Studio</p>
+      <p class="hero-note hero-anim d4">100% free · Bring your own AI key · Works fully offline with LM Studio</p>
 
       <!-- Mock window -->
-      <div class="mock">
+      <div class="mock hero-anim d5">
         <div class="mock-window">
           <div class="mock-bar">
             <span class="d"></span><span class="d"></span><span class="d"></span>
@@ -644,5 +669,38 @@
       <div>© 2026 Screen Genius · Free desktop app for Windows</div>
     </div>
   </footer>
+
+  <script>
+    // Scroll-reveal: fade/slide elements in as they enter the viewport.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Elements to animate on scroll (skip the hero — it animates on load).
+      var targets = document.querySelectorAll(
+        '.sec-head, .feature, .step, .provider-chip, .spotlight, .checklist li, ' +
+        '.sc-row, .dl-card, .donate, #demo .demo-stage'
+      );
+      if (reduce || !('IntersectionObserver' in window)) {
+        targets.forEach(function (el) { el.classList.add('in'); });
+        return;
+      }
+      targets.forEach(function (el) { el.classList.add('reveal'); });
+
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var el = entry.target;
+          // Stagger items that share a parent (cards in a grid, rows in a list).
+          var sibs = Array.prototype.filter.call(
+            el.parentElement.children, function (c) { return c.classList.contains('reveal'); });
+          var idx = sibs.indexOf(el);
+          el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
+          el.classList.add('in');
+          io.unobserve(el);
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+      targets.forEach(function (el) { io.observe(el); });
+    })();
+  </script>
 </body>
 </html>
