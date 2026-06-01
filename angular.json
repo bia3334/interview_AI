@@ -28,6 +28,11 @@
                 "glob": "**/*",
                 "input": "styles",
                 "output": "styles"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/katex/dist",
+                "output": "katex"
               }
             ],
             "styles": [
@@ -35,7 +40,10 @@
               "node_modules/katex/dist/katex.min.css",
               "styles/app.css"
             ],
-            "scripts": []
+            "scripts": [
+              "node_modules/katex/dist/katex.min.js",
+              "node_modules/katex/dist/contrib/auto-render.min.js"
+            ]
           },
           "configurations": {
             "production": {

@@ -43,19 +43,32 @@ export class HistoryTabComponent implements OnInit, AfterViewChecked {
   }
 
   ngAfterViewChecked() {
-    // Render math in response containers using KaTeX auto-render
-    if (this.openaiResponseContent?.nativeElement) {
-      this.markdownService.renderMathInElement(this.openaiResponseContent.nativeElement);
+    this.renderMarkdownTargets();
+  }
+
+  /** Run KaTeX auto-render over each response container. Idempotent. */
+  private renderMarkdownTargets() {
+    const targets = [
+      this.openaiResponseContent,
+      this.geminiResponseContent,
+      this.lmstudioResponseContent,
+      this.zaiResponseContent,
+    ];
+    for (const ref of targets) {
+      if (ref?.nativeElement) {
+        this.markdownService.renderMathInElement(ref.nativeElement);
+      }
     }
-    if (this.geminiResponseContent?.nativeElement) {
-      this.markdownService.renderMathInElement(this.geminiResponseContent.nativeElement);
-    }
-    if (this.lmstudioResponseContent?.nativeElement) {
-      this.markdownService.renderMathInElement(this.lmstudioResponseContent.nativeElement);
-    }
-    if (this.zaiResponseContent?.nativeElement) {
-      this.markdownService.renderMathInElement(this.zaiResponseContent.nativeElement);
-    }
+  }
+
+  /**
+   * Render on the next macrotask. The detail containers are behind *ngIf, so
+   * their @ViewChild refs aren't resolved during the change-detection pass that
+   * sets selectedItem — deferring ensures the DOM exists before we render
+   * (otherwise math only appeared after switching tabs and back).
+   */
+  private scheduleMarkdownRender() {
+    setTimeout(() => this.renderMarkdownTargets());
   }
 
   async loadHistory() {
@@ -83,6 +96,7 @@ export class HistoryTabComponent implements OnInit, AfterViewChecked {
 
   selectItem(item: HistoryItem) {
     this.selectedItem = item;
+    this.scheduleMarkdownRender();
   }
 
   closeDetail() {

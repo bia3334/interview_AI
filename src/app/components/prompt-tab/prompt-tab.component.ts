@@ -54,6 +54,15 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   private voiceProvider: 'openai' | 'gemini' = 'openai';
   private voiceScreenshotMode: 'full' | 'region' | 'none' = 'full';
 
+  // Note view mode setting (loaded from main process). 'alongside' makes the
+  // active note render as another column next to the AI responses; 'editor-only'
+  // keeps it hidden outside the note editor.
+  noteViewMode: 'editor-only' | 'alongside' = 'editor-only';
+  /** Pre-rendered HTML of the active note for the alongside panel. */
+  renderedActiveNoteContent: string = '';
+  /** Title of the active note (shown as the alongside panel header). */
+  activeNoteTitleForView: string = '';
+
   @Input() continuedItem: HistoryItem | null = null;
   @Output() itemLoaded = new EventEmitter<void>();
 
@@ -62,6 +71,8 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   @ViewChild('lmstudioResponseContainer') lmstudioResponseContainer!: ElementRef;
   @ViewChild('zaiResponseContainer') zaiResponseContainer!: ElementRef;
   @ViewChild('notePreviewContainer') notePreviewContainer?: ElementRef;
+  @ViewChild('activeNoteAlongsideContainer') activeNoteAlongsideContainer?: ElementRef;
+  @ViewChild('notesListPreviewContainer') notesListPreviewContainer?: ElementRef;
 
   constructor(
     private electronService: ElectronService,
@@ -82,16 +93,22 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   async loadVoiceProvider() {
     try {
-      const [provider, screenshotMode] = await Promise.all([
+      const [provider, screenshotMode, noteView] = await Promise.all([
         this.electronService.getVoiceProvider(),
         this.electronService.getVoiceScreenshotMode(),
+        this.electronService.getNoteViewMode(),
       ]);
       this.voiceProvider = provider;
       this.voiceScreenshotMode = screenshotMode;
+      this.noteViewMode = noteView || 'editor-only';
     } catch {
       this.voiceProvider = 'openai';
       this.voiceScreenshotMode = 'full';
+      this.noteViewMode = 'editor-only';
     }
+    // The mode may have changed while we were on the settings tab — refresh
+    // the alongside panel so it shows/hides without needing a page reload.
+    await this.refreshAlongsideNote();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -124,6 +141,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     
     this.isConversationMode = true;
     this.cdr.detectChanges();
+    this.scheduleMarkdownRender();
     this.itemLoaded.emit();
   }
 
@@ -193,6 +211,45 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       }
       this.cdr.detectChanges();
     });
+    // Keep the alongside-view panel in sync with whichever note is now active.
+    await this.refreshAlongsideNote();
+  }
+
+  /**
+   * Fetch the active note's full content and pre-render it (markdown + KaTeX)
+   * using the same `MarkdownService` as the editor preview — so output is
+   * byte-identical between every view. The rendered HTML is used by:
+   *   - the inline preview shown under the clicked note in the notes list
+   *     (always on, lets the user read a note without opening the editor)
+   *   - the "alongside" column next to the AI responses (only when the
+   *     Note Display setting is set to 'alongside')
+   * Visibility of each is gated in the template; the data is shared.
+   */
+  async refreshAlongsideNote() {
+    const active = this.getActiveNote();
+    if (!active) {
+      this.renderedActiveNoteContent = '';
+      this.activeNoteTitleForView = '';
+      this.cdr.detectChanges();
+      return;
+    }
+    try {
+      const result = await this.electronService.getNote(active.id);
+      if (result.success && result.note) {
+        this.activeNoteTitleForView = result.note.title || 'Note';
+        this.renderedActiveNoteContent = result.note.content
+          ? this.markdownService.renderMarkdown(result.note.content)
+          : '';
+      } else {
+        this.renderedActiveNoteContent = '';
+        this.activeNoteTitleForView = '';
+      }
+    } catch {
+      this.renderedActiveNoteContent = '';
+      this.activeNoteTitleForView = '';
+    }
+    this.cdr.detectChanges();
+    this.scheduleMarkdownRender();
   }
 
   toggleNotesSection() {
@@ -247,6 +304,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.renderedNoteContent = this.noteContent
       ? this.markdownService.renderMarkdown(this.noteContent)
       : '';
+    this.scheduleMarkdownRender();
   }
 
   async saveNote() {
@@ -296,25 +354,43 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   }
 
   ngAfterViewChecked() {
-    // Apply syntax highlighting and math rendering after view updates
+    this.renderMarkdownTargets();
+  }
+
+  /**
+   * Run highlight.js + KaTeX auto-render over every preview/response container.
+   * Safe to call repeatedly (both libraries are idempotent on already-rendered
+   * content).
+   */
+  private renderMarkdownTargets() {
     this.markdownService.highlightCodeBlocks();
-    
-    // Render math in response containers using KaTeX auto-render
-    if (this.openaiResponseContainer?.nativeElement) {
-      this.markdownService.renderMathInElement(this.openaiResponseContainer.nativeElement);
+
+    const targets = [
+      this.openaiResponseContainer,
+      this.geminiResponseContainer,
+      this.lmstudioResponseContainer,
+      this.zaiResponseContainer,
+      this.notePreviewContainer,
+      this.activeNoteAlongsideContainer,
+      this.notesListPreviewContainer,
+    ];
+    for (const ref of targets) {
+      if (ref?.nativeElement) {
+        this.markdownService.renderMathInElement(ref.nativeElement);
+      }
     }
-    if (this.geminiResponseContainer?.nativeElement) {
-      this.markdownService.renderMathInElement(this.geminiResponseContainer.nativeElement);
-    }
-    if (this.lmstudioResponseContainer?.nativeElement) {
-      this.markdownService.renderMathInElement(this.lmstudioResponseContainer.nativeElement);
-    }
-    if (this.zaiResponseContainer?.nativeElement) {
-      this.markdownService.renderMathInElement(this.zaiResponseContainer.nativeElement);
-    }
-    if (this.notePreviewContainer?.nativeElement) {
-      this.markdownService.renderMathInElement(this.notePreviewContainer.nativeElement);
-    }
+  }
+
+  /**
+   * Render markdown targets on the next macrotask. When content is set
+   * programmatically (note preview, alongside panel, continued item), the
+   * *ngIf containers and their @ViewChild refs aren't resolved until after the
+   * current change-detection pass — so ngAfterViewChecked alone missed the
+   * first render until a later pass (e.g. switching tabs and back). Deferring
+   * guarantees the DOM is in place before we render.
+   */
+  private scheduleMarkdownRender() {
+    setTimeout(() => this.renderMarkdownTargets());
   }
 
   async loadSettings() {
@@ -599,6 +675,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.ngZone.run(() => {
         updateFn(formatted);
         this.cdr.detectChanges();
+        this.scheduleMarkdownRender();
       });
       return raw; // Return raw text for history/conversation
     } catch (err: any) {
@@ -607,6 +684,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.ngZone.run(() => {
         updateFn(formattedError);
         this.cdr.detectChanges();
+        this.scheduleMarkdownRender();
       });
       return ''; // Return empty so history ignores errors
     }
@@ -630,6 +708,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.ngZone.run(() => {
         updateFn(formatted);
         this.cdr.detectChanges();
+        this.scheduleMarkdownRender();
       });
       return result.success && result.analysis ? result.analysis : '';
     } catch (err: any) {
@@ -638,6 +717,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.ngZone.run(() => {
         updateFn(formattedError);
         this.cdr.detectChanges();
+        this.scheduleMarkdownRender();
       });
       return '';
     }
@@ -869,6 +949,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
           this.zaiResponse = errorMsg;
         }
         this.cdr.detectChanges();
+        this.scheduleMarkdownRender();
       });
 
       // Save to history if we got responses
