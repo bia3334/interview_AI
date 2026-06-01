@@ -8,6 +8,8 @@ An invisible desktop overlay that captures your screen, analyzes questions with 
 ![Electron](https://img.shields.io/badge/electron-28-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%23FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/screengenius)
+
 ---
 
 ## Features
@@ -196,6 +198,18 @@ npm run build
 
 **High DPI display issues?**
 - The app auto-scales for DPI; if region selection is off, restart the app
+
+---
+
+## ☕ Support
+
+This project is **free and open source**. If it helped you, consider supporting development:
+
+<a href="https://buymeacoffee.com/screengenius">
+  <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%23FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" />
+</a>
+
+Every coffee helps keep the project maintained and improving. Thank you! 🙏
 
 ---
 
