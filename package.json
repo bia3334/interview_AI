@@ -64,7 +64,7 @@
     "productName": "Screen Genius",
     "win": {
       "target": [
-        "dir"
+        "nsis"
       ],
       "icon": "assets/icons/win/icon.ico",
       "sign": false,

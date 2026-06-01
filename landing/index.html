@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Screen Genius — Your invisible AI interview copilot</title>
+  <meta name="description" content="Screen Genius is an invisible desktop app that reads your screen, captures screenshots, and gives you instant AI answers — without ever being seen on screen shares." />
+  <style>
+    :root {
+      --bg: #07090f;
+      --bg-soft: #0d111c;
+      --panel: #11162400;
+      --card: #121829;
+      --card-border: rgba(255, 255, 255, 0.07);
+      --text: #e9edf6;
+      --muted: #98a2b8;
+      --brand: #6d8bff;
+      --brand-2: #9d7bff;
+      --accent: #36e0c0;
+      --radius: 18px;
+      --maxw: 1140px;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+    /* ---------- Background glow ---------- */
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(60% 50% at 50% -10%, rgba(109, 139, 255, 0.22), transparent 70%),
+        radial-gradient(40% 40% at 85% 10%, rgba(157, 123, 255, 0.16), transparent 70%),
+        radial-gradient(50% 50% at 10% 30%, rgba(54, 224, 192, 0.10), transparent 70%);
+    }
+
+    /* ---------- Nav ---------- */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(7, 9, 15, 0.6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    nav .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 70px;
+    }
+    .logo { display: flex; align-items: center; gap: 11px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+    .logo .mark {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      display: grid; place-items: center;
+      box-shadow: 0 6px 22px rgba(109, 139, 255, 0.45);
+    }
+    .logo .mark svg { width: 19px; height: 19px; }
+    .nav-links { display: flex; gap: 30px; align-items: center; font-size: 15px; color: var(--muted); }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .cta { color: var(--text); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; border-radius: 12px;
+      font-weight: 600; font-size: 15px; cursor: pointer;
+      border: 1px solid transparent; transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: #fff; box-shadow: 0 10px 30px rgba(109, 139, 255, 0.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(109, 139, 255, 0.5); }
+    .btn-ghost { background: rgba(255,255,255,0.04); border-color: var(--card-border); color: var(--text); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.09); transform: translateY(-2px); }
+
+    /* ---------- Hero ---------- */
+    header { padding: 90px 0 70px; text-align: center; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 15px; border-radius: 100px; font-size: 13.5px; font-weight: 500;
+      background: rgba(54, 224, 192, 0.08); border: 1px solid rgba(54, 224, 192, 0.25);
+      color: var(--accent); margin-bottom: 28px;
+    }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    h1 {
+      font-size: clamp(40px, 6.5vw, 72px);
+      line-height: 1.04; letter-spacing: -0.035em; font-weight: 800;
+      max-width: 900px; margin: 0 auto 24px;
+    }
+    h1 .grad {
+      background: linear-gradient(120deg, var(--brand), var(--brand-2) 50%, var(--accent));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub {
+      font-size: clamp(17px, 2.2vw, 21px); color: var(--muted);
+      max-width: 640px; margin: 0 auto 38px;
+    }
+    .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .hero-note { margin-top: 18px; font-size: 13.5px; color: var(--muted); }
+
+    /* ---------- App mockup ---------- */
+    .mock {
+      margin: 70px auto 0; max-width: 880px; position: relative;
+    }
+    .mock-window {
+      border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--card-border);
+      background: linear-gradient(180deg, #0e1320, #0a0e18);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .mock-bar { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--card-border); }
+    .mock-bar .d { width: 12px; height: 12px; border-radius: 50%; }
+    .mock-bar .d:nth-child(1){ background:#ff5f57; } .mock-bar .d:nth-child(2){ background:#febc2e; } .mock-bar .d:nth-child(3){ background:#28c840; }
+    .mock-bar .ttl { margin-left: 12px; font-size: 13px; color: var(--muted); }
+    .mock-body { display: grid; grid-template-columns: 1fr 1.15fr; min-height: 320px; }
+    .mock-left { padding: 22px; border-right: 1px solid var(--card-border); }
+    .mock-right { padding: 22px; background: rgba(109,139,255,0.03); }
+    .mlabel { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
+    .shot { border-radius: 10px; height: 120px; background: linear-gradient(135deg,#1b2236,#10172a); border: 1px solid var(--card-border); position: relative; overflow:hidden; }
+    .shot::after { content:''; position:absolute; inset:0; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 12px, transparent 12px 26px); }
+    .codeline { height: 9px; border-radius: 5px; background: rgba(255,255,255,0.08); margin: 11px 0; }
+    .codeline.s { width: 60%; } .codeline.m { width: 85%; } .codeline.l { width: 95%; }
+    .ans-head { display:flex; align-items:center; gap:9px; font-weight:600; font-size:14px; margin-bottom:14px; }
+    .ans-head .ai { width:24px; height:24px; border-radius:7px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; font-size:13px; }
+    .ans .codeline { background: rgba(109,139,255,0.18); }
+    .typing { display:inline-block; width:7px; height:15px; background:var(--accent); margin-left:2px; vertical-align:middle; animation: blink 1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+
+    /* ---------- Trust strip ---------- */
+    .providers { padding: 46px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); margin-top: 80px; }
+    .providers .lbl { text-align:center; font-size:13px; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); margin-bottom:22px; }
+    .provider-row { display:flex; gap: 18px; justify-content:center; flex-wrap:wrap; }
+    .provider-chip { padding: 11px 20px; border-radius: 11px; background: var(--card); border:1px solid var(--card-border); font-weight:600; font-size:15px; color:#cdd5e6; display:flex; align-items:center; gap:9px; }
+    .provider-chip .pd { width:8px; height:8px; border-radius:50%; background:var(--brand); }
+
+    /* ---------- Sections ---------- */
+    section.block { padding: 100px 0; }
+    .sec-head { text-align: center; max-width: 680px; margin: 0 auto 60px; }
+    .sec-head .tag { color: var(--brand); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .sec-head h2 { font-size: clamp(30px, 4.5vw, 46px); letter-spacing: -0.03em; line-height: 1.1; margin: 12px 0 16px; font-weight: 800; }
+    .sec-head p { color: var(--muted); font-size: 18px; }
+
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .feature {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius);
+      padding: 30px 26px; transition: transform .2s ease, border-color .2s ease, background .2s;
+    }
+    .feature:hover { transform: translateY(-5px); border-color: rgba(109,139,255,0.4); background: #141b2f; }
+    .feature .ic {
+      width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center; margin-bottom: 18px;
+      background: linear-gradient(135deg, rgba(109,139,255,0.18), rgba(157,123,255,0.12));
+      border: 1px solid rgba(109,139,255,0.25);
+    }
+    .feature .ic svg { width: 24px; height: 24px; stroke: var(--brand); }
+    .feature h3 { font-size: 19px; margin-bottom: 9px; letter-spacing: -0.01em; }
+    .feature p { color: var(--muted); font-size: 15px; }
+
+    /* ---------- How it works ---------- */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .step { position: relative; padding: 32px 26px; background: var(--card); border:1px solid var(--card-border); border-radius: var(--radius); }
+    .step .num { font-size: 14px; font-weight: 700; color: var(--bg); background: linear-gradient(135deg,var(--brand),var(--brand-2)); width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 18px; }
+    .step h3 { font-size: 18px; margin-bottom: 8px; }
+    .step p { color: var(--muted); font-size: 15px; }
+    .step kbd { font-family: 'SF Mono', ui-monospace, monospace; font-size: 12.5px; background: rgba(255,255,255,0.06); border:1px solid var(--card-border); border-bottom-width:2px; padding: 2px 7px; border-radius: 6px; color: #cdd5e6; }
+
+    /* ---------- Invisible highlight ---------- */
+    .spotlight { background: linear-gradient(135deg, rgba(109,139,255,0.10), rgba(157,123,255,0.06)); border: 1px solid rgba(109,139,255,0.2); border-radius: 28px; padding: 60px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 50px; align-items: center; }
+    .spotlight h2 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.03em; line-height: 1.12; margin-bottom: 18px; font-weight: 800; }
+    .spotlight p { color: var(--muted); font-size: 17px; margin-bottom: 22px; }
+    .checklist { list-style: none; display: grid; gap: 14px; }
+    .checklist li { display: flex; gap: 12px; align-items: flex-start; font-size: 15.5px; }
+    .checklist .ck { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; background: rgba(54,224,192,0.15); border:1px solid rgba(54,224,192,0.4); display:grid; place-items:center; color: var(--accent); font-size: 13px; margin-top:2px; }
+    .ghost-visual { aspect-ratio: 1/1; border-radius: 24px; background: radial-gradient(circle at 50% 40%, rgba(109,139,255,0.25), transparent 60%); display:grid; place-items:center; position:relative; }
+    .ghost-visual .eye { font-size: 90px; filter: grayscale(0.2); opacity:0.9; }
+    .ghost-visual .ring { position:absolute; inset:0; border-radius:24px; border:1px dashed rgba(255,255,255,0.12); animation: spin 22s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---------- Shortcuts ---------- */
+    .sc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 40px; max-width: 820px; margin: 0 auto; }
+    .sc-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .sc-row .act { color: #cdd5e6; font-size: 15px; }
+    .sc-row .keys { display: flex; gap: 5px; }
+    .sc-row kbd { font-family: 'SF Mono', ui-monospace, monospace; font-size: 12px; background: rgba(255,255,255,0.05); border:1px solid var(--card-border); border-bottom-width:2px; padding: 4px 8px; border-radius: 6px; color: #e9edf6; }
+
+    /* ---------- CTA ---------- */
+    .final { text-align: center; padding: 110px 0; }
+    .final h2 { font-size: clamp(34px, 5vw, 56px); letter-spacing: -0.035em; line-height: 1.05; font-weight: 800; max-width: 720px; margin: 0 auto 20px; }
+    .final p { color: var(--muted); font-size: 19px; margin-bottom: 36px; }
+
+    /* ---------- Footer ---------- */
+    footer { border-top: 1px solid rgba(255,255,255,0.05); padding: 40px 0; }
+    footer .wrap { display:flex; justify-content: space-between; align-items:center; flex-wrap:wrap; gap:16px; color: var(--muted); font-size: 14px; }
+    .disclaimer { font-size: 12.5px; color: #5d6679; max-width: 760px; margin: 22px auto 0; text-align:center; line-height:1.5; }
+
+    /* ---------- In action / demo ---------- */
+    .demo-stage { max-width: 920px; margin: 0 auto; }
+    .demo-window {
+      border-radius: 16px; overflow: hidden; border: 1px solid var(--card-border);
+      background: linear-gradient(180deg, #0e1320, #0a0e18);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
+      position: relative;
+    }
+    .demo-window .mock-bar { display:flex; align-items:center; gap:8px; padding:14px 16px; border-bottom:1px solid var(--card-border); }
+    .demo-window .mock-bar .d { width:12px; height:12px; border-radius:50%; }
+    .demo-window .mock-bar .d:nth-child(1){background:#ff5f57;} .demo-window .mock-bar .d:nth-child(2){background:#febc2e;} .demo-window .mock-bar .d:nth-child(3){background:#28c840;}
+    .demo-window .mock-bar .ttl { margin-left:12px; font-size:13px; color:var(--muted); }
+    .demo-window .mock-bar .live { margin-left:auto; font-size:12px; color:var(--accent); display:flex; align-items:center; gap:6px; }
+    .demo-window .mock-bar .live .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); animation: blink 1.4s steps(2) infinite; }
+    /* real screenshot (auto-shown if asset exists) */
+    .real-shot { width:100%; display:none; }
+    .real-shot.show { display:block; }
+    /* animated fake screenshot */
+    .demo-canvas { position:relative; display:grid; grid-template-columns: 1.25fr 1fr; min-height:380px; }
+    .demo-canvas.hide { display:none; }
+    .dc-left { padding:24px; border-right:1px solid var(--card-border); position:relative; }
+    .dc-right { padding:24px; background:rgba(109,139,255,0.03); }
+    .editor { font-family:'SF Mono', ui-monospace, monospace; font-size:13px; line-height:1.9; color:#9fb0d0; }
+    .editor .ln { color:#4a5570; margin-right:14px; user-select:none; }
+    .editor .kw { color:#c08bff; } .editor .fn { color:#6d8bff; } .editor .str { color:#36e0c0; } .editor .cm { color:#5d6679; }
+    .scan { position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); box-shadow:0 0 14px var(--accent); top:0; opacity:0; animation: scanRun 7s ease-in-out infinite; }
+    @keyframes scanRun { 0%,8% { top:0; opacity:0; } 10% { opacity:1; } 22% { top:100%; opacity:1; } 24%,100% { opacity:0; } }
+    .dc-right .ans-head { display:flex; align-items:center; gap:9px; font-weight:600; font-size:14px; margin-bottom:16px; }
+    .dc-right .ans-head .ai { width:24px; height:24px; border-radius:7px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; font-size:13px; }
+    .stat { font-size:12.5px; color:var(--muted); margin-bottom:14px; min-height:16px; }
+    .stat::before { content:'Waiting for capture…'; animation: statText 7s ease-in-out infinite; }
+    @keyframes statText { 0%,22% { content:'Capturing screen…'; } 24%,40% { content:'Running OCR + analyzing…'; } 42%,100% { content:'✓ Answered with GPT-4o · 1.2s'; } }
+    .answer-text { font-size:14px; line-height:1.8; color:#cdd5e6; }
+    .answer-text p { overflow:hidden; white-space:nowrap; width:0; animation: typeIn 7s steps(40) infinite; }
+    .answer-text p:nth-child(2){ animation-delay:0s; }
+    .answer-text code { background:rgba(109,139,255,0.14); padding:2px 6px; border-radius:5px; font-family:'SF Mono',ui-monospace,monospace; font-size:12.5px; color:#9d7bff; }
+    @keyframes typeIn { 0%,42% { width:0; } 60% { width:100%; } 95% { width:100%; } 100% { width:0; } }
+    .demo-cap { text-align:center; color:var(--muted); font-size:13.5px; margin-top:18px; }
+
+    /* ---------- Download ---------- */
+    .dl-card {
+      max-width: 760px; margin: 0 auto; background: linear-gradient(135deg, rgba(109,139,255,0.10), rgba(157,123,255,0.05));
+      border:1px solid rgba(109,139,255,0.22); border-radius: 24px; padding: 44px;
+    }
+    .dl-top { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+    .dl-icon { width:64px; height:64px; border-radius:16px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; box-shadow:0 10px 30px rgba(109,139,255,0.4); flex:0 0 auto; }
+    .dl-icon svg { width:32px; height:32px; }
+    .dl-meta h3 { font-size:23px; letter-spacing:-0.02em; }
+    .dl-meta .ver { color:var(--muted); font-size:14.5px; margin-top:3px; }
+    .dl-price { margin-left:auto; text-align:right; line-height:1; }
+    .dl-price .price { font-size:38px; font-weight:800; letter-spacing:-0.03em; }
+    .dl-price .price .cur { font-size:22px; font-weight:700; color:var(--muted); vertical-align:top; margin-right:1px; }
+    .dl-price .price-sub { font-size:12.5px; color:var(--muted); margin-top:4px; }
+    .dl-top .btn { flex:0 0 auto; }
+    .dl-specs { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin-top:30px; background:var(--card-border); border-radius:14px; overflow:hidden; border:1px solid var(--card-border); }
+    .dl-specs .sp { background:#0d1322; padding:18px 16px; text-align:center; }
+    .dl-specs .sp .k { font-size:11.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px; }
+    .dl-specs .sp .v { font-size:16px; font-weight:700; }
+    .dl-reqs { margin-top:24px; font-size:13.5px; color:var(--muted); display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    .dl-reqs span { display:inline-flex; align-items:center; gap:6px; }
+    .dl-reqs .dotx { width:4px; height:4px; border-radius:50%; background:#4a5570; }
+
+    /* ---------- Donation ---------- */
+    .donate {
+      max-width: 760px; margin: 30px auto 0; padding: 20px 26px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 16px;
+      display: flex; align-items: center; gap: 18px; text-align: left;
+    }
+    .donate .heart { font-size: 26px; color: #ff6b8b; flex: 0 0 auto; }
+    .donate-txt { display: flex; flex-direction: column; line-height: 1.4; }
+    .donate-txt strong { font-size: 15.5px; }
+    .donate-txt span { font-size: 14px; color: var(--muted); }
+    .donate-btn { margin-left: auto; flex: 0 0 auto; }
+
+    @media (max-width: 860px) {
+      .demo-canvas { grid-template-columns:1fr; }
+      .dc-left { border-right:none; border-bottom:1px solid var(--card-border); }
+      .dl-card { padding:30px; }
+      .dl-specs { grid-template-columns:repeat(2,1fr); }
+      .dl-price { margin-left:0; text-align:left; }
+      .dl-top .btn { margin-left:0; width:100%; justify-content:center; }
+      .donate { flex-direction: column; text-align: center; }
+      .donate-txt { align-items: center; }
+      .donate-btn { margin-left: 0; width: 100%; justify-content: center; }
+      .nav-links a:not(.cta) { display: none; }
+      .grid, .steps { grid-template-columns: 1fr; }
+      .spotlight { grid-template-columns: 1fr; padding: 36px; }
+      .ghost-visual { max-width: 280px; margin: 0 auto; }
+      .mock-body { grid-template-columns: 1fr; }
+      .mock-left { border-right: none; border-bottom: 1px solid var(--card-border); }
+      .sc-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <nav>
+    <div class="wrap">
+      <div class="logo">
+        <span class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </span>
+        Screen&nbsp;Genius
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#demo">In action</a>
+        <a href="#how">How it works</a>
+        <a href="#stealth">Stealth</a>
+        <a href="#shortcuts">Shortcuts</a>
+        <a href="#get" class="btn btn-primary cta">Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <header>
+    <div class="wrap">
+      <span class="pill"><span class="dot"></span> Invisible on screen shares &amp; recordings</span>
+      <h1>Your <span class="grad">invisible AI copilot</span><br/>for the moments that matter</h1>
+      <p class="sub">Screen Genius floats silently over any app, reads what's on your screen, and delivers instant AI answers — without ever showing up on a screen share, recording, or capture.</p>
+      <div class="hero-cta">
+        <a href="#get" class="btn btn-primary">Download free</a>
+        <a href="#how" class="btn btn-ghost">See how it works</a>
+      </div>
+      <p class="hero-note">100% free · Bring your own AI key · Works fully offline with LM Studio</p>
+
+      <!-- Mock window -->
+      <div class="mock">
+        <div class="mock-window">
+          <div class="mock-bar">
+            <span class="d"></span><span class="d"></span><span class="d"></span>
+            <span class="ttl">Screen Genius — overlay</span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-left">
+              <div class="mlabel">Captured screen</div>
+              <div class="shot"></div>
+              <div class="codeline l"></div>
+              <div class="codeline m"></div>
+              <div class="codeline s"></div>
+            </div>
+            <div class="mock-right ans">
+              <div class="ans-head"><span class="ai">✦</span> AI answer</div>
+              <div class="codeline l"></div>
+              <div class="codeline l"></div>
+              <div class="codeline m"></div>
+              <div class="codeline m"></div>
+              <div class="codeline s"></div>
+              <div class="mlabel" style="margin-top:18px">Streaming<span class="typing"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Providers -->
+  <div class="providers">
+    <div class="wrap">
+      <div class="lbl">Plug in the AI you already trust</div>
+      <div class="provider-row">
+        <div class="provider-chip"><span class="pd"></span> OpenAI</div>
+        <div class="provider-chip"><span class="pd"></span> Google Gemini</div>
+        <div class="provider-chip"><span class="pd"></span> Z.AI</div>
+        <div class="provider-chip"><span class="pd"></span> LM Studio (local)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- In action -->
+  <section class="block" id="demo">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">See it in action</span>
+        <h2>Quiet on the outside, fast on the inside</h2>
+        <p>Capture the screen, let the AI read it, and watch the answer stream in — all inside one floating window.</p>
+      </div>
+      <div class="demo-stage">
+        <div class="demo-window">
+          <div class="mock-bar">
+            <span class="d"></span><span class="d"></span><span class="d"></span>
+            <span class="ttl">Screen Genius</span>
+            <span class="live"><span class="dot"></span> live</span>
+          </div>
+
+          <!-- Drop a real capture at assets/app-screenshot.png (or .gif) and it replaces the animation automatically -->
+          <img class="real-shot" id="appShot" alt="Screen Genius app screenshot"
+               src="assets/app-screenshot.png"
+               onload="this.classList.add('show'); document.getElementById('appAnim').classList.add('hide');"
+               onerror="this.remove();" />
+
+          <div class="demo-canvas" id="appAnim">
+            <div class="dc-left">
+              <div class="mlabel">Captured screen</div>
+              <div class="scan"></div>
+              <div class="editor">
+                <div><span class="ln">1</span><span class="cm">// reverse a linked list</span></div>
+                <div><span class="ln">2</span><span class="kw">function</span> <span class="fn">reverse</span>(head) {</div>
+                <div><span class="ln">3</span>&nbsp;&nbsp;<span class="kw">let</span> prev = <span class="kw">null</span>;</div>
+                <div><span class="ln">4</span>&nbsp;&nbsp;<span class="kw">while</span> (head) {</div>
+                <div><span class="ln">5</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// ...?</span></div>
+                <div><span class="ln">6</span>&nbsp;&nbsp;}</div>
+                <div><span class="ln">7</span>}</div>
+              </div>
+            </div>
+            <div class="dc-right">
+              <div class="ans-head"><span class="ai">✦</span> AI answer</div>
+              <div class="stat"></div>
+              <div class="answer-text">
+                <p>Walk the list, rewiring each <code>next</code> pointer</p>
+                <p>backwards while tracking <code>prev</code> — O(n) time, O(1) space.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="block" id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">Everything in one quiet window</span>
+        <h2>Capture. Ask. Get answers.</h2>
+        <p>A focused toolkit built for speed — triggered by global shortcuts, answered in seconds, and gone the moment you hide it.</p>
+      </div>
+      <div class="grid">
+        <div class="feature">
+          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l1-2a2 2 0 0 1 2-1h2l1-2h6l1 2h2a2 2 0 0 1 2 1l1 2"/><rect x="3" y="9" width="18" height="11" rx="2"/><circle cx="12" cy="14" r="3"/></svg></div>
+          <h3>Full &amp; region screenshots</h3>
+          <p>Grab the whole screen or crop a precise region with a DPI-accurate selection tool. Queue up to five shots for richer context.</p>
+        </div>
+        <div class="feature">
+          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M8 9h2v6M14 9h2M14 12h2M14 15h2"/></svg></div>
+          <h3>Instant OCR</h3>
+          <p>Pull clean, editable text straight out of any image, document, or window — no copy-paste gymnastics required.</p>
+        </div>
+        <div class="feature">
+          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg></div>
+          <h3>Voice transcription</h3>
+          <p>Speak your question and let it transcribe in real time — perfect when typing would give you away.</p>
+        </div>
+        <div class="feature">
+          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <h3>Live AI answers</h3>
+          <p>Responses stream into a floating overlay bubble with live Markdown rendering — code blocks, lists and all.</p>
+        </div>
+        <div class="feature">
+          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></div>
+          <h3>Notes &amp; documents</h3>
+          <p>Save snippets, rename and organize documents, and keep a searchable history of every answer you've received.</p>
+        </div>
+        <div class="feature">
+          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+          <h3>Bring your own model</h3>
+          <p>Switch freely between OpenAI, Gemini, Z.AI and a fully local LM Studio backend. Your keys, your data, your choice.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="block" id="how" style="padding-top:0;">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">Three keystrokes</span>
+        <h2>From screen to answer in seconds</h2>
+        <p>No window switching, no uploads, no fuss. It all happens behind a hotkey.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <h3>Capture</h3>
+          <p>Hit <kbd>Ctrl+Shift+S</kbd> for a full shot or <kbd>Ctrl+Shift+Z</kbd> to crop a region. OCR text with <kbd>Ctrl+Shift+X</kbd>.</p>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <h3>Ask</h3>
+          <p>Type, paste your clipboard with <kbd>Ctrl+Shift+Q</kbd>, or speak. Then send it all to AI with <kbd>Ctrl+Shift+P</kbd>.</p>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <h3>Read &amp; vanish</h3>
+          <p>The answer streams into the overlay. Copy it with <kbd>Ctrl+Shift+C</kbd> and hide everything with <kbd>Ctrl+Shift+A</kbd>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stealth spotlight -->
+  <section class="block" id="stealth" style="padding-top:0;">
+    <div class="wrap">
+      <div class="spotlight">
+        <div>
+          <span class="tag" style="color:var(--accent);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:0.04em;">Built to stay unseen</span>
+          <h2 style="margin-top:12px;">Invisible where it counts</h2>
+          <p>Screen Genius uses OS-level content protection, so it's excluded from screen captures, recordings, and shared sessions. Toggle click-through mode and it stops intercepting your mouse entirely — your work shows through, the app doesn't.</p>
+          <ul class="checklist">
+            <li><span class="ck">✓</span> Hidden from screen recording &amp; share software</li>
+            <li><span class="ck">✓</span> Click-through mode lets clicks pass straight through</li>
+            <li><span class="ck">✓</span> Instant show/hide on a single global shortcut</li>
+            <li><span class="ck">✓</span> Runs locally — your keys and captures stay on your machine</li>
+          </ul>
+        </div>
+        <div class="ghost-visual">
+          <div class="ring"></div>
+          <div class="eye">🫥</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shortcuts -->
+  <section class="block" id="shortcuts" style="padding-top:0;">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">Keyboard-first</span>
+        <h2>Every action, one shortcut away</h2>
+        <p>Drive the entire app without ever touching the mouse.</p>
+      </div>
+      <div class="sc-grid">
+        <div class="sc-row"><span class="act">Toggle window visibility</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span></div>
+        <div class="sc-row"><span class="act">Toggle click-through</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>W</kbd></span></div>
+        <div class="sc-row"><span class="act">Toggle overlay bubble</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>O</kbd></span></div>
+        <div class="sc-row"><span class="act">Full screenshot</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
+        <div class="sc-row"><span class="act">Region screenshot</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Z</kbd></span></div>
+        <div class="sc-row"><span class="act">OCR extract text</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd></span></div>
+        <div class="sc-row"><span class="act">Analyze with AI</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>P</kbd></span></div>
+        <div class="sc-row"><span class="act">Clear screenshots</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd></span></div>
+        <div class="sc-row"><span class="act">Clipboard as prompt</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Q</kbd></span></div>
+        <div class="sc-row"><span class="act">Copy latest answer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>C</kbd></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA / Download -->
+  <section class="final" id="get">
+    <div class="wrap">
+      <h2>Ready when you are.</h2>
+      <p>Drop in your AI key and you're set in under a minute.</p>
+
+      <div class="dl-card">
+        <div class="dl-top">
+          <span class="dl-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
+          <div class="dl-meta">
+            <h3>Screen Genius for Windows</h3>
+            <div class="ver">Version 1.0.0 · 64-bit installer</div>
+          </div>
+          <div class="dl-price">
+            <div class="price">Free</div>
+            <div class="price-sub">forever</div>
+          </div>
+          <a href="https://github.com/bia3334/interview_AI/releases/download/v1.0.0/Screen.Genius.Setup.1.0.0.exe" class="btn btn-primary">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 4 5-4M5 21h14"/></svg>
+            Download .exe
+          </a>
+        </div>
+
+        <div class="dl-specs">
+          <div class="sp"><div class="k">Price</div><div class="v">Free</div></div>
+          <div class="sp"><div class="k">Version</div><div class="v">1.0.0</div></div>
+          <div class="sp"><div class="k">Size</div><div class="v">112 MB</div></div>
+          <div class="sp"><div class="k">Platform</div><div class="v">Windows</div></div>
+        </div>
+
+        <div class="dl-reqs">
+          <span>Free, no account needed</span><span class="dotx"></span>
+          <span>Windows 10 / 11 (64-bit)</span><span class="dotx"></span>
+          <span>An AI provider key — or LM Studio for fully offline use</span>
+        </div>
+      </div>
+
+      <!-- Donation -->
+      <div class="donate">
+        <span class="heart">♥</span>
+        <div class="donate-txt">
+          <strong>Enjoying Screen Genius?</strong>
+          <span>It's free — but if it helped you, a small tip keeps it going.</span>
+        </div>
+        <a href="https://buymeacoffee.com/screengenius" target="_blank" rel="noopener" class="btn btn-ghost donate-btn">Buy me a coffee ☕</a>
+      </div>
+      <p class="disclaimer">Screen Genius is a productivity and learning tool. Please use it responsibly and in accordance with the rules, policies, and laws that apply to you — including the terms of any exam, interview, or platform you use it alongside.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="logo" style="font-size:16px;">
+        <span class="mark" style="width:28px;height:28px;border-radius:7px;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        Screen Genius
+      </div>
+      <div>© 2026 Screen Genius · Free desktop app for Windows</div>
+    </div>
+  </footer>
+</body>
+</html>
