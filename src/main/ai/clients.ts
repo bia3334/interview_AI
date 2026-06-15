@@ -326,12 +326,38 @@ export const extractKeyInfoFromDocument = async (
 ): Promise<string> => {
   const { generateKeyInfoExtractionPrompt } = require('./prompts');
   const prompt = generateKeyInfoExtractionPrompt(fileName, content);
-  
-  // Use the model based on user's selection (defaultModel setting)
-  const defaultModel = store.get('defaultModel') || 'both';
-  const useOpenAI = defaultModel === 'openai' || defaultModel === 'both';
-  const useGemini = defaultModel === 'gemini';
-  
+
+  // `defaultModel` may be the new JSON-array format (e.g. '["openai","gemini"]')
+  // or a legacy string ('both' | 'openai' | 'gemini' | 'zai' | 'lmstudio').
+  // Normalise both into a provider list so this keeps working regardless.
+  const raw = store.get('defaultModel') || 'both';
+  let providers: string[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) providers = parsed;
+  } catch {
+    const legacy: Record<string, string[]> = {
+      both: ['openai', 'gemini'],
+      all: ['openai', 'gemini', 'zai'],
+      openai: ['openai'],
+      gemini: ['gemini'],
+      zai: ['zai'],
+      lmstudio: [],
+    };
+    providers = legacy[raw] || ['openai', 'gemini'];
+  }
+
+  // Key-info extraction needs a cloud text model. Honour the user's selection
+  // when a matching API key exists, otherwise fall back to whichever key is set.
+  const openaiKey = getApiKey('openai', store, console);
+  const geminiKey = getApiKey('gemini', store, console);
+  let useOpenAI = false;
+  let useGemini = false;
+  if (providers.includes('openai') && openaiKey) useOpenAI = true;
+  else if (providers.includes('gemini') && geminiKey) useGemini = true;
+  else if (openaiKey) useOpenAI = true;
+  else if (geminiKey) useGemini = true;
+
   if (useOpenAI) {
     // Use OpenAI (selected or default for 'both')
     try {
@@ -363,7 +389,7 @@ export const extractKeyInfoFromDocument = async (
     }
   }
   
-  throw new Error('No AI model configured for key information extraction');
+  throw new Error('No AI model configured for key information extraction (set an OpenAI or Gemini API key)');
 };
 
 // LM Studio Settings Helper (for backward compatibility)

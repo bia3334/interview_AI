@@ -113,6 +113,8 @@ export interface ElectronAPI {
   saveVoiceScreenshotMode: (mode: 'full' | 'region' | 'none') => Promise<{ success: boolean; error?: string }>;
   getAutoInteractionOnShow: () => Promise<boolean>;
   saveAutoInteractionOnShow: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+  getNoteViewMode: () => Promise<'editor-only' | 'alongside'>;
+  saveNoteViewMode: (mode: 'editor-only' | 'alongside') => Promise<{ success: boolean; error?: string }>;
 
   getScreenshots: () => Promise<string[]>;
   removeScreenshot: (index: number) => Promise<{ success: boolean; error?: string }>;

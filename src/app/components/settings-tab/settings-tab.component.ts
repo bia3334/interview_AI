@@ -20,7 +20,7 @@ type ProviderType = 'openai' | 'gemini' | 'zai' | 'lmstudio';
 })
 export class SettingsTabComponent implements OnInit {
   // Sub-tab state
-  activeSubTab: 'api' | 'behavior' | 'ocr' = 'api';
+  activeSubTab: 'models' | 'behavior' | 'capture' | 'interface' = 'models';
 
   // API & Models
   openaiApiKey: string = '';
@@ -60,6 +60,9 @@ export class SettingsTabComponent implements OnInit {
 
   // Window Behavior
   autoInteractionOnShow: boolean = false;
+
+  // Note view mode — controls where rendered notes appear
+  noteViewMode: 'editor-only' | 'alongside' = 'editor-only';
 
   // AI Behavior
   preferredLanguage: string = DEFAULTS.LANGUAGE;
@@ -216,9 +219,9 @@ export class SettingsTabComponent implements OnInit {
     this.setupEventListeners();
   }
 
-  async switchSubTab(tab: 'api' | 'behavior' | 'ocr') {
+  async switchSubTab(tab: 'models' | 'behavior' | 'capture' | 'interface') {
     this.activeSubTab = tab;
-    
+
     // Reload saved settings when switching tabs to discard unsaved changes
     if (tab === 'behavior') {
       // Reload the saved system prompt to discard any unsaved changes
@@ -228,13 +231,14 @@ export class SettingsTabComponent implements OnInit {
         this.detectActiveTemplate();
         this.cdr.detectChanges();
       });
-    } else if (tab === 'ocr') {
+    } else if (tab === 'capture') {
+      // OCR lives in the Capture tab — refresh its saved state
       await this.loadOCRSettings();
     }
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow] = await Promise.all([
+    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow, noteViewMode] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
       this.electronService.getZAIApiKey(),
@@ -247,11 +251,13 @@ export class SettingsTabComponent implements OnInit {
       this.electronService.getGeminiModel(),
       this.electronService.getVoiceProvider(),
       this.electronService.getVoiceScreenshotMode(),
-      this.electronService.getAutoInteractionOnShow()
+      this.electronService.getAutoInteractionOnShow(),
+      this.electronService.getNoteViewMode()
     ]);
     this.voiceProvider = voiceProvider || 'openai';
     this.voiceScreenshotMode = voiceScreenshotMode || 'full';
     this.autoInteractionOnShow = !!autoInteractionOnShow;
+    this.noteViewMode = noteViewMode || 'editor-only';
 
     this.openaiApiKey = openaiKey || '';
     this.geminiApiKey = geminiKey || '';
@@ -295,10 +301,14 @@ export class SettingsTabComponent implements OnInit {
     // 2. If not found yet, map Legacy Aliases to Arrays
     if (providers.length === 0) {
       const legacyAliases: Record<string, string[]> = {
-        'all':    ['openai', 'gemini', 'zai'],
-        'openai': ['openai'],
-        'gemini': ['gemini'],
-        'zai':    ['zai'],
+        'all':      ['openai', 'gemini', 'zai'],
+        'both':     ['openai', 'gemini'],
+        'openai':   ['openai'],
+        'gemini':   ['gemini'],
+        'zai':      ['zai'],
+        // LM Studio is an exclusive local mode handled by its own toggle, so it
+        // maps to no cloud providers here.
+        'lmstudio': [],
       };
       providers = legacyAliases[model] || [];
     }
@@ -371,6 +381,18 @@ export class SettingsTabComponent implements OnInit {
       );
     } else {
       this.electronService.showToast(result.error || 'Failed to save window behavior setting');
+    }
+  }
+
+  async saveNoteViewMode() {
+    const result = await this.electronService.saveNoteViewMode(this.noteViewMode);
+    if (result.success) {
+      const label = this.noteViewMode === 'alongside'
+        ? 'Alongside AI response'
+        : 'Editor only';
+      this.electronService.showToast(`Note view: ${label}`);
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save note view setting');
     }
   }
 

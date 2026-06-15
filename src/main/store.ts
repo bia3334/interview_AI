@@ -34,6 +34,10 @@ export interface StoreSchema {
   voiceScreenshotMode: 'full' | 'region' | 'none';
   // Window behavior
   autoInteractionOnShow: boolean;
+  // Note view mode: 'editor-only' shows the rendered preview only inside the
+  // note editor (current default); 'alongside' also renders the active note
+  // next to the AI responses so the user can read it while reading the answer.
+  noteViewMode: 'editor-only' | 'alongside';
 }
 
 export const STORE_DEFAULTS: StoreSchema = {
@@ -58,6 +62,8 @@ export const STORE_DEFAULTS: StoreSchema = {
   // Window behavior default — keep current click-through-on-show behavior
   // unless the user opts in to auto-interaction.
   autoInteractionOnShow: false,
+  // Default keeps the current behaviour: notes only render in the editor.
+  noteViewMode: 'editor-only',
 };
 
 export function createStore() {

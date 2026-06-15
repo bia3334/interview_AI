@@ -9,3 +9,6 @@ package-lock.json
 
 # Tesseract OCR language models (auto-downloaded)
 *.traineddata
+
+# Promo video working dir (node_modules, ffmpeg binary, rendered mp4)
+promo-video/

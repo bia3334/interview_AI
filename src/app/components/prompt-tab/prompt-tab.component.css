@@ -12,6 +12,45 @@
   50% { opacity: 0.4; transform: scale(1.4); }
 }
 
+/* Capture action buttons: neutral surfaces, the icon carries the color. */
+.btn-accent-blue, .btn-accent-warm, .btn-accent-green, .btn-voice {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #ededef !important;
+}
+.btn-accent-blue:hover, .btn-accent-warm:hover, .btn-accent-green:hover, .btn-voice:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.btn-accent-blue mat-icon { color: #6ea8fe; }
+.btn-accent-warm mat-icon { color: #f0a35e; }
+.btn-accent-green mat-icon { color: #57bd8f; }
+.btn-voice mat-icon { color: #a78bfa; }
+
+.btn-voice.recording {
+  background: rgba(229, 83, 75, 0.15) !important;
+  border-color: rgba(229, 83, 75, 0.4) !important;
+  color: #f1857f !important;
+}
+.btn-voice.recording mat-icon { color: #f1857f; }
+
+/* Active-providers chip above the response panels */
+.provider-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.8rem;
+  color: rgba(237, 237, 239, 0.8);
+  transition: border-color 0.2s ease;
+}
+.provider-chip.lmstudio { border-color: rgba(63, 178, 127, 0.4); }
+.provider-chip.busy { border-color: rgba(79, 143, 247, 0.4); }
+.provider-chip.busy .provider-dot { animation: pulse 1.2s ease-in-out infinite; }
+
 /* Screenshots Preview Section */
 .screenshots-preview {
   background: rgba(255, 255, 255, 0.05);
@@ -311,6 +350,28 @@
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+/* Alongside-view note column. Sits next to AI response columns in the same
+   horizontal flex row. Inherits .response-container's KaTeX dark-theme styling. */
+.alongside-note-column .alongside-note-body {
+  border-left: 3px solid rgba(250, 204, 21, 0.6); /* subtle yellow accent to distinguish from AI columns */
+}
+
+/* Inline rendered preview shown right under the active note in the notes list.
+   No Edit click required — the user just clicks the note to view its content. */
+.note-option-preview {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  border-left: 3px solid rgba(250, 204, 21, 0.6);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem 0 0.5rem 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  color: #ffffff;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 /* Live preview pane inside the note editor — shows rendered markdown + KaTeX

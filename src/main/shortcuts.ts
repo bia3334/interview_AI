@@ -108,18 +108,17 @@ export function registerGlobalShortcuts(
     if (mainWindow) mainWindow.webContents.send('toggle-voice-recording');
   }));
 
-  // Arrow key shortcuts for window movement and content scrolling
+  // Arrow key shortcuts for window movement (Ctrl/Cmd+Shift+Arrow).
+  // Note: plain Ctrl/Cmd+Left/Right are reserved for overlay corner
+  // positioning below — don't register a conflicting scroll handler on them
+  // (the previous 'scroll-content' message had no renderer listener anyway).
   ['Up', 'Down', 'Left', 'Right'].forEach(dir => {
-    globalShortcut.register(`CommandOrControl+Shift+${dir}`, () => 
+    globalShortcut.register(`CommandOrControl+Shift+${dir}`, () =>
       moveWindow(dir.toLowerCase() as 'up' | 'down' | 'left' | 'right')
     );
-    globalShortcut.register(`CommandOrControl+${dir}`, () => {
-      const mainWindow = getMainWindow();
-      if (mainWindow) mainWindow.webContents.send('scroll-content', { direction: dir.toLowerCase() });
-    });
   });
 
-  // Overlay corner positioning
+  // Overlay corner positioning (Ctrl/Cmd+Left / Ctrl/Cmd+Right)
   globalShortcut.register(SHORTCUTS.OVERLAY_MOVE_LEFT, () => {
     if (overlayManager.getState().isVisible) overlayManager.moveToCorner('bottom-left');
   });

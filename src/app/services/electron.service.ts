@@ -345,6 +345,14 @@ export class ElectronService {
     return this.electronAPI.saveAutoInteractionOnShow(enabled);
   }
 
+  getNoteViewMode(): Promise<'editor-only' | 'alongside'> {
+    return this.electronAPI.getNoteViewMode();
+  }
+
+  saveNoteViewMode(mode: 'editor-only' | 'alongside'): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveNoteViewMode(mode);
+  }
+
   onToggleVoiceRecording(): Observable<void> {
     return this.toggleVoiceRecording$.asObservable();
   }
@@ -649,6 +657,8 @@ export class ElectronService {
       saveVoiceScreenshotMode: () => Promise.resolve({ success: false }),
       getAutoInteractionOnShow: () => Promise.resolve(false),
       saveAutoInteractionOnShow: () => Promise.resolve({ success: false }),
+      getNoteViewMode: () => Promise.resolve('editor-only'),
+      saveNoteViewMode: () => Promise.resolve({ success: false }),
     } as ElectronAPI;
   }
 }

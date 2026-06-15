@@ -318,7 +318,17 @@ export function registerAIIPC(
   ipcMain.handle('sendPromptWithScreenshotsToOpenAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
-      return ipcMain.emit('sendPromptToOpenAI', _event, prompt);
+      // No screenshots queued — fall back to a plain text prompt. (We can't
+      // re-dispatch the other IPC handler via ipcMain.emit: invoke handlers are
+      // not EventEmitter listeners, so emit would not return the AI response.)
+      log.info('No screenshots queued; sending text-only prompt to OpenAI');
+      const docPrefix = buildDocContextPrefix();
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
+      const assistantReply = await sendPromptToOpenAI(finalPrompt, store);
+      handleAIResponse(assistantReply);
+      return assistantReply;
     }
 
     try {
@@ -369,7 +379,17 @@ export function registerAIIPC(
   ipcMain.handle('sendPromptWithScreenshotsToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
-      return ipcMain.emit('sendPromptToGemini', _event, prompt);
+      // No screenshots queued — fall back to a plain text prompt. (ipcMain.emit
+      // can't reach an invoke handler, so build and run the request directly.)
+      log.info('No screenshots queued; sending text-only prompt to Gemini');
+      const docPrefix = buildDocContextPrefix();
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
+      const result = await sendPromptToGemini([finalPrompt], store);
+      const assistantReply = result.text || 'No response from Gemini.';
+      handleAIResponse(assistantReply);
+      return assistantReply;
     }
 
     try {
@@ -415,7 +435,16 @@ export function registerAIIPC(
   ipcMain.handle('sendPromptWithScreenshotsToZAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
-      return ipcMain.emit('sendPromptToZAI', _event, prompt);
+      // No screenshots queued — fall back to a plain text prompt. (ipcMain.emit
+      // can't reach an invoke handler, so build and run the request directly.)
+      log.info('No screenshots queued; sending text-only prompt to Z.AI');
+      const docPrefix = buildDocContextPrefix();
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
+      const assistantReply = await sendPromptToZAI(finalPrompt, store);
+      handleAIResponse(assistantReply);
+      return assistantReply;
     }
 
     try {
@@ -487,7 +516,7 @@ export function registerAIIPC(
       const ai = getGeminiClient(store);
       const screenshots = [...screenshotQueue];
       const language = options.language || store.get('preferredLanguage') || 'python';
-      const answerStyle = store.get('answerStyle', 'code');
+      const answerStyle = store.get('answerStyle', 'explanation');
       const docPrefix = buildDocContextPrefix();
       
       // Process OCR if enabled
@@ -532,7 +561,7 @@ export function registerAIIPC(
       const openai = getOpenAIClient(store);
       const screenshots = [...screenshotQueue];
       const language = options.language || store.get('preferredLanguage') || 'python';
-      const answerStyle = store.get('answerStyle') || 'code';
+      const answerStyle = store.get('answerStyle') || 'explanation';
       const docPrefix = buildDocContextPrefix();
       
       // Process OCR if enabled
@@ -588,7 +617,7 @@ export function registerAIIPC(
 
       const screenshots = [...screenshotQueue];
       const language = options.language || store.get('preferredLanguage') || 'python';
-      const answerStyle = store.get('answerStyle') || 'code';
+      const answerStyle = store.get('answerStyle') || 'explanation';
       const docPrefix = buildDocContextPrefix();
       
       // Process OCR if enabled

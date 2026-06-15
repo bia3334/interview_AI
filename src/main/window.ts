@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, screen, shell } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import { WINDOW_MOVE_STEP } from './constants/app';
@@ -164,6 +164,15 @@ export function createWindow(store: any, preloadPath: string) {
   mainWindow.setContentProtection(true);
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+
+  // Open external links (target="_blank") in the user's default browser instead
+  // of spawning an in-app window. Block everything that isn't an http(s) URL.
+  mainWindow.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+    if (targetUrl.startsWith('https://') || targetUrl.startsWith('http://')) {
+      shell.openExternal(targetUrl);
+    }
+    return { action: 'deny' };
+  });
 
   if (process.platform === 'darwin') {
     mainWindow.setHiddenInMissionControl(true);

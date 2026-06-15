@@ -133,9 +133,13 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     if (item.prompt) {
       this.conversationHistory.push({ role: 'user', content: item.prompt });
     }
-    // Use the raw response text (strip HTML for context)
-    if (item.openaiResponse) {
-      const textContent = this.stripHtml(item.openaiResponse);
+    // Use the raw response text (strip HTML for context). Pick whichever
+    // provider actually answered — previously this only looked at OpenAI, so
+    // continuing a Gemini/Z.AI/LM Studio session had no assistant context.
+    const priorResponse =
+      item.openaiResponse || item.geminiResponse || item.zaiResponse || item.lmstudioResponse;
+    if (priorResponse) {
+      const textContent = this.stripHtml(priorResponse);
       this.conversationHistory.push({ role: 'assistant', content: textContent });
     }
     
@@ -654,6 +658,15 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     return providers.length > 0 ? providers.join(' + ') : 'No provider';
   }
 
+  /**
+   * Animated "AI is working" placeholder shown in a response panel while a
+   * request is in flight. Styled by the global `.thinking` rules; the dots
+   * pulse and the panel itself gets a scanning beam via `.loading`.
+   */
+  private thinkingHtml(label: string): string {
+    return `<div class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="label">${label}</span></div>`;
+  }
+
   // =====================
   // Generic Provider Request Handler
   // =====================
@@ -742,16 +755,16 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
     // Set loading indicators for all active providers
     if (this.openaiEnabled && !this.lmstudioMode) {
-      this.openaiResponse = '<p>Loading...</p>';
+      this.openaiResponse = this.thinkingHtml('Thinking…');
     }
     if (this.geminiEnabled && !this.lmstudioMode) {
-      this.geminiResponse = '<p>Loading...</p>';
+      this.geminiResponse = this.thinkingHtml('Thinking…');
     }
     if (this.zaiEnabled && !this.lmstudioMode) {
-      this.zaiResponse = '<p>Loading...</p>';
+      this.zaiResponse = this.thinkingHtml('Thinking…');
     }
     if (this.lmstudioMode) {
-      this.lmstudioResponse = '<p>Loading...</p>';
+      this.lmstudioResponse = this.thinkingHtml('Thinking…');
     }
     this.cdr.detectChanges();
 
@@ -895,10 +908,10 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   async processClipboardPrompt() {
     try {
       this.isLoading = true;
-      this.openaiResponse = '<p>Processing clipboard text...</p>';
-      this.geminiResponse = '<p>Processing clipboard text...</p>';
-      this.lmstudioResponse = '<p>Processing clipboard text...</p>';
-      this.zaiResponse = '<p>Processing clipboard text...</p>';
+      this.openaiResponse = this.thinkingHtml('Processing clipboard text…');
+      this.geminiResponse = this.thinkingHtml('Processing clipboard text…');
+      this.lmstudioResponse = this.thinkingHtml('Processing clipboard text…');
+      this.zaiResponse = this.thinkingHtml('Processing clipboard text…');
       this.cdr.detectChanges();
 
       const result = await this.electronService.processClipboardPrompt();
@@ -995,13 +1008,13 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
     // Set loading indicators for all active providers
     if (this.openaiEnabled && !this.lmstudioMode) {
-      this.openaiResponse = '<p>Analyzing screenshots...</p>';
+      this.openaiResponse = this.thinkingHtml('Analyzing screenshots…');
     }
     if (this.geminiEnabled && !this.lmstudioMode) {
-      this.geminiResponse = '<p>Analyzing screenshots...</p>';
+      this.geminiResponse = this.thinkingHtml('Analyzing screenshots…');
     }
     if (this.zaiEnabled && !this.lmstudioMode) {
-      this.zaiResponse = '<p>Analyzing screenshots...</p>';
+      this.zaiResponse = this.thinkingHtml('Analyzing screenshots…');
     }
     if (this.lmstudioMode) {
       this.lmstudioResponse = '<p>LM Studio does not support image analysis</p>';
@@ -1081,8 +1094,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     } catch (error: any) {
       this.ngZone.run(() => {
         const errorMsg = this.markdownService.renderMarkdown(`**Error:** ${error.message}`);
-        this.openaiResponse = errorMsg;
-        this.geminiResponse = errorMsg;
+        // Clear the spinner for every active provider, not just OpenAI/Gemini —
+        // otherwise the Z.AI panel stayed stuck on "Analyzing…".
+        if (this.openaiEnabled) this.openaiResponse = errorMsg;
+        if (this.geminiEnabled) this.geminiResponse = errorMsg;
+        if (this.zaiEnabled) this.zaiResponse = errorMsg;
         this.cdr.detectChanges();
       });
     } finally {
@@ -1116,7 +1132,9 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     try {
       const result = await this.electronService.extractTextFromScreenshots();
       if (result.success && result.extractedText) {
-        this.userInput = result.extractedText.substring(0, 100) + '...';
+        // Use the full extracted text — truncating to 100 chars silently lost
+        // the rest of the OCR/vision output.
+        this.userInput = result.extractedText;
       }
     } catch (error: any) {
       console.error('Error extracting text:', error);
@@ -1124,7 +1142,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   }
 
   onKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
+    // Ignore Enter while an IME composition is in progress (CJK input), and let
+    // Shift+Enter through without sending. Prevent the default so the keypress
+    // doesn't also bubble as a form submit.
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
       this.sendPrompt();
     }
   }

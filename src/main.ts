@@ -4,11 +4,18 @@
  * This file initializes the application and wires together all modules.
  * Individual functionality is delegated to dedicated modules.
  */
+import * as dns from 'dns';
 import * as dotenv from 'dotenv';
 import { app, desktopCapturer, dialog, ipcMain, session } from 'electron';
 import * as electronLog from 'electron-log';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Prefer IPv4 for outbound requests. AI API hosts publish AAAA (IPv6)
+// records, and Node's fetch tries addresses in DNS order with no
+// happy-eyeballs fallback — on networks with a broken IPv6 route this
+// surfaces as intermittent "TypeError: fetch failed" from the SDKs.
+dns.setDefaultResultOrder('ipv4first');
 
 // Import modules
 import { getApiKey } from './main/ai/clients';

@@ -1,8 +1,8 @@
 <div class="tab-content active" data-tab-content="prompt">
   <!-- Conversation Mode Indicator -->
-  <div *ngIf="isConversationMode" class="conversation-indicator" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: linear-gradient(45deg, #6366f1, #8b5cf6); border-radius: 6px;">
-    <span style="font-size: 0.9rem;"><mat-icon class="inline-icon">forum</mat-icon> Continuing conversation ({{conversationHistory.length}} messages)</span>
-    <button class="btn" style="margin-left: auto; background: rgba(255,255,255,0.2); color: white; padding: 0.25rem 0.5rem; font-size: 0.8rem;" (click)="clearConversation()">
+  <div *ngIf="isConversationMode" class="conversation-indicator" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem 0.75rem; background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px;">
+    <span style="font-size: 0.85rem;"><mat-icon class="inline-icon" style="color: #a78bfa;">forum</mat-icon> Continuing conversation ({{conversationHistory.length}} messages)</span>
+    <button class="btn" style="margin-left: auto; padding: 0.25rem 0.5rem; font-size: 0.8rem;" (click)="clearConversation()">
             <mat-icon class="inline-icon">close</mat-icon> New Conversation
     </button>
   </div>
@@ -95,24 +95,39 @@
           <span>None (no note context)</span>
         </div>
         
-        <div 
-          *ngFor="let note of notes" 
-          class="note-option"
-          [class.active]="note.active"
-        >
-          <div class="note-option-main" (click)="setActiveNote(note.id)">
-            <span class="note-name">{{ note.title }}</span>
-            <span class="note-preview">{{ note.contentPreview }}</span>
+        <ng-container *ngFor="let note of notes">
+          <div
+            class="note-option"
+            [class.active]="note.active"
+          >
+            <div class="note-option-main" (click)="setActiveNote(note.id)">
+              <span class="note-name">{{ note.title }}</span>
+              <span class="note-preview">{{ note.contentPreview }}</span>
+            </div>
+            <div class="note-option-actions">
+              <button class="btn-icon" (click)="openEditNoteEditor(note.id)" title="Edit">
+                <mat-icon class="inline-icon small">edit</mat-icon>
+              </button>
+              <button class="btn-icon btn-icon-danger" (click)="deleteNote(note.id)" title="Delete">
+                <mat-icon class="inline-icon small">delete</mat-icon>
+              </button>
+            </div>
           </div>
-          <div class="note-option-actions">
-            <button class="btn-icon" (click)="openEditNoteEditor(note.id)" title="Edit">
-              <mat-icon class="inline-icon small">edit</mat-icon>
-            </button>
-            <button class="btn-icon btn-icon-danger" (click)="deleteNote(note.id)" title="Delete">
-              <mat-icon class="inline-icon small">delete</mat-icon>
-            </button>
+          <!-- Inline rendered preview shown directly under the clicked note.
+               Uses the same MarkdownService as the editor preview, so output
+               is identical. Only one note can be active, so only one preview
+               renders at a time. -->
+          <div
+            *ngIf="note.active && renderedActiveNoteContent"
+            class="note-option-preview response-container"
+          >
+            <div
+              #notesListPreviewContainer
+              class="note-preview-body"
+              [innerHTML]="renderedActiveNoteContent"
+            ></div>
           </div>
-        </div>
+        </ng-container>
       </div>
     </div>
   </div>
@@ -144,8 +159,8 @@
     <button class="btn btn-primary" (click)="sendPrompt()">Send</button>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
       <button
-        class="btn btn-primary"
-        [style.background]="isRecording ? 'linear-gradient(45deg, #dc2626, #991b1b)' : 'linear-gradient(45deg, #8b5cf6, #6366f1)'"
+        class="btn btn-primary btn-voice"
+        [class.recording]="isRecording"
         [disabled]="isTranscribing"
         (click)="toggleVoiceRecording()"
         title="Toggle voice recording (Ctrl+Shift+V). Captures system audio (Zoom) + screenshot.">
@@ -159,59 +174,81 @@
         Recording system audio…
       </span>
       <button class="btn" (click)="processClipboardPrompt()"><mat-icon class="inline-icon">content_paste</mat-icon> Process Clipboard</button>
-      <button class="btn btn-primary" style="background: linear-gradient(45deg, #3b82f6, #6366f1);" (click)="takeFullScreenshot()"><mat-icon class="inline-icon">screenshot_monitor</mat-icon> Full Screenshot</button>
-      <button class="btn btn-primary" style="background: linear-gradient(45deg, #ff6b6b, #feca57);" (click)="takeRegionScreenshot()"><mat-icon class="inline-icon">crop</mat-icon> Region Screenshot</button>
-      <button class="btn btn-primary" style="background: linear-gradient(45deg, #10b981, #059669);" (click)="extractText()"><mat-icon class="inline-icon">text_snippet</mat-icon> Extract Text</button>
+      <button class="btn btn-primary btn-accent-blue" (click)="takeFullScreenshot()"><mat-icon class="inline-icon">screenshot_monitor</mat-icon> Full Screenshot</button>
+      <button class="btn btn-primary btn-accent-warm" (click)="takeRegionScreenshot()"><mat-icon class="inline-icon">crop</mat-icon> Region Screenshot</button>
+      <button class="btn btn-primary btn-accent-green" (click)="extractText()"><mat-icon class="inline-icon">text_snippet</mat-icon> Extract Text</button>
     </div>
   </div>
   <div id="responseToggle" style="display: flex; margin-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap;">
     <!-- Active providers indicator -->
-    <span *ngIf="!lmstudioMode" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.1); font-size: 0.85rem;">
-      <span *ngIf="openaiEnabled" style="color: #10a37f;">●</span>
-      <span *ngIf="geminiEnabled" style="color: #4285f4;">●</span>
-      <span *ngIf="zaiEnabled" style="color: #e0e0e0;">●</span>
+    <span *ngIf="!lmstudioMode" class="provider-chip" [class.busy]="isLoading">
+      <span *ngIf="openaiEnabled" class="provider-dot" style="color: #10a37f;">●</span>
+      <span *ngIf="geminiEnabled" class="provider-dot" style="color: #4285f4;">●</span>
+      <span *ngIf="zaiEnabled" class="provider-dot" style="color: #e0e0e0;">●</span>
       <span style="opacity: 0.7; margin-left: 4px;">
-        {{ getActiveProvidersLabel() }}
+        {{ getActiveProvidersLabel() }}{{ isLoading ? ' — responding…' : '' }}
       </span>
     </span>
-    <span *ngIf="lmstudioMode" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; background: linear-gradient(45deg, #10b981, #059669); font-size: 0.85rem;">
-      <mat-icon class="inline-icon small">computer</mat-icon> LM Studio Mode
+    <span *ngIf="lmstudioMode" class="provider-chip lmstudio" [class.busy]="isLoading">
+      <mat-icon class="inline-icon small">computer</mat-icon> LM Studio Mode{{ isLoading ? ' — responding…' : '' }}
     </span>
   </div>
   <div id="responsesContainer" style="display: flex; gap: 1rem; flex: 1; min-height: 0; overflow: hidden;">
+    <!-- Active Note (alongside view) — shown next to AI responses when the
+         user picks the "alongside" note view in Settings. Same renderer as
+         the editor preview, so output matches exactly. -->
+    <div
+      *ngIf="noteViewMode === 'alongside' && renderedActiveNoteContent"
+      class="alongside-note-column"
+      style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+      <div style="font-weight: bold; margin-bottom: 0.5rem; color: #facc15; display: flex; align-items: center; gap: 6px;">
+        <mat-icon class="inline-icon small">note</mat-icon>
+        <span>Note</span>
+        <span *ngIf="activeNoteTitleForView" style="font-weight: normal; opacity: 0.75; font-size: 0.85rem;">— {{ activeNoteTitleForView }}</span>
+      </div>
+      <div
+        #activeNoteAlongsideContainer
+        class="response-container alongside-note-body"
+        [innerHTML]="renderedActiveNoteContent"
+      ></div>
+    </div>
     <!-- OpenAI Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="openaiEnabled && !lmstudioMode ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem; color: #10a37f;">OpenAI</div>
-      <div 
-        #openaiResponseContainer 
-        class="response-container" 
+      <div
+        #openaiResponseContainer
+        class="response-container"
+        [class.loading]="isLoading"
         [innerHTML]="openaiResponse"
       ></div>
     </div>
     <!-- Gemini Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="geminiEnabled && !lmstudioMode ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem; color: #4285f4;">Gemini</div>
-      <div 
-        #geminiResponseContainer 
-        class="response-container" 
+      <div
+        #geminiResponseContainer
+        class="response-container"
+        [class.loading]="isLoading"
         [innerHTML]="geminiResponse"
       ></div>
     </div>
     <!-- Z.AI Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="zaiEnabled && !lmstudioMode ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem; color: #e0e0e0;">Z.AI (GLM)</div>
-      <div 
-        #zaiResponseContainer 
-        class="response-container" 
+      <div
+        #zaiResponseContainer
+        class="response-container"
+        [class.loading]="isLoading"
         [innerHTML]="zaiResponse"
       ></div>
     </div>
     <!-- LM Studio Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="lmstudioMode ? 'flex' : 'none'">
       <div style="font-weight: bold; margin-bottom: 0.5rem; color: #10b981;">LM Studio (Local)</div>
-      <div 
-        #lmstudioResponseContainer 
-        class="response-container" 
+      <div
+        #lmstudioResponseContainer
+        class="response-container"
+        [class.loading]="isLoading"
         [innerHTML]="lmstudioResponse"
       ></div>
     </div>

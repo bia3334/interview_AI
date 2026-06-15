@@ -116,6 +116,8 @@ const api: ElectronAPI = {
   saveVoiceScreenshotMode: (mode) => ipcRenderer.invoke('saveVoiceScreenshotMode', mode),
   getAutoInteractionOnShow: () => ipcRenderer.invoke('getAutoInteractionOnShow'),
   saveAutoInteractionOnShow: (enabled) => ipcRenderer.invoke('saveAutoInteractionOnShow', enabled),
+  getNoteViewMode: () => ipcRenderer.invoke('getNoteViewMode'),
+  saveNoteViewMode: (mode) => ipcRenderer.invoke('saveNoteViewMode', mode),
 
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
   removeScreenshot: (index) => ipcRenderer.invoke('remove-screenshot', index),

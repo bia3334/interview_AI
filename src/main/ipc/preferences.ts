@@ -143,6 +143,22 @@ export function registerPreferencesIPC(
     }
   });
 
+  // Note view mode — 'editor-only' or 'alongside' AI response
+  ipcMain.handle('getNoteViewMode', () => {
+    const mode = store.get('noteViewMode');
+    return mode === 'alongside' ? 'alongside' : 'editor-only';
+  });
+  ipcMain.handle('saveNoteViewMode', (_event: IpcMainInvokeEvent, mode: 'editor-only' | 'alongside') => {
+    try {
+      const normalized = mode === 'alongside' ? 'alongside' : 'editor-only';
+      store.set('noteViewMode', normalized);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving noteViewMode:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Custom System Prompt
   ipcMain.handle('getCustomSystemPrompt', () => store.get('customSystemPrompt') || '');
   ipcMain.handle('saveCustomSystemPrompt', (_event: IpcMainInvokeEvent, prompt: string) => {
