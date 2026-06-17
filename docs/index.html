@@ -4,28 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Screen Genius — Invisible AI Screen Assistant for Windows</title>
-  <meta name="description" content="Screen Genius is a free, invisible Windows desktop app that captures your screen, runs OCR, and gives instant AI answers from OpenAI, Gemini, Z.AI or local LM Studio — hidden from screen shares and recordings." />
-  <meta name="keywords" content="Screen Genius, invisible AI app, AI screen assistant, screenshot AI, OCR AI, Windows AI copilot, interview helper, OpenAI, Gemini, LM Studio" />
+  <meta name="description" content="Screen Genius is a free, invisible Windows app that reads your screen and answers with OpenAI, Gemini, Claude, Z.AI and local LM Studio — side by side. Screenshots, OCR, system-audio voice transcription, document context and Markdown+LaTeX notes. Hidden from screen shares and recordings." />
+  <meta name="keywords" content="Screen Genius, invisible AI app, AI screen assistant, screenshot AI, OCR, voice transcription, multi-model AI, OpenAI, Gemini, Claude, Z.AI, LM Studio, Windows AI copilot" />
   <meta name="author" content="Screen Genius" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://bia3334.github.io/interview_AI/" />
   <link rel="icon" type="image/png" href="assets/icon.png" />
 
-  <!-- Open Graph (Facebook, LinkedIn, Discord…) -->
+  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Screen Genius" />
   <meta property="og:title" content="Screen Genius — Invisible AI Screen Assistant for Windows" />
-  <meta property="og:description" content="Free, invisible Windows app that reads your screen and gives instant AI answers — hidden from screen shares and recordings." />
+  <meta property="og:description" content="Free, invisible Windows app that reads your screen and answers with five AI providers at once — hidden from screen shares and recordings." />
   <meta property="og:url" content="https://bia3334.github.io/interview_AI/" />
   <meta property="og:image" content="https://bia3334.github.io/interview_AI/assets/og-image.png" />
 
-  <!-- Twitter / X card -->
+  <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Screen Genius — Invisible AI Screen Assistant for Windows" />
-  <meta name="twitter:description" content="Free, invisible Windows app that reads your screen and gives instant AI answers — hidden from screen shares and recordings." />
+  <meta name="twitter:description" content="Free, invisible Windows app that reads your screen and answers with five AI providers at once — hidden from screen shares and recordings." />
   <meta name="twitter:image" content="https://bia3334.github.io/interview_AI/assets/og-image.png" />
 
-  <!-- Structured data: tells Google this is a downloadable software app -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -33,34 +32,35 @@
     "name": "Screen Genius",
     "operatingSystem": "Windows 10, Windows 11",
     "applicationCategory": "UtilitiesApplication",
-    "description": "An invisible Windows desktop app that captures your screen, runs OCR, and gives instant AI answers from OpenAI, Gemini, Z.AI or local LM Studio — hidden from screen shares and recordings.",
+    "description": "An invisible Windows desktop app that reads your screen and answers with OpenAI, Gemini, Claude, Z.AI and local LM Studio side by side. Screenshots, OCR, system-audio voice transcription, document context, and Markdown+LaTeX notes — hidden from screen shares and recordings.",
     "url": "https://bia3334.github.io/interview_AI/",
     "downloadUrl": "https://github.com/bia3334/interview_AI/releases/latest",
     "softwareVersion": "1.0.0",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
+
   <style>
     :root {
-      --bg: #07090f;
-      --bg-soft: #0d111c;
-      --panel: #11162400;
-      --card: #121829;
-      --card-border: rgba(255, 255, 255, 0.07);
-      --text: #e9edf6;
-      --muted: #98a2b8;
-      --brand: #6d8bff;
-      --brand-2: #9d7bff;
-      --accent: #36e0c0;
-      --radius: 18px;
-      --maxw: 1140px;
+      --bg: #0a0b0e;
+      --bg-soft: #0e1014;
+      --card: #101218;
+      --card-hover: #14171f;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --text: #e8ebf2;
+      --muted: #8a90a0;
+      --faint: #5b6172;
+      --accent: #6e8bff;
+      --accent-soft: rgba(110, 139, 255, 0.12);
+      --accent-border: rgba(110, 139, 255, 0.30);
+      --maxw: 1120px;
       --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --mono: 'SF Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { scroll-behavior: smooth; }
-
     body {
       background: var(--bg);
       color: var(--text);
@@ -69,320 +69,291 @@
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
-
     a { color: inherit; text-decoration: none; }
-
     .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
 
-    /* ---------- Background glow ---------- */
-    .bg-glow {
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      background:
-        radial-gradient(60% 50% at 50% -10%, rgba(109, 139, 255, 0.22), transparent 70%),
-        radial-gradient(40% 40% at 85% 10%, rgba(157, 123, 255, 0.16), transparent 70%),
-        radial-gradient(50% 50% at 10% 30%, rgba(54, 224, 192, 0.10), transparent 70%);
+    /* One faint accent wash near the top — quiet, no neon. */
+    .bg-wash {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background: radial-gradient(70% 45% at 50% -12%, rgba(110, 139, 255, 0.06), transparent 70%);
     }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 20px; border-radius: 10px;
+      font-weight: 600; font-size: 14.5px; cursor: pointer;
+      border: 1px solid transparent;
+      transition: background .16s ease, border-color .16s ease, transform .16s ease;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #0a0d18; }
+    .btn-primary:hover { background: #88a0ff; transform: translateY(-1px); }
+    .btn-ghost { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.07); border-color: var(--border-strong); transform: translateY(-1px); }
 
     /* ---------- Nav ---------- */
     nav {
-      position: sticky;
-      top: 0;
-      z-index: 50;
+      position: sticky; top: 0; z-index: 50;
       backdrop-filter: blur(14px);
-      background: rgba(7, 9, 15, 0.6);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(10, 11, 14, 0.72);
+      border-bottom: 1px solid var(--border);
     }
-    nav .wrap {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 70px;
-    }
-    .logo { display: flex; align-items: center; gap: 11px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+    nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
     .logo .mark {
-      width: 34px; height: 34px; border-radius: 9px;
-      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--accent-soft); border: 1px solid var(--accent-border);
       display: grid; place-items: center;
-      box-shadow: 0 6px 22px rgba(109, 139, 255, 0.45);
     }
-    .logo .mark svg { width: 19px; height: 19px; }
-    .nav-links { display: flex; gap: 30px; align-items: center; font-size: 15px; color: var(--muted); }
-    .nav-links a:hover { color: var(--text); }
-    .nav-links .cta { color: var(--text); }
-
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 22px; border-radius: 12px;
-      font-weight: 600; font-size: 15px; cursor: pointer;
-      border: 1px solid transparent; transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
-      white-space: nowrap;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      color: #fff; box-shadow: 0 10px 30px rgba(109, 139, 255, 0.35);
-    }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(109, 139, 255, 0.5); }
-    .btn-ghost { background: rgba(255,255,255,0.04); border-color: var(--card-border); color: var(--text); }
-    .btn-ghost:hover { background: rgba(255,255,255,0.09); transform: translateY(-2px); }
+    .logo .mark svg { width: 18px; height: 18px; stroke: var(--accent); }
+    .nav-links { display: flex; gap: 28px; align-items: center; font-size: 14.5px; color: var(--muted); }
+    .nav-links a:not(.btn):hover { color: var(--text); }
 
     /* ---------- Hero ---------- */
-    header { padding: 90px 0 70px; text-align: center; }
+    header { padding: 84px 0 60px; text-align: center; }
     .pill {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 7px 15px; border-radius: 100px; font-size: 13.5px; font-weight: 500;
-      background: rgba(54, 224, 192, 0.08); border: 1px solid rgba(54, 224, 192, 0.25);
-      color: var(--accent); margin-bottom: 28px;
+      padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 500;
+      background: rgba(255,255,255,0.035); border: 1px solid var(--border);
+      color: var(--muted); margin-bottom: 26px;
     }
-    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
     h1 {
-      font-size: clamp(40px, 6.5vw, 72px);
-      line-height: 1.04; letter-spacing: -0.035em; font-weight: 800;
-      max-width: 900px; margin: 0 auto 24px;
+      font-size: clamp(38px, 6vw, 66px);
+      line-height: 1.05; letter-spacing: -0.035em; font-weight: 800;
+      max-width: 880px; margin: 0 auto 22px;
     }
-    h1 .grad {
-      background: linear-gradient(120deg, var(--brand), var(--brand-2) 50%, var(--accent));
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .sub {
-      font-size: clamp(17px, 2.2vw, 21px); color: var(--muted);
-      max-width: 640px; margin: 0 auto 38px;
-    }
-    .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-    .hero-note { margin-top: 18px; font-size: 13.5px; color: var(--muted); }
+    h1 .accent { color: var(--accent); }
+    .sub { font-size: clamp(16px, 2vw, 20px); color: var(--muted); max-width: 660px; margin: 0 auto 34px; }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .hero-note { margin-top: 16px; font-size: 13px; color: var(--faint); }
 
-    /* ---------- App mockup ---------- */
-    .mock {
-      margin: 70px auto 0; max-width: 880px; position: relative;
+    /* ---------- App mock (side-by-side answers) ---------- */
+    .mock { margin: 64px auto 0; max-width: 940px; }
+    .win {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid var(--border); background: var(--bg-soft);
+      box-shadow: 0 30px 90px rgba(0,0,0,0.55);
     }
-    .mock-window {
-      border-radius: 16px; overflow: hidden;
-      border: 1px solid var(--card-border);
-      background: linear-gradient(180deg, #0e1320, #0a0e18);
-      box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
-    }
-    .mock-bar { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--card-border); }
-    .mock-bar .d { width: 12px; height: 12px; border-radius: 50%; }
-    .mock-bar .d:nth-child(1){ background:#ff5f57; } .mock-bar .d:nth-child(2){ background:#febc2e; } .mock-bar .d:nth-child(3){ background:#28c840; }
-    .mock-bar .ttl { margin-left: 12px; font-size: 13px; color: var(--muted); }
-    .mock-body { display: grid; grid-template-columns: 1fr 1.15fr; min-height: 320px; }
-    .mock-left { padding: 22px; border-right: 1px solid var(--card-border); }
-    .mock-right { padding: 22px; background: rgba(109,139,255,0.03); }
-    .mlabel { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
-    .shot { border-radius: 10px; height: 120px; background: linear-gradient(135deg,#1b2236,#10172a); border: 1px solid var(--card-border); position: relative; overflow:hidden; }
-    .shot::after { content:''; position:absolute; inset:0; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 12px, transparent 12px 26px); }
-    .codeline { height: 9px; border-radius: 5px; background: rgba(255,255,255,0.08); margin: 11px 0; }
-    .codeline.s { width: 60%; } .codeline.m { width: 85%; } .codeline.l { width: 95%; }
-    .ans-head { display:flex; align-items:center; gap:9px; font-weight:600; font-size:14px; margin-bottom:14px; }
-    .ans-head .ai { width:24px; height:24px; border-radius:7px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; font-size:13px; }
-    .ans .codeline { background: rgba(109,139,255,0.18); }
-    .typing { display:inline-block; width:7px; height:15px; background:var(--accent); margin-left:2px; vertical-align:middle; animation: blink 1s steps(2) infinite; }
-    @keyframes blink { 50% { opacity:0; } }
+    .win-bar { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+    .win-bar .d { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,0.12); }
+    .win-bar .ttl { margin-left: 10px; font-size: 12.5px; color: var(--muted); }
+    .win-bar .live { margin-left: auto; font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .win-bar .live .ld { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1.4s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0.25; } }
+    .win-body { display: grid; grid-template-columns: 0.95fr 1fr 1fr; }
+    .pane { padding: 18px; border-right: 1px solid var(--border); min-height: 250px; }
+    .pane:last-child { border-right: none; }
+    .pane.q { background: rgba(255,255,255,0.012); }
+    .pane-h { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: 14px; color: var(--muted); }
+    .pdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+    .editor { font-family: var(--mono); font-size: 12px; line-height: 1.85; color: #9aa6c2; }
+    .editor .ln { color: #454d63; margin-right: 12px; user-select: none; }
+    .editor .kw { color: #c08bff; } .editor .fn { color: var(--accent); } .editor .cm { color: #565d72; }
+    .ln-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.07); margin: 9px 0; }
+    .ln-bar.s { width: 55%; } .ln-bar.m { width: 80%; } .ln-bar.l { width: 94%; }
+    .ln-bar.a { background: var(--accent-soft); }
+    .caret { display: inline-block; width: 6px; height: 13px; background: var(--accent); vertical-align: middle; margin-left: 2px; animation: blink 1s steps(2) infinite; }
+    .mock-cap { text-align: center; color: var(--faint); font-size: 13px; margin-top: 16px; }
 
-    /* ---------- Trust strip ---------- */
-    .providers { padding: 46px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); margin-top: 80px; }
-    .providers .lbl { text-align:center; font-size:13px; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); margin-bottom:22px; }
-    .provider-row { display:flex; gap: 18px; justify-content:center; flex-wrap:wrap; }
-    .provider-chip { padding: 11px 20px; border-radius: 11px; background: var(--card); border:1px solid var(--card-border); font-weight:600; font-size:15px; color:#cdd5e6; display:flex; align-items:center; gap:9px; }
-    .provider-chip .pd { width:8px; height:8px; border-radius:50%; background:var(--brand); }
+    /* ---------- Models row ---------- */
+    .models { padding: 40px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 76px; }
+    .models .lbl { text-align: center; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint); margin-bottom: 20px; }
+    .model-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .model-chip { padding: 10px 18px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); font-weight: 600; font-size: 14.5px; color: #ced4e3; display: flex; align-items: center; gap: 9px; }
+    .model-chip .pdot { width: 8px; height: 8px; }
+    .model-chip small { color: var(--faint); font-weight: 500; font-size: 12px; }
 
     /* ---------- Sections ---------- */
-    section.block { padding: 100px 0; }
-    .sec-head { text-align: center; max-width: 680px; margin: 0 auto 60px; }
-    .sec-head .tag { color: var(--brand); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
-    .sec-head h2 { font-size: clamp(30px, 4.5vw, 46px); letter-spacing: -0.03em; line-height: 1.1; margin: 12px 0 16px; font-weight: 800; }
-    .sec-head p { color: var(--muted); font-size: 18px; }
+    section.block { padding: 92px 0; }
+    .sec-head { max-width: 700px; margin: 0 auto 52px; text-align: center; }
+    .sec-head .tag { color: var(--accent); font-weight: 600; font-size: 13.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .sec-head h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -0.03em; line-height: 1.12; margin: 12px 0 14px; font-weight: 800; }
+    .sec-head p { color: var(--muted); font-size: 17px; }
 
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    /* ---------- Feature grid ---------- */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
     .feature {
-      background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius);
-      padding: 30px 26px; transition: transform .2s ease, border-color .2s ease, background .2s;
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 26px 24px; transition: transform .18s ease, border-color .18s ease, background .18s ease;
     }
-    .feature:hover { transform: translateY(-5px); border-color: rgba(109,139,255,0.4); background: #141b2f; }
+    .feature:hover { transform: translateY(-3px); border-color: var(--border-strong); background: var(--card-hover); }
     .feature .ic {
-      width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center; margin-bottom: 18px;
-      background: linear-gradient(135deg, rgba(109,139,255,0.18), rgba(157,123,255,0.12));
-      border: 1px solid rgba(109,139,255,0.25);
+      width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 16px;
+      background: var(--accent-soft); border: 1px solid var(--accent-border);
     }
-    .feature .ic svg { width: 24px; height: 24px; stroke: var(--brand); }
-    .feature h3 { font-size: 19px; margin-bottom: 9px; letter-spacing: -0.01em; }
-    .feature p { color: var(--muted); font-size: 15px; }
+    .feature .ic svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .feature h3 { font-size: 17.5px; margin-bottom: 8px; letter-spacing: -0.01em; }
+    .feature p { color: var(--muted); font-size: 14.5px; }
+    .feature .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .feature .tags span { font-size: 11.5px; color: var(--faint); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
 
-    /* ---------- How it works ---------- */
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-    .step { position: relative; padding: 32px 26px; background: var(--card); border:1px solid var(--card-border); border-radius: var(--radius); }
-    .step .num { font-size: 14px; font-weight: 700; color: var(--bg); background: linear-gradient(135deg,var(--brand),var(--brand-2)); width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 18px; }
-    .step h3 { font-size: 18px; margin-bottom: 8px; }
-    .step p { color: var(--muted); font-size: 15px; }
-    .step kbd { font-family: 'SF Mono', ui-monospace, monospace; font-size: 12.5px; background: rgba(255,255,255,0.06); border:1px solid var(--card-border); border-bottom-width:2px; padding: 2px 7px; border-radius: 6px; color: #cdd5e6; }
+    /* ---------- Split highlight ---------- */
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: center; }
+    .split.rev { direction: rtl; } .split.rev > * { direction: ltr; }
+    .split h2 { font-size: clamp(26px, 3.6vw, 38px); letter-spacing: -0.03em; line-height: 1.14; margin-bottom: 16px; font-weight: 800; }
+    .split p { color: var(--muted); font-size: 16.5px; margin-bottom: 22px; }
+    .split .tag { color: var(--accent); font-weight: 600; font-size: 13.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .checklist { list-style: none; display: grid; gap: 13px; }
+    .checklist li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; }
+    .checklist .ck { flex: 0 0 auto; width: 21px; height: 21px; border-radius: 6px; background: var(--accent-soft); border: 1px solid var(--accent-border); display: grid; place-items: center; color: var(--accent); font-size: 12px; margin-top: 2px; }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+    .panel-h { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin-bottom: 16px; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 10px; background: var(--bg-soft); border: 1px solid var(--border); margin-bottom: 9px; }
+    .row .pdot { width: 9px; height: 9px; }
+    .row .nm { font-weight: 600; font-size: 14px; }
+    .row .st { margin-left: auto; font-size: 12px; color: var(--faint); }
+    .wave { display: inline-flex; gap: 3px; align-items: flex-end; height: 16px; margin-left: auto; }
+    .wave i { width: 3px; background: var(--accent); border-radius: 2px; animation: wave 1.1s ease-in-out infinite; }
+    .wave i:nth-child(1){ height: 6px; animation-delay: 0s; } .wave i:nth-child(2){ height: 13px; animation-delay: .15s; }
+    .wave i:nth-child(3){ height: 9px; animation-delay: .3s; } .wave i:nth-child(4){ height: 15px; animation-delay: .45s; }
+    .wave i:nth-child(5){ height: 7px; animation-delay: .6s; }
+    @keyframes wave { 0%,100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
+    .doc-row { display: flex; align-items: center; gap: 11px; padding: 12px; border-radius: 10px; background: var(--bg-soft); border: 1px solid var(--border); margin-bottom: 9px; }
+    .doc-row .ext { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 6px; padding: 4px 7px; flex: 0 0 auto; }
+    .doc-row .dn { font-size: 13.5px; }
+    .doc-row .badge { margin-left: auto; font-size: 11px; color: var(--faint); display: flex; align-items: center; gap: 5px; }
 
-    /* ---------- Invisible highlight ---------- */
-    .spotlight { background: linear-gradient(135deg, rgba(109,139,255,0.10), rgba(157,123,255,0.06)); border: 1px solid rgba(109,139,255,0.2); border-radius: 28px; padding: 60px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 50px; align-items: center; }
-    .spotlight h2 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.03em; line-height: 1.12; margin-bottom: 18px; font-weight: 800; }
-    .spotlight p { color: var(--muted); font-size: 17px; margin-bottom: 22px; }
-    .checklist { list-style: none; display: grid; gap: 14px; }
-    .checklist li { display: flex; gap: 12px; align-items: flex-start; font-size: 15.5px; }
-    .checklist .ck { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; background: rgba(54,224,192,0.15); border:1px solid rgba(54,224,192,0.4); display:grid; place-items:center; color: var(--accent); font-size: 13px; margin-top:2px; }
-    .ghost-visual { aspect-ratio: 1/1; border-radius: 24px; background: radial-gradient(circle at 50% 40%, rgba(109,139,255,0.25), transparent 60%); display:grid; place-items:center; position:relative; }
-    .ghost-visual .eye { font-size: 90px; filter: grayscale(0.2); opacity:0.9; }
-    .ghost-visual .ring { position:absolute; inset:0; border-radius:24px; border:1px dashed rgba(255,255,255,0.12); animation: spin 22s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ---------- Workflow ---------- */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .step { padding: 28px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+    .step .num { font-size: 13px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 16px; }
+    .step h3 { font-size: 17px; margin-bottom: 8px; }
+    .step p { color: var(--muted); font-size: 14.5px; }
+    kbd { font-family: var(--mono); font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-bottom-width: 2px; padding: 2px 7px; border-radius: 6px; color: #ced4e3; white-space: nowrap; }
 
     /* ---------- Shortcuts ---------- */
-    .sc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 40px; max-width: 820px; margin: 0 auto; }
-    .sc-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .sc-row .act { color: #cdd5e6; font-size: 15px; }
-    .sc-row .keys { display: flex; gap: 5px; }
-    .sc-row kbd { font-family: 'SF Mono', ui-monospace, monospace; font-size: 12px; background: rgba(255,255,255,0.05); border:1px solid var(--card-border); border-bottom-width:2px; padding: 4px 8px; border-radius: 6px; color: #e9edf6; }
-
-    /* ---------- CTA ---------- */
-    .final { text-align: center; padding: 110px 0; }
-    .final h2 { font-size: clamp(34px, 5vw, 56px); letter-spacing: -0.035em; line-height: 1.05; font-weight: 800; max-width: 720px; margin: 0 auto 20px; }
-    .final p { color: var(--muted); font-size: 19px; margin-bottom: 36px; }
-
-    /* ---------- Footer ---------- */
-    footer { border-top: 1px solid rgba(255,255,255,0.05); padding: 40px 0; }
-    footer .wrap { display:flex; justify-content: space-between; align-items:center; flex-wrap:wrap; gap:16px; color: var(--muted); font-size: 14px; }
-    .disclaimer { font-size: 12.5px; color: #5d6679; max-width: 760px; margin: 22px auto 0; text-align:center; line-height:1.5; }
-
-    /* ---------- In action / demo ---------- */
-    .demo-stage { max-width: 920px; margin: 0 auto; }
-    .demo-window {
-      border-radius: 16px; overflow: hidden; border: 1px solid var(--card-border);
-      background: linear-gradient(180deg, #0e1320, #0a0e18);
-      box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
-      position: relative;
-    }
-    .demo-window .mock-bar { display:flex; align-items:center; gap:8px; padding:14px 16px; border-bottom:1px solid var(--card-border); }
-    .demo-window .mock-bar .d { width:12px; height:12px; border-radius:50%; }
-    .demo-window .mock-bar .d:nth-child(1){background:#ff5f57;} .demo-window .mock-bar .d:nth-child(2){background:#febc2e;} .demo-window .mock-bar .d:nth-child(3){background:#28c840;}
-    .demo-window .mock-bar .ttl { margin-left:12px; font-size:13px; color:var(--muted); }
-    .demo-window .mock-bar .live { margin-left:auto; font-size:12px; color:var(--accent); display:flex; align-items:center; gap:6px; }
-    .demo-window .mock-bar .live .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); animation: blink 1.4s steps(2) infinite; }
-    /* real screenshot (auto-shown if asset exists) */
-    .real-shot { width:100%; display:none; }
-    .real-shot.show { display:block; }
-    /* animated fake screenshot */
-    .demo-canvas { position:relative; display:grid; grid-template-columns: 1.25fr 1fr; min-height:380px; }
-    .demo-canvas.hide { display:none; }
-    .dc-left { padding:24px; border-right:1px solid var(--card-border); position:relative; }
-    .dc-right { padding:24px; background:rgba(109,139,255,0.03); }
-    .editor { font-family:'SF Mono', ui-monospace, monospace; font-size:13px; line-height:1.9; color:#9fb0d0; }
-    .editor .ln { color:#4a5570; margin-right:14px; user-select:none; }
-    .editor .kw { color:#c08bff; } .editor .fn { color:#6d8bff; } .editor .str { color:#36e0c0; } .editor .cm { color:#5d6679; }
-    .scan { position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); box-shadow:0 0 14px var(--accent); top:0; opacity:0; animation: scanRun 7s ease-in-out infinite; }
-    @keyframes scanRun { 0%,8% { top:0; opacity:0; } 10% { opacity:1; } 22% { top:100%; opacity:1; } 24%,100% { opacity:0; } }
-    .dc-right .ans-head { display:flex; align-items:center; gap:9px; font-weight:600; font-size:14px; margin-bottom:16px; }
-    .dc-right .ans-head .ai { width:24px; height:24px; border-radius:7px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; font-size:13px; }
-    .stat { font-size:12.5px; color:var(--muted); margin-bottom:14px; min-height:16px; }
-    .stat::before { content:'Waiting for capture…'; animation: statText 7s ease-in-out infinite; }
-    @keyframes statText { 0%,22% { content:'Capturing screen…'; } 24%,40% { content:'Running OCR + analyzing…'; } 42%,100% { content:'✓ Answered with GPT-4o · 1.2s'; } }
-    .answer-text { font-size:14px; line-height:1.8; color:#cdd5e6; }
-    .answer-text p { overflow:hidden; white-space:nowrap; width:0; animation: typeIn 7s steps(40) infinite; }
-    .answer-text p:nth-child(2){ animation-delay:0s; }
-    .answer-text code { background:rgba(109,139,255,0.14); padding:2px 6px; border-radius:5px; font-family:'SF Mono',ui-monospace,monospace; font-size:12.5px; color:#9d7bff; }
-    @keyframes typeIn { 0%,42% { width:0; } 60% { width:100%; } 95% { width:100%; } 100% { width:0; } }
-    .demo-cap { text-align:center; color:var(--muted); font-size:13.5px; margin-top:18px; }
+    .sc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 36px; max-width: 840px; margin: 0 auto; }
+    .sc-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 13px 4px; border-bottom: 1px solid var(--border); }
+    .sc-row .act { color: #ced4e3; font-size: 14.5px; }
+    .sc-row .keys { display: flex; gap: 4px; flex: 0 0 auto; }
+    .sc-note { text-align: center; color: var(--faint); font-size: 13px; margin-top: 26px; }
 
     /* ---------- Download ---------- */
-    .dl-card {
-      max-width: 760px; margin: 0 auto; background: linear-gradient(135deg, rgba(109,139,255,0.10), rgba(157,123,255,0.05));
-      border:1px solid rgba(109,139,255,0.22); border-radius: 24px; padding: 44px;
-    }
-    .dl-top { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
-    .dl-icon { width:64px; height:64px; border-radius:16px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; box-shadow:0 10px 30px rgba(109,139,255,0.4); flex:0 0 auto; }
-    .dl-icon svg { width:32px; height:32px; }
-    .dl-meta h3 { font-size:23px; letter-spacing:-0.02em; }
-    .dl-meta .ver { color:var(--muted); font-size:14.5px; margin-top:3px; }
-    .dl-price { margin-left:auto; text-align:right; line-height:1; }
-    .dl-price .price { font-size:38px; font-weight:800; letter-spacing:-0.03em; }
-    .dl-price .price .cur { font-size:22px; font-weight:700; color:var(--muted); vertical-align:top; margin-right:1px; }
-    .dl-price .price-sub { font-size:12.5px; color:var(--muted); margin-top:4px; }
-    .dl-top .btn { flex:0 0 auto; }
-    .dl-specs { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin-top:30px; background:var(--card-border); border-radius:14px; overflow:hidden; border:1px solid var(--card-border); }
-    .dl-specs .sp { background:#0d1322; padding:18px 16px; text-align:center; }
-    .dl-specs .sp .k { font-size:11.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px; }
-    .dl-specs .sp .v { font-size:16px; font-weight:700; }
-    .dl-reqs { margin-top:24px; font-size:13.5px; color:var(--muted); display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
-    .dl-reqs span { display:inline-flex; align-items:center; gap:6px; }
-    .dl-reqs .dotx { width:4px; height:4px; border-radius:50%; background:#4a5570; }
+    .final { text-align: center; padding: 96px 0; }
+    .final h2 { font-size: clamp(30px, 4.6vw, 50px); letter-spacing: -0.035em; line-height: 1.06; font-weight: 800; max-width: 700px; margin: 0 auto 16px; }
+    .final > .wrap > p { color: var(--muted); font-size: 18px; margin-bottom: 34px; }
+    .dl-card { max-width: 760px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 40px; text-align: left; }
+    .dl-top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .dl-icon { width: 60px; height: 60px; border-radius: 14px; background: var(--accent-soft); border: 1px solid var(--accent-border); display: grid; place-items: center; flex: 0 0 auto; }
+    .dl-icon svg { width: 30px; height: 30px; stroke: var(--accent); }
+    .dl-meta h3 { font-size: 21px; letter-spacing: -0.02em; }
+    .dl-meta .ver { color: var(--muted); font-size: 14px; margin-top: 3px; }
+    .dl-price { margin-left: auto; text-align: right; line-height: 1; }
+    .dl-price .price { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; }
+    .dl-price .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .dl-top .btn { flex: 0 0 auto; }
+    .dl-specs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 28px; background: var(--border); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    .dl-specs .sp { background: var(--bg-soft); padding: 16px 14px; text-align: center; }
+    .dl-specs .sp .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); margin-bottom: 6px; }
+    .dl-specs .sp .v { font-size: 15.5px; font-weight: 700; }
+    .dl-reqs { margin-top: 22px; font-size: 13px; color: var(--muted); display: flex; gap: 9px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .dl-reqs .dotx { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); }
 
-    /* ---------- Donation ---------- */
-    .donate {
-      max-width: 760px; margin: 30px auto 0; padding: 20px 26px;
-      background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 16px;
-      display: flex; align-items: center; gap: 18px; text-align: left;
-    }
-    .donate .heart { font-size: 26px; color: #ff6b8b; flex: 0 0 auto; }
-    .donate-txt { display: flex; flex-direction: column; line-height: 1.4; }
-    .donate-txt strong { font-size: 15.5px; }
-    .donate-txt span { font-size: 14px; color: var(--muted); }
-    .donate-btn { margin-left: auto; flex: 0 0 auto; }
+    .donate { max-width: 760px; margin: 26px auto 0; padding: 18px 24px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: 14px; display: flex; align-items: center; gap: 16px; text-align: left; }
+    .donate .heart { font-size: 22px; color: #e06b86; flex: 0 0 auto; }
+    .donate-txt strong { font-size: 15px; display: block; }
+    .donate-txt span { font-size: 13.5px; color: var(--muted); }
+    .donate .btn { margin-left: auto; flex: 0 0 auto; }
+    .disclaimer { font-size: 12.5px; color: var(--faint); max-width: 740px; margin: 24px auto 0; text-align: center; line-height: 1.5; }
 
-    @media (max-width: 860px) {
-      .demo-canvas { grid-template-columns:1fr; }
-      .dc-left { border-right:none; border-bottom:1px solid var(--card-border); }
-      .dl-card { padding:30px; }
-      .dl-specs { grid-template-columns:repeat(2,1fr); }
-      .dl-price { margin-left:0; text-align:left; }
-      .dl-top .btn { margin-left:0; width:100%; justify-content:center; }
-      .donate { flex-direction: column; text-align: center; }
-      .donate-txt { align-items: center; }
-      .donate-btn { margin-left: 0; width: 100%; justify-content: center; }
-      .nav-links a:not(.cta) { display: none; }
+    /* ---------- Footer ---------- */
+    footer { border-top: 1px solid var(--border); padding: 36px 0; }
+    footer .wrap { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; color: var(--muted); font-size: 13.5px; }
+
+    @media (max-width: 880px) {
+      .win-body { grid-template-columns: 1fr; }
+      .pane { border-right: none; border-bottom: 1px solid var(--border); }
       .grid, .steps { grid-template-columns: 1fr; }
-      .spotlight { grid-template-columns: 1fr; padding: 36px; }
-      .ghost-visual { max-width: 280px; margin: 0 auto; }
-      .mock-body { grid-template-columns: 1fr; }
-      .mock-left { border-right: none; border-bottom: 1px solid var(--card-border); }
+      .split { grid-template-columns: 1fr; gap: 32px; }
+      .split.rev { direction: ltr; }
       .sc-grid { grid-template-columns: 1fr; }
+      .dl-card { padding: 28px; }
+      .dl-specs { grid-template-columns: repeat(2, 1fr); }
+      .dl-price { margin-left: 0; text-align: left; }
+      .dl-top .btn { margin-left: 0; width: 100%; justify-content: center; }
+      .donate { flex-direction: column; text-align: center; }
+      .donate .btn { margin-left: 0; width: 100%; justify-content: center; }
+      .nav-links a:not(.btn) { display: none; }
     }
 
-    /* ---------- Scroll reveal transitions ---------- */
-    .reveal {
-      opacity: 0;
-      transform: translateY(26px);
-      transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1);
-      will-change: opacity, transform;
+    /* ---------- Clickable feature cards ---------- */
+    .grid-hint { text-align: center; color: var(--faint); font-size: 13px; margin: -32px auto 28px; }
+    .feature[role="button"] { cursor: pointer; }
+    .feature[role="button"]:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 3px; }
+    .feature .feature-more { display: inline-block; margin-top: 16px; font-size: 13px; font-weight: 600; color: var(--accent); opacity: 0.85; transition: transform .16s ease; }
+    .feature:hover .feature-more { transform: translateX(3px); }
+
+    /* ---------- Feature detail modal ---------- */
+    .modal[hidden] { display: none; }
+    .modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(5,6,9,0.72); backdrop-filter: blur(4px); animation: mFade .2s ease; }
+    .modal-card {
+      position: relative; width: 100%; max-width: 600px; max-height: 86vh; overflow-y: auto;
+      background: var(--card); border: 1px solid var(--border-strong); border-radius: 16px; padding: 30px;
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6); animation: mPop .22s cubic-bezier(.2,.7,.2,1);
     }
+    @keyframes mFade { from { opacity: 0; } }
+    @keyframes mPop { from { opacity: 0; transform: translateY(10px) scale(.99); } }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--muted);
+      font-size: 19px; line-height: 1; cursor: pointer; transition: background .16s ease, color .16s ease;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+    .modal-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-right: 40px; }
+    .modal-head .ic { width: 44px; height: 44px; border-radius: 11px; background: var(--accent-soft); border: 1px solid var(--accent-border); display: grid; place-items: center; flex: 0 0 auto; }
+    .modal-head .ic svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .modal-head h3 { font-size: 20px; letter-spacing: -0.02em; }
+    .modal-body p { color: var(--muted); font-size: 15px; margin-bottom: 4px; }
+    .modal-body em { color: var(--text); font-style: normal; font-weight: 600; }
+    .modal-body code { font-family: var(--mono); font-size: 13px; background: var(--accent-soft); color: var(--accent); padding: 1px 6px; border-radius: 5px; }
+    .md-where { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 16px 0 4px; }
+    .md-where b { color: var(--text); font-weight: 600; }
+    .md-where kbd { font-size: 11px; }
+    .md-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin: 22px 0 12px; }
+    .modal-body .panel { margin: 0 0 4px; background: var(--bg-soft); padding: 16px; }
+    .modal-body .panel .row:last-child, .modal-body .panel .doc-row:last-child { margin-bottom: 0; }
+    .md-list { list-style: none; display: grid; gap: 11px; margin-top: 20px; }
+    .md-list li { display: flex; gap: 11px; align-items: flex-start; font-size: 14.5px; color: #cdd3e2; }
+    .md-list .ck { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px; background: var(--accent-soft); border: 1px solid var(--accent-border); display: grid; place-items: center; color: var(--accent); font-size: 11px; margin-top: 2px; }
+    body.modal-open { overflow: hidden; }
+
+    /* ---------- Motion ---------- */
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .45s cubic-bezier(.2,.7,.2,1), transform .45s cubic-bezier(.2,.7,.2,1); }
     .reveal.in { opacity: 1; transform: none; }
-
-    /* Hero entrance (plays on load) */
-    .hero-anim { opacity: 0; transform: translateY(20px); animation: heroIn .9s cubic-bezier(.2,.7,.2,1) forwards; }
-    .hero-anim.d1 { animation-delay: .05s; }
-    .hero-anim.d2 { animation-delay: .15s; }
-    .hero-anim.d3 { animation-delay: .25s; }
-    .hero-anim.d4 { animation-delay: .35s; }
-    .hero-anim.d5 { animation-delay: .5s; }
+    .hero-anim { opacity: 0; transform: translateY(12px); animation: heroIn .55s cubic-bezier(.2,.7,.2,1) forwards; }
+    .hero-anim.d1 { animation-delay: .04s; } .hero-anim.d2 { animation-delay: .12s; }
+    .hero-anim.d3 { animation-delay: .2s; } .hero-anim.d4 { animation-delay: .28s; } .hero-anim.d5 { animation-delay: .4s; }
     @keyframes heroIn { to { opacity: 1; transform: none; } }
-
-    /* Respect users who prefer no motion */
     @media (prefers-reduced-motion: reduce) {
       .reveal, .hero-anim { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
-      .ring, .scan, .typing, .answer-text p, .stat::before { animation: none !important; }
+      .caret, .wave i, .win-bar .live .ld { animation: none !important; }
+      .modal-backdrop, .modal-card { animation: none !important; }
+      .feature .feature-more { transition: none !important; }
       html { scroll-behavior: auto; }
     }
   </style>
 </head>
 <body>
-  <div class="bg-glow"></div>
+  <div class="bg-wash"></div>
 
   <nav>
     <div class="wrap">
       <div class="logo">
         <span class="mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
         </span>
         Screen&nbsp;Genius
       </div>
       <div class="nav-links">
         <a href="#features">Features</a>
-        <a href="#demo">In action</a>
-        <a href="#how">How it works</a>
+        <a href="#models">Models</a>
+        <a href="#workflow">Workflow</a>
         <a href="#stealth">Stealth</a>
         <a href="#shortcuts">Shortcuts</a>
-        <a href="#get" class="btn btn-primary cta">Download</a>
+        <a href="#download" class="btn btn-primary">Download</a>
       </div>
     </div>
   </nav>
@@ -390,83 +361,25 @@
   <header>
     <div class="wrap">
       <span class="pill hero-anim d1"><span class="dot"></span> Invisible on screen shares &amp; recordings</span>
-      <h1 class="hero-anim d2">Your <span class="grad">invisible AI copilot</span><br/>for the moments that matter</h1>
-      <p class="sub hero-anim d3">Screen Genius floats silently over any app, reads what's on your screen, and delivers instant AI answers — without ever showing up on a screen share, recording, or capture.</p>
+      <h1 class="hero-anim d2">Read your screen. Ask <span class="accent">five AIs at once.</span></h1>
+      <p class="sub hero-anim d3">Screen Genius floats silently over any app, captures what's on screen, and streams answers from OpenAI, Gemini, Claude, Z.AI and a fully local LM Studio — side by side, so you can compare and trust the result.</p>
       <div class="hero-cta hero-anim d4">
-        <a href="#get" class="btn btn-primary">Download free</a>
-        <a href="#how" class="btn btn-ghost">See how it works</a>
+        <a href="#download" class="btn btn-primary">Download free for Windows</a>
+        <a href="#features" class="btn btn-ghost">Explore features</a>
       </div>
-      <p class="hero-note hero-anim d4">100% free · Bring your own AI key · Works fully offline with LM Studio</p>
+      <p class="hero-note hero-anim d4">Free &amp; open · Bring your own API keys · Runs fully offline with LM Studio</p>
 
-      <!-- Mock window -->
+      <!-- App mock: one question, three models answering -->
       <div class="mock hero-anim d5">
-        <div class="mock-window">
-          <div class="mock-bar">
-            <span class="d"></span><span class="d"></span><span class="d"></span>
-            <span class="ttl">Screen Genius — overlay</span>
-          </div>
-          <div class="mock-body">
-            <div class="mock-left">
-              <div class="mlabel">Captured screen</div>
-              <div class="shot"></div>
-              <div class="codeline l"></div>
-              <div class="codeline m"></div>
-              <div class="codeline s"></div>
-            </div>
-            <div class="mock-right ans">
-              <div class="ans-head"><span class="ai">✦</span> AI answer</div>
-              <div class="codeline l"></div>
-              <div class="codeline l"></div>
-              <div class="codeline m"></div>
-              <div class="codeline m"></div>
-              <div class="codeline s"></div>
-              <div class="mlabel" style="margin-top:18px">Streaming<span class="typing"></span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Providers -->
-  <div class="providers">
-    <div class="wrap">
-      <div class="lbl">Plug in the AI you already trust</div>
-      <div class="provider-row">
-        <div class="provider-chip"><span class="pd"></span> OpenAI</div>
-        <div class="provider-chip"><span class="pd"></span> Google Gemini</div>
-        <div class="provider-chip"><span class="pd"></span> Z.AI</div>
-        <div class="provider-chip"><span class="pd"></span> LM Studio (local)</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- In action -->
-  <section class="block" id="demo">
-    <div class="wrap">
-      <div class="sec-head">
-        <span class="tag">See it in action</span>
-        <h2>Quiet on the outside, fast on the inside</h2>
-        <p>Capture the screen, let the AI read it, and watch the answer stream in — all inside one floating window.</p>
-      </div>
-      <div class="demo-stage">
-        <div class="demo-window">
-          <div class="mock-bar">
+        <div class="win">
+          <div class="win-bar">
             <span class="d"></span><span class="d"></span><span class="d"></span>
             <span class="ttl">Screen Genius</span>
-            <span class="live"><span class="dot"></span> live</span>
+            <span class="live"><span class="ld"></span> 3 models responding</span>
           </div>
-
-          <!-- Drop a real capture at assets/app-screenshot.png (or .gif) and it replaces the animation automatically -->
-          <img class="real-shot" id="appShot" alt="Screen Genius app screenshot"
-               src="assets/app-screenshot.png"
-               onload="this.classList.add('show'); document.getElementById('appAnim').classList.add('hide');"
-               onerror="this.remove();" />
-
-          <div class="demo-canvas" id="appAnim">
-            <div class="dc-left">
-              <div class="mlabel">Captured screen</div>
-              <div class="scan"></div>
+          <div class="win-body">
+            <div class="pane q">
+              <div class="pane-h">Captured screen</div>
               <div class="editor">
                 <div><span class="ln">1</span><span class="cm">// reverse a linked list</span></div>
                 <div><span class="ln">2</span><span class="kw">function</span> <span class="fn">reverse</span>(head) {</div>
@@ -474,112 +387,356 @@
                 <div><span class="ln">4</span>&nbsp;&nbsp;<span class="kw">while</span> (head) {</div>
                 <div><span class="ln">5</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// ...?</span></div>
                 <div><span class="ln">6</span>&nbsp;&nbsp;}</div>
-                <div><span class="ln">7</span>}</div>
               </div>
             </div>
-            <div class="dc-right">
-              <div class="ans-head"><span class="ai">✦</span> AI answer</div>
-              <div class="stat"></div>
-              <div class="answer-text">
-                <p>Walk the list, rewiring each <code>next</code> pointer</p>
-                <p>backwards while tracking <code>prev</code> — O(n) time, O(1) space.</p>
-              </div>
+            <div class="pane">
+              <div class="pane-h"><span class="pdot" style="background:#10a37f"></span> OpenAI</div>
+              <div class="ln-bar a l"></div><div class="ln-bar a l"></div><div class="ln-bar a m"></div>
+              <div class="ln-bar m"></div><div class="ln-bar s"></div>
+            </div>
+            <div class="pane">
+              <div class="pane-h"><span class="pdot" style="background:#d97706"></span> Claude</div>
+              <div class="ln-bar a l"></div><div class="ln-bar a m"></div><div class="ln-bar m"></div>
+              <div class="ln-bar l"></div><div class="ln-bar s"></div>
+              <div class="ln-bar s" style="width:30%">&nbsp;<span class="caret"></span></div>
             </div>
           </div>
         </div>
+        <p class="mock-cap">One prompt → every model answers in its own column, with live Markdown &amp; LaTeX.</p>
       </div>
     </div>
-  </section>
+  </header>
+
+  <!-- Models -->
+  <div class="models" id="models">
+    <div class="wrap">
+      <div class="lbl">Plug in the AI you already trust — or run them together</div>
+      <div class="model-row">
+        <div class="model-chip"><span class="pdot" style="background:#10a37f"></span> OpenAI</div>
+        <div class="model-chip"><span class="pdot" style="background:#4285f4"></span> Google Gemini</div>
+        <div class="model-chip"><span class="pdot" style="background:#d97706"></span> Claude</div>
+        <div class="model-chip"><span class="pdot" style="background:#9aa0a6"></span> Z.AI <small>GLM</small></div>
+        <div class="model-chip"><span class="pdot" style="background:#10b981"></span> LM Studio <small>local</small></div>
+      </div>
+    </div>
+  </div>
 
   <!-- Features -->
   <section class="block" id="features">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head reveal">
         <span class="tag">Everything in one quiet window</span>
-        <h2>Capture. Ask. Get answers.</h2>
-        <p>A focused toolkit built for speed — triggered by global shortcuts, answered in seconds, and gone the moment you hide it.</p>
+        <h2>A full AI workbench, hidden in plain sight</h2>
+        <p>Capture, transcribe, read documents, take notes and compare models — all behind a hotkey, all on your machine.</p>
       </div>
+      <p class="grid-hint reveal">Click any card for how it works in the app.</p>
       <div class="grid">
-        <div class="feature">
-          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l1-2a2 2 0 0 1 2-1h2l1-2h6l1 2h2a2 2 0 0 1 2 1l1 2"/><rect x="3" y="9" width="18" height="11" rx="2"/><circle cx="12" cy="14" r="3"/></svg></div>
-          <h3>Full &amp; region screenshots</h3>
-          <p>Grab the whole screen or crop a precise region with a DPI-accurate selection tool. Queue up to five shots for richer context.</p>
-        </div>
-        <div class="feature">
-          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M8 9h2v6M14 9h2M14 12h2M14 15h2"/></svg></div>
-          <h3>Instant OCR</h3>
-          <p>Pull clean, editable text straight out of any image, document, or window — no copy-paste gymnastics required.</p>
-        </div>
-        <div class="feature">
-          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg></div>
-          <h3>Voice transcription</h3>
-          <p>Speak your question and let it transcribe in real time — perfect when typing would give you away.</p>
-        </div>
-        <div class="feature">
-          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-          <h3>Live AI answers</h3>
-          <p>Responses stream into a floating overlay bubble with live Markdown rendering — code blocks, lists and all.</p>
-        </div>
-        <div class="feature">
-          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></div>
-          <h3>Notes &amp; documents</h3>
-          <p>Save snippets, rename and organize documents, and keep a searchable history of every answer you've received.</p>
-        </div>
-        <div class="feature">
-          <div class="ic"><svg fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-          <h3>Bring your own model</h3>
-          <p>Switch freely between OpenAI, Gemini, Z.AI and a fully local LM Studio backend. Your keys, your data, your choice.</p>
-        </div>
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Five models, side by side">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+          <h3>Five models, side by side</h3>
+          <p>Send one prompt to OpenAI, Gemini, Claude, Z.AI and LM Studio at once and read the answers in parallel columns — or pick just one.</p>
+          <div class="tags"><span>Compare</span><span>Streaming</span><span>Per-model cost</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>One prompt, several models. In <em>Settings → Models</em> you tick the providers you want; Screen Genius fans your question out to all of them and renders each reply in its own column on the <em>Prompt</em> tab, so you can compare wording, code and confidence side by side.</p>
+            <div class="md-where">Find it in <b>Prompt tab</b> · <b>Settings → Models</b></div>
+            <div class="md-sub">Cloud Models — pick one or more</div>
+            <div class="panel">
+              <div class="row"><span class="pdot" style="background:#10a37f"></span><span class="nm">OpenAI</span><span class="st">gpt-4o</span></div>
+              <div class="row"><span class="pdot" style="background:#4285f4"></span><span class="nm">Gemini</span><span class="st">gemini-2.0-flash</span></div>
+              <div class="row"><span class="pdot" style="background:#d97706"></span><span class="nm">Claude</span><span class="st">claude-sonnet-4-6</span></div>
+              <div class="row"><span class="pdot" style="background:#9aa0a6"></span><span class="nm">Z.AI</span><span class="st">GLM-4.7</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> A provider chip shows a coloured dot per active model and a “— responding…” state while answers stream in.</li>
+              <li><span class="ck">✓</span> Every column renders Markdown, syntax-highlighted code and KaTeX math.</li>
+              <li><span class="ck">✓</span> Under each answer, a usage line reads like “1,240 in / 380 out (1,620 total) · $0.0123”.</li>
+              <li><span class="ck">✓</span> A <em>Test</em> button next to each provider verifies the key and model name first.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Full &amp; region capture">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 9l1-2a2 2 0 0 1 2-1h2l1-2h6l1 2h2a2 2 0 0 1 2 1l1 2"/><rect x="3" y="9" width="18" height="11" rx="2"/><circle cx="12" cy="14" r="3"/></svg></div>
+          <h3>Full &amp; region capture</h3>
+          <p>Grab the whole screen or crop a precise, DPI-accurate region. Queue up to five screenshots for richer context.</p>
+          <div class="tags"><span>Full screen</span><span>Region crop</span><span>Up to 5</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>On the <em>Prompt</em> tab three buttons sit under the input — <em>Full Screenshot</em>, <em>Region Screenshot</em> and <em>Extract Text</em> — or use the global keys. Region capture opens a transparent full-screen crop tool, with coordinates scaled by your display's DPI factor so the crop is pixel-accurate.</p>
+            <div class="md-where">Find it in <b>Prompt tab</b> · keys <kbd>Ctrl+Shift+S</kbd> / <kbd>Z</kbd></div>
+            <div class="md-sub">Screenshot queue</div>
+            <div class="panel">
+              <div class="panel-h">3 screenshots ready &nbsp;·&nbsp; Analyze · Clear</div>
+              <div class="row"><span class="pdot" style="background:var(--accent)"></span><span class="nm">Full screen</span><span class="st">1920×1080</span></div>
+              <div class="row"><span class="pdot" style="background:var(--accent)"></span><span class="nm">Region crop</span><span class="st">640×320</span></div>
+              <div class="row"><span class="pdot" style="background:var(--accent)"></span><span class="nm">Full screen</span><span class="st">1920×1080</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Captured shots appear as thumbnails in a “N screenshots ready” strip.</li>
+              <li><span class="ck">✓</span> Queue up to five images for one prompt, then <em>Analyze</em> or <em>Clear</em>.</li>
+              <li><span class="ck">✓</span> On Windows, files are released with retry-safe deletion so nothing locks.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="On-device OCR">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M8 9h2v6M14 9h2M14 12h2M14 15h2"/></svg></div>
+          <h3>On-device OCR</h3>
+          <p>Tesseract pulls clean text out of any screenshot in dozens of languages — fewer tokens, faster and cheaper answers.</p>
+          <div class="tags"><span>Tesseract</span><span>Multi-language</span><span>Confidence score</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>In <em>Settings → Capture</em>, turn on “Enable OCR text extraction” and choose an OCR language. When on, screenshots are converted to text with Tesseract before they're sent — so the model reads text instead of pixels, which is faster and cheaper.</p>
+            <div class="md-where">Find it in <b>Settings → Capture</b> · key <kbd>Ctrl+Shift+X</kbd></div>
+            <div class="md-sub">Test OCR result</div>
+            <div class="panel">
+              <div class="panel-h">Confidence 94% &nbsp;·&nbsp; 312 chars</div>
+              <div class="ln-bar a l"></div><div class="ln-bar m"></div><div class="ln-bar a m"></div><div class="ln-bar s"></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> <em>Test OCR</em> previews the extracted text plus a confidence score before you send — and copies it in one click.</li>
+              <li><span class="ck">✓</span> The first run downloads a small (~2 MB) language model, then works offline.</li>
+              <li><span class="ck">✓</span> LM Studio mode auto-enables OCR, since local models are text-only.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="System-audio voice">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg></div>
+          <h3>System-audio voice</h3>
+          <p>One hotkey records the <em>interviewer's</em> system audio (Zoom, Meet) plus a screenshot, transcribes it, and auto-sends to your models.</p>
+          <div class="tags"><span>Whisper / Gemini</span><span>Auto-screenshot</span><span>Hands-free</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>Press <kbd>Ctrl+Shift+V</kbd> (or the <em>Voice</em> button on the Prompt tab) to record the system audio coming out of your call — not just your mic. On stop, it transcribes the audio and pairs it with a screenshot, then auto-sends both to every selected model.</p>
+            <div class="md-where">Find it in <b>Prompt tab</b> · <b>Settings → Capture</b></div>
+            <div class="md-sub">Voice transcription</div>
+            <div class="panel">
+              <div class="row"><span class="pdot" style="background:#e06b86"></span><span class="nm">Interviewer (Zoom)</span><span class="wave"><i></i><i></i><i></i><i></i><i></i></span></div>
+              <div class="row"><span class="pdot" style="background:var(--accent)"></span><span class="nm">Transcribing…</span><span class="st">Whisper</span></div>
+              <div class="row"><span class="pdot" style="background:#10a37f"></span><span class="nm">Sent with screenshot</span><span class="st">to 3 models</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Provider: OpenAI Whisper (whisper-1) or Google Gemini.</li>
+              <li><span class="ck">✓</span> Auto-screenshot on stop: Full screen, Region (drag to select) or None.</li>
+              <li><span class="ck">✓</span> The button cycles through Voice → Stop (with a timer) → Transcribing…</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Document context">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></div>
+          <h3>Document context</h3>
+          <p>Import PDF, Word, Excel, PowerPoint, CSV, JSON or text. The AI auto-extracts the key info and grounds every answer in your files.</p>
+          <div class="tags"><span>PDF · DOCX · XLSX</span><span>Auto key-info</span><span>Activate per chat</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>In <em>Settings → Behavior → Documents</em>, hit “Import document…”. Screen Genius reads PDF, Word, Excel, PowerPoint, Markdown, text, CSV and JSON, then has the AI distil the key information on import. The active document is added as context so answers come from <em>your</em> source.</p>
+            <div class="md-where">Find it in <b>Settings → Behavior</b> · selector on <b>Prompt tab</b></div>
+            <div class="md-sub">Imported documents</div>
+            <div class="panel">
+              <div class="doc-row"><span class="ext">PDF</span><span class="dn">algorithms-notes.pdf</span><span class="badge">✦ key info</span></div>
+              <div class="doc-row"><span class="ext">XLSX</span><span class="dn">pricing-model.xlsx</span><span class="badge">active</span></div>
+              <div class="doc-row"><span class="ext">PPTX</span><span class="dn">system-design.pptx</span><span class="badge">✦ key info</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Documents with extracted info show a ✦ badge — View or edit that summary in a modal.</li>
+              <li><span class="ck">✓</span> Activate / Deactivate, Rename or Remove each file; switch the active doc from a dropdown above the prompt.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Notes with Markdown &amp; LaTeX">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+          <h3>Notes with Markdown &amp; LaTeX</h3>
+          <p>Keep working notes that render Markdown, syntax-highlighted code and KaTeX math live — and attach them as context or view them beside answers.</p>
+          <div class="tags"><span>KaTeX math</span><span>Live preview</span><span>As context</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>Open the Notes panel above the prompt and write a note with a title and body. Markdown, code and KaTeX math render live in a Preview as you type — <code>$x^2$</code> for inline, <code>$$…$$</code> for block math. Set a note active to attach it as context.</p>
+            <div class="md-where">Find it in <b>Prompt tab</b> · <b>Settings → Interface</b></div>
+            <div class="md-sub">Note editor — live preview</div>
+            <div class="panel">
+              <div class="panel-h">Binary search · Markdown + LaTeX</div>
+              <div class="ln-bar l"></div><div class="ln-bar a m"></div>
+              <div class="row" style="margin-top:4px"><span class="nm" style="font-family:var(--mono); color:var(--accent)">T(n) = T(n/2) + O(1)</span><span class="st">KaTeX</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Notes use the exact same renderer as answers, so they look identical.</li>
+              <li><span class="ck">✓</span> Note Display (Settings → Interface): “Editor only” or “Alongside AI response”, shown in a column next to answers.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Conversations &amp; styles">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3z"/><path d="M8 9h8M8 12h5"/></svg></div>
+          <h3>Conversations &amp; styles</h3>
+          <p>Continue any answer as a multi-turn chat. Switch answer styles — code, exam-style explanation, or multiple-choice-only — and save reusable system-prompt templates.</p>
+          <div class="tags"><span>Follow-ups</span><span>Answer styles</span><span>Prompt templates</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>Any answer can become a multi-turn chat: a “Continuing conversation (N messages)” banner appears with a “New Conversation” reset. From the History tab, hit <em>Continue</em> to resume an old thread. In <em>Settings → Behavior</em> you tune the shape of every answer.</p>
+            <div class="md-where">Find it in <b>Prompt tab</b> · <b>History</b> · <b>Settings → Behavior</b></div>
+            <div class="md-sub">Answer preferences</div>
+            <div class="panel">
+              <div class="row"><span class="nm">Answer style</span><span class="st">Explanation (detailed)</span></div>
+              <div class="row"><span class="nm">Language</span><span class="st">Python</span></div>
+              <div class="row"><span class="nm">System prompt</span><span class="st">✓ template active</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Styles: Code (with explanation), Explanation (detailed), or Multiple Choice (answer only).</li>
+              <li><span class="ck">✓</span> Languages: Python, JavaScript, Java, C# or C++.</li>
+              <li><span class="ck">✓</span> Save, edit, apply and reset reusable system-prompt templates.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Token usage &amp; cost">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+          <h3>Token usage &amp; cost</h3>
+          <p>Every request shows its tokens and estimated cost per provider, with a running grand total — so there are no billing surprises.</p>
+          <div class="tags"><span>Per request</span><span>Per provider</span><span>Grand total</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>A usage line sits under every answer with tokens in/out and an estimated cost. The <em>Settings → Token Usage</em> tab rolls that up into a card per provider, with a grand total across all of them and a one-click reset.</p>
+            <div class="md-where">Find it in <b>Settings → Token Usage</b> · under each answer</div>
+            <div class="md-sub">Per-provider totals</div>
+            <div class="panel">
+              <div class="row"><span class="pdot" style="background:#10a37f"></span><span class="nm">OpenAI</span><span class="st">48,210 tok · $0.21</span></div>
+              <div class="row"><span class="pdot" style="background:#d97706"></span><span class="nm">Claude</span><span class="st">31,540 tok · $0.16</span></div>
+              <div class="row"><span class="pdot" style="background:#10b981"></span><span class="nm">LM Studio</span><span class="st">22,900 tok · Free</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Each card breaks out prompt tokens, completion tokens, total, request count and cost.</li>
+              <li><span class="ck">✓</span> A Grand Total Cost footer sums everything; LM Studio is always Free.</li>
+            </ul>
+          </template>
+        </article>
+
+        <article class="feature reveal" role="button" tabindex="0" aria-haspopup="dialog" data-title="Searchable history">
+          <div class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+          <h3>Searchable history</h3>
+          <p>Every Q&amp;A is saved locally — search it, filter by provider, date or tag, star favourites, and export to Markdown or JSON.</p>
+          <div class="tags"><span>Tags &amp; stars</span><span>Filters</span><span>Export MD / JSON</span></div>
+          <span class="feature-more">How it works →</span>
+          <template>
+            <p>The <em>History</em> tab keeps every question and answer on your machine. Search across prompts and responses, then narrow with filters. Open any item to see each provider's reply with copy buttons, continue the thread, or export it.</p>
+            <div class="md-where">Find it in <b>History tab</b></div>
+            <div class="md-sub">Search &amp; filter</div>
+            <div class="panel">
+              <div class="row"><span class="nm">Provider</span><span class="st">All providers</span></div>
+              <div class="row"><span class="nm">Date</span><span class="st">Last 7 days</span></div>
+              <div class="row"><span class="nm">★ Starred only</span><span class="st">on</span></div>
+            </div>
+            <ul class="md-list">
+              <li><span class="ck">✓</span> Filter by provider, date (Today / Yesterday / Last 7 / Last 30 days) and #tag.</li>
+              <li><span class="ck">✓</span> Star favourites and add tags; Export MD or JSON — a single item or the whole filtered list.</li>
+            </ul>
+          </template>
+        </article>
       </div>
     </div>
   </section>
 
-  <!-- How it works -->
-  <section class="block" id="how" style="padding-top:0;">
+  <!-- Voice highlight -->
+  <section class="block" id="voice" style="padding-top:0;">
     <div class="wrap">
-      <div class="sec-head">
-        <span class="tag">Three keystrokes</span>
-        <h2>From screen to answer in seconds</h2>
-        <p>No window switching, no uploads, no fuss. It all happens behind a hotkey.</p>
-      </div>
-      <div class="steps">
-        <div class="step">
-          <div class="num">1</div>
-          <h3>Capture</h3>
-          <p>Hit <kbd>Ctrl+Shift+S</kbd> for a full shot or <kbd>Ctrl+Shift+Z</kbd> to crop a region. OCR text with <kbd>Ctrl+Shift+X</kbd>.</p>
-        </div>
-        <div class="step">
-          <div class="num">2</div>
-          <h3>Ask</h3>
-          <p>Type, paste your clipboard with <kbd>Ctrl+Shift+Q</kbd>, or speak. Then send it all to AI with <kbd>Ctrl+Shift+P</kbd>.</p>
-        </div>
-        <div class="step">
-          <div class="num">3</div>
-          <h3>Read &amp; vanish</h3>
-          <p>The answer streams into the overlay. Copy it with <kbd>Ctrl+Shift+C</kbd> and hide everything with <kbd>Ctrl+Shift+A</kbd>.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Stealth spotlight -->
-  <section class="block" id="stealth" style="padding-top:0;">
-    <div class="wrap">
-      <div class="spotlight">
-        <div>
-          <span class="tag" style="color:var(--accent);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:0.04em;">Built to stay unseen</span>
-          <h2 style="margin-top:12px;">Invisible where it counts</h2>
-          <p>Screen Genius uses OS-level content protection, so it's excluded from screen captures, recordings, and shared sessions. Toggle click-through mode and it stops intercepting your mouse entirely — your work shows through, the app doesn't.</p>
+      <div class="split">
+        <div class="reveal">
+          <span class="tag">Hands stay off the keyboard</span>
+          <h2>Hear the question, answer it instantly</h2>
+          <p>Press <kbd>Ctrl+Shift+V</kbd> and Screen Genius records the system audio coming out of your call — the interviewer's actual voice — together with a screenshot. It transcribes with Whisper or Gemini and sends both to your models automatically. No typing, no tell-tale tab switching.</p>
           <ul class="checklist">
-            <li><span class="ck">✓</span> Hidden from screen recording &amp; share software</li>
-            <li><span class="ck">✓</span> Click-through mode lets clicks pass straight through</li>
-            <li><span class="ck">✓</span> Instant show/hide on a single global shortcut</li>
-            <li><span class="ck">✓</span> Runs locally — your keys and captures stay on your machine</li>
+            <li><span class="ck">✓</span> Captures system audio, not just your mic</li>
+            <li><span class="ck">✓</span> Pairs the transcript with a full or region screenshot</li>
+            <li><span class="ck">✓</span> Auto-sends to every selected provider</li>
           </ul>
         </div>
-        <div class="ghost-visual">
-          <div class="ring"></div>
-          <div class="eye">🫥</div>
+        <div class="panel reveal">
+          <div class="panel-h"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/></svg> Recording system audio</div>
+          <div class="row"><span class="pdot" style="background:#e06b86"></span><span class="nm">Interviewer (Zoom)</span><span class="wave"><i></i><i></i><i></i><i></i><i></i></span></div>
+          <div class="row"><span class="pdot" style="background:var(--accent)"></span><span class="nm">Transcribing…</span><span class="st">Whisper</span></div>
+          <div class="row"><span class="pdot" style="background:#10a37f"></span><span class="nm">Sent to 3 models</span><span class="st">+ screenshot</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documents highlight -->
+  <section class="block" id="documents" style="padding-top:0;">
+    <div class="wrap">
+      <div class="split rev">
+        <div class="reveal">
+          <span class="tag">Grounded in your material</span>
+          <h2>Bring your own documents</h2>
+          <p>Import the spec, the textbook chapter, the slide deck or the dataset. Screen Genius reads PDFs, Word, Excel, PowerPoint, CSV, JSON and plain text, then has the AI distil the key information so every answer is grounded in <em>your</em> source — not just the model's memory.</p>
+          <ul class="checklist">
+            <li><span class="ck">✓</span> Auto key-info extraction on import</li>
+            <li><span class="ck">✓</span> Activate, rename and switch documents per question</li>
+            <li><span class="ck">✓</span> View and edit the extracted summary yourself</li>
+          </ul>
+        </div>
+        <div class="panel reveal">
+          <div class="panel-h"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Imported documents</div>
+          <div class="doc-row"><span class="ext">PDF</span><span class="dn">algorithms-notes.pdf</span><span class="badge">✦ key info</span></div>
+          <div class="doc-row"><span class="ext">DOCX</span><span class="dn">system-design.docx</span><span class="badge">✦ key info</span></div>
+          <div class="doc-row"><span class="ext">XLSX</span><span class="dn">pricing-model.xlsx</span><span class="badge">active</span></div>
+          <div class="doc-row"><span class="ext">JSON</span><span class="dn">api-schema.json</span><span class="badge">✦ key info</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflow -->
+  <section class="block" id="workflow" style="padding-top:0;">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="tag">Behind a hotkey</span>
+        <h2>From screen to answer in seconds</h2>
+        <p>No window switching, no uploads, no fuss. Every step is a global shortcut.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="num">1</div>
+          <h3>Capture</h3>
+          <p>Full shot with <kbd>Ctrl+Shift+S</kbd>, crop a region with <kbd>Ctrl+Shift+Z</kbd>, or pull text out with OCR via <kbd>Ctrl+Shift+X</kbd>.</p>
+        </div>
+        <div class="step reveal">
+          <div class="num">2</div>
+          <h3>Ask</h3>
+          <p>Type, paste the clipboard with <kbd>Ctrl+Shift+Q</kbd>, or speak with <kbd>Ctrl+Shift+V</kbd>. Then analyze with <kbd>Ctrl+Shift+P</kbd>.</p>
+        </div>
+        <div class="step reveal">
+          <div class="num">3</div>
+          <h3>Read &amp; vanish</h3>
+          <p>Answers stream into the window and overlay. Copy with <kbd>Ctrl+Shift+C</kbd>, then hide everything instantly with <kbd>Ctrl+Shift+A</kbd>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stealth -->
+  <section class="block" id="stealth" style="padding-top:0;">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <span class="tag">Built to stay unseen</span>
+          <h2>Invisible where it counts — and yours alone</h2>
+          <p>Screen Genius turns on OS-level content protection, so the window is excluded from screen captures, recordings and shared sessions. Flip click-through mode and your clicks pass straight through to whatever's behind it. Nothing leaves your machine except the request you send to your own AI provider.</p>
+          <ul class="checklist">
+            <li><span class="ck">✓</span> Hidden from screen-recording &amp; screen-share software</li>
+            <li><span class="ck">✓</span> Click-through mode lets the mouse pass right through</li>
+            <li><span class="ck">✓</span> Instant show/hide and a panic key that wipes everything and quits</li>
+            <li><span class="ck">✓</span> Your keys, captures and history stay local — no account, no telemetry</li>
+          </ul>
+        </div>
+        <div class="panel reveal">
+          <div class="panel-h"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Privacy posture</div>
+          <div class="row"><span class="pdot" style="background:#10b981"></span><span class="nm">Content protection</span><span class="st">On</span></div>
+          <div class="row"><span class="pdot" style="background:#10b981"></span><span class="nm">Excluded from recordings</span><span class="st">Yes</span></div>
+          <div class="row"><span class="pdot" style="background:var(--accent)"></span><span class="nm">Click-through mode</span><span class="st">Ctrl+Shift+W</span></div>
+          <div class="row"><span class="pdot" style="background:#e06b86"></span><span class="nm">Panic wipe &amp; quit</span><span class="st">Ctrl+Shift+⌫</span></div>
         </div>
       </div>
     </div>
@@ -588,36 +745,39 @@
   <!-- Shortcuts -->
   <section class="block" id="shortcuts" style="padding-top:0;">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head reveal">
         <span class="tag">Keyboard-first</span>
         <h2>Every action, one shortcut away</h2>
-        <p>Drive the entire app without ever touching the mouse.</p>
+        <p>Drive the whole app without touching the mouse. All shortcuts are rebindable in Settings.</p>
       </div>
       <div class="sc-grid">
-        <div class="sc-row"><span class="act">Toggle window visibility</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span></div>
-        <div class="sc-row"><span class="act">Toggle click-through</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>W</kbd></span></div>
-        <div class="sc-row"><span class="act">Toggle overlay bubble</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>O</kbd></span></div>
-        <div class="sc-row"><span class="act">Full screenshot</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
-        <div class="sc-row"><span class="act">Region screenshot</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Z</kbd></span></div>
-        <div class="sc-row"><span class="act">OCR extract text</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd></span></div>
-        <div class="sc-row"><span class="act">Analyze with AI</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>P</kbd></span></div>
-        <div class="sc-row"><span class="act">Clear screenshots</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd></span></div>
-        <div class="sc-row"><span class="act">Clipboard as prompt</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Q</kbd></span></div>
-        <div class="sc-row"><span class="act">Copy latest answer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>C</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Toggle window visibility</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Toggle click-through</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>W</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Toggle overlay bubble</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>O</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Full screenshot</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Region screenshot</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Z</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Extract text (OCR)</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Analyze with AI</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>P</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Voice recording</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>V</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Clipboard as prompt</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Q</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Copy latest answer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>C</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Clear screenshots</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd></span></div>
+        <div class="sc-row reveal"><span class="act">Panic — wipe &amp; quit</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>⌫</kbd></span></div>
       </div>
+      <p class="sc-note">Plus arrow shortcuts to move the window and scroll answers without the mouse.</p>
     </div>
   </section>
 
-  <!-- Final CTA / Download -->
-  <section class="final" id="get">
+  <!-- Download -->
+  <section class="final" id="download">
     <div class="wrap">
       <h2>Ready when you are.</h2>
-      <p>Drop in your AI key and you're set in under a minute.</p>
+      <p>Drop in an API key — or point it at LM Studio — and you're set in under a minute.</p>
 
-      <div class="dl-card">
+      <div class="dl-card reveal">
         <div class="dl-top">
           <span class="dl-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
           </span>
           <div class="dl-meta">
             <h3>Screen Genius for Windows</h3>
@@ -625,45 +785,56 @@
           </div>
           <div class="dl-price">
             <div class="price">Free</div>
-            <div class="price-sub">forever</div>
+            <div class="sub">forever</div>
           </div>
           <a href="https://github.com/bia3334/interview_AI/releases/download/v1.0.0/Screen.Genius.Setup.1.0.0.exe" class="btn btn-primary">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 4 5-4M5 21h14"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 4 5-4M5 21h14"/></svg>
             Download .exe
           </a>
         </div>
-
         <div class="dl-specs">
           <div class="sp"><div class="k">Price</div><div class="v">Free</div></div>
           <div class="sp"><div class="k">Version</div><div class="v">1.0.0</div></div>
           <div class="sp"><div class="k">Size</div><div class="v">113 MB</div></div>
           <div class="sp"><div class="k">Platform</div><div class="v">Windows</div></div>
         </div>
-
         <div class="dl-reqs">
-          <span>Free, no account needed</span><span class="dotx"></span>
+          <span>No account needed</span><span class="dotx"></span>
           <span>Windows 10 / 11 (64-bit)</span><span class="dotx"></span>
           <span>An AI provider key — or LM Studio for fully offline use</span>
         </div>
       </div>
 
-      <!-- Donation -->
-      <div class="donate">
+      <div class="donate reveal">
         <span class="heart">♥</span>
         <div class="donate-txt">
           <strong>Enjoying Screen Genius?</strong>
           <span>It's free — but if it helped you, a small tip keeps it going.</span>
         </div>
-        <a href="https://buymeacoffee.com/screengenius" target="_blank" rel="noopener" class="btn btn-ghost donate-btn">Buy me a coffee ☕</a>
+        <a href="https://buymeacoffee.com/screengenius" target="_blank" rel="noopener" class="btn btn-ghost">Buy me a coffee ☕</a>
       </div>
+
       <p class="disclaimer">Screen Genius is a productivity and learning tool. Please use it responsibly and in accordance with the rules, policies, and laws that apply to you — including the terms of any exam, interview, or platform you use it alongside.</p>
     </div>
   </section>
 
+  <!-- Feature detail modal -->
+  <div class="modal" id="featModal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="featModalTitle">
+      <button class="modal-close" data-close aria-label="Close">×</button>
+      <div class="modal-head">
+        <span class="ic"></span>
+        <h3 id="featModalTitle"></h3>
+      </div>
+      <div class="modal-body"></div>
+    </div>
+  </div>
+
   <footer>
     <div class="wrap">
-      <div class="logo" style="font-size:16px;">
-        <span class="mark" style="width:28px;height:28px;border-radius:7px;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+      <div class="logo" style="font-size:15px;">
+        <span class="mark" style="width:27px;height:27px;border-radius:7px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
         Screen Genius
       </div>
       <div>© 2026 Screen Genius · Free desktop app for Windows</div>
@@ -671,35 +842,71 @@
   </footer>
 
   <script>
-    // Scroll-reveal: fade/slide elements in as they enter the viewport.
+    // Quiet scroll-reveal: fade/slide elements in as they enter view, with a small stagger.
     (function () {
       var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      // Elements to animate on scroll (skip the hero — it animates on load).
-      var targets = document.querySelectorAll(
-        '.sec-head, .feature, .step, .provider-chip, .spotlight, .checklist li, ' +
-        '.sc-row, .dl-card, .donate, #demo .demo-stage'
-      );
+      var targets = document.querySelectorAll('.reveal');
       if (reduce || !('IntersectionObserver' in window)) {
         targets.forEach(function (el) { el.classList.add('in'); });
         return;
       }
-      targets.forEach(function (el) { el.classList.add('reveal'); });
-
       var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
           if (!entry.isIntersecting) return;
           var el = entry.target;
-          // Stagger items that share a parent (cards in a grid, rows in a list).
-          var sibs = Array.prototype.filter.call(
-            el.parentElement.children, function (c) { return c.classList.contains('reveal'); });
+          var sibs = Array.prototype.filter.call(el.parentElement.children, function (c) { return c.classList.contains('reveal'); });
           var idx = sibs.indexOf(el);
-          el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
+          el.style.transitionDelay = Math.min(idx, 6) * 60 + 'ms';
           el.classList.add('in');
           io.unobserve(el);
         });
       }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-
       targets.forEach(function (el) { io.observe(el); });
+    })();
+
+    // Feature cards: click (or Enter/Space) to open a detail modal grounded in the real app UI.
+    (function () {
+      var modal = document.getElementById('featModal');
+      if (!modal) return;
+      var bodyEl = modal.querySelector('.modal-body');
+      var titleEl = modal.querySelector('#featModalTitle');
+      var icEl = modal.querySelector('.modal-head .ic');
+      var lastFocus = null;
+
+      function open(card) {
+        var tpl = card.querySelector('template');
+        if (!tpl) return;
+        bodyEl.innerHTML = '';
+        bodyEl.appendChild(tpl.content.cloneNode(true));
+        // data-title may contain entities like &amp; — use a temp element to decode.
+        var tmp = document.createElement('span');
+        tmp.innerHTML = card.getAttribute('data-title') || '';
+        titleEl.textContent = tmp.textContent;
+        var icon = card.querySelector('.ic svg');
+        icEl.innerHTML = icon ? icon.outerHTML : '';
+        modal.hidden = false;
+        document.body.classList.add('modal-open');
+        lastFocus = card;
+        modal.querySelector('.modal-close').focus();
+      }
+      function close() {
+        modal.hidden = true;
+        document.body.classList.remove('modal-open');
+        if (lastFocus) lastFocus.focus();
+      }
+
+      document.querySelectorAll('.feature[role="button"]').forEach(function (card) {
+        card.addEventListener('click', function () { open(card); });
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(card); }
+        });
+      });
+      modal.querySelectorAll('[data-close]').forEach(function (el) {
+        el.addEventListener('click', close);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.hidden) close();
+      });
     })();
   </script>
 </body>
