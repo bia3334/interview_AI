@@ -1,40 +1,147 @@
 <div class="history-container">
   <div class="history-header">
     <h3><mat-icon class="inline-icon">history</mat-icon> Q&A History</h3>
-    <button 
-      class="btn btn-danger btn-small" 
-      (click)="clearAllHistory()" 
-      *ngIf="history.length > 0"
-    >
-      <mat-icon class="inline-icon">delete_sweep</mat-icon> Clear All
-    </button>
+    <div class="header-actions" *ngIf="history.length > 0">
+      <button 
+        *ngIf="!selectedItem"
+        class="btn btn-small" 
+        (click)="exportFilteredMarkdown()"
+        title="Export visible items to a single Markdown file"
+        style="margin-right: 0.5rem;"
+      >
+        <mat-icon class="inline-icon">download</mat-icon> Export MD
+      </button>
+      <button 
+        *ngIf="!selectedItem"
+        class="btn btn-small" 
+        (click)="exportFilteredJSON()"
+        title="Export visible items to a JSON file"
+        style="margin-right: 0.5rem;"
+      >
+        <mat-icon class="inline-icon">download</mat-icon> Export JSON
+      </button>
+      <button 
+        class="btn btn-danger btn-small" 
+        (click)="clearAllHistory()"
+      >
+        <mat-icon class="inline-icon">delete_sweep</mat-icon> Clear All
+      </button>
+    </div>
   </div>
 
-  <!-- Empty State -->
+  <!-- Search & Filter Controls -->
+  <div class="search-filter-controls" *ngIf="history.length > 0 && !selectedItem">
+    <div class="search-row">
+      <div class="search-input-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input 
+          type="text" 
+          class="prompt-input search-box-input" 
+          placeholder="Search question or responses..." 
+          [(ngModel)]="searchQuery"
+        />
+        <button *ngIf="searchQuery" class="clear-search-btn" (click)="searchQuery = ''">×</button>
+      </div>
+    </div>
+    
+    <div class="filters-row">
+      <!-- Provider Filter -->
+      <div class="filter-group">
+        <label>Provider</label>
+        <select class="prompt-input filter-select" [(ngModel)]="selectedProvider">
+          <option value="all">All Providers</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Gemini</option>
+          <option value="claude">Claude</option>
+          <option value="lmstudio">LM Studio</option>
+          <option value="zai">Z.AI</option>
+        </select>
+      </div>
+
+      <!-- Date Filter -->
+      <div class="filter-group">
+        <label>Date</label>
+        <select class="prompt-input filter-select" [(ngModel)]="selectedDateRange">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+        </select>
+      </div>
+
+      <!-- Tag Filter -->
+      <div class="filter-group">
+        <label>Tag</label>
+        <select class="prompt-input filter-select" [(ngModel)]="selectedTag">
+          <option value="all">All Tags</option>
+          <option *ngFor="let tag of allTags" [value]="tag">#{{ tag }}</option>
+        </select>
+      </div>
+
+      <!-- Star Filter -->
+      <button 
+        class="btn filter-star-btn" 
+        [class.active]="starredOnly" 
+        (click)="starredOnly = !starredOnly"
+        title="Show starred only"
+      >
+        <mat-icon class="inline-icon">{{ starredOnly ? 'star' : 'star_border' }}</mat-icon>
+        Starred
+      </button>
+    </div>
+  </div>
+
+  <!-- Empty State (No history at all) -->
   <div class="empty-state" *ngIf="history.length === 0 && !selectedItem">
     <div class="empty-icon"><mat-icon style="font-size: 48px; width: 48px; height: 48px;">edit_note</mat-icon></div>
     <p>No history yet</p>
     <small>Your questions and AI responses will appear here</small>
   </div>
 
+  <!-- Empty State (No results match filters) -->
+  <div class="empty-state" *ngIf="history.length > 0 && filteredHistory.length === 0 && !selectedItem">
+    <div class="empty-icon"><mat-icon style="font-size: 48px; width: 48px; height: 48px;">search_off</mat-icon></div>
+    <p>No results found</p>
+    <small>Try adjusting your search keywords or filters</small>
+    <button class="btn btn-small" style="margin-top: 1rem;" (click)="clearFilters()">Clear Filters</button>
+  </div>
+
   <!-- History List -->
   <div class="history-content" *ngIf="history.length > 0 || selectedItem">
     <!-- List View -->
-    <div class="history-list" *ngIf="!selectedItem">
+    <div class="history-list" *ngIf="!selectedItem && filteredHistory.length > 0">
       <div 
-        *ngFor="let item of history" 
+        *ngFor="let item of filteredHistory" 
         class="history-item" 
         (click)="selectItem(item)"
       >
         <div class="history-item-header">
           <span class="history-date">{{ formatDate(item.timestamp) }}</span>
-          <button class="btn-icon delete-btn" (click)="deleteItem(item, $event)" title="Delete">×</button>
+          <div class="item-actions">
+            <button 
+              class="btn-icon star-btn" 
+              [class.starred]="item.starred"
+              (click)="toggleStar(item, $event)" 
+              title="Star/Unstar"
+            >
+              <mat-icon class="inline-icon">{{ item.starred ? 'star' : 'star_border' }}</mat-icon>
+            </button>
+            <button class="btn-icon delete-btn" (click)="deleteItem(item, $event)" title="Delete">×</button>
+          </div>
         </div>
         <div class="history-prompt">{{ truncateText(item.prompt, 150) }}</div>
-        <div class="history-meta">
+        
+        <!-- Tags badges -->
+        <div class="history-tags" *ngIf="item.tags && item.tags.length > 0">
+          <span *ngFor="let tag of item.tags" class="tag-badge">#{{ tag }}</span>
+        </div>
+
+        <div class="history-meta" style="margin-top: 0.5rem;">
           <span *ngIf="item.screenshotCount > 0" class="meta-badge"><mat-icon class="inline-icon small">photo_camera</mat-icon> {{ item.screenshotCount }}</span>
           <span *ngIf="item.openaiResponse" class="meta-badge openai">OpenAI ✓</span>
           <span *ngIf="item.geminiResponse" class="meta-badge gemini">Gemini ✓</span>
+          <span *ngIf="item.claudeResponse" class="meta-badge claude">Claude ✓</span>
           <span *ngIf="item.lmstudioResponse" class="meta-badge lmstudio" style="background: rgba(63, 178, 127, 0.15); color: #57bd8f;">LM Studio ✓</span>
           <span *ngIf="item.zaiResponse" class="meta-badge zai" style="background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7);">Z.AI ✓</span>
         </div>
@@ -46,6 +153,12 @@
       <div class="detail-header">
         <button class="btn btn-small" (click)="closeDetail()">← Back</button>
         <div class="detail-actions">
+          <button class="btn btn-small" (click)="exportSingleMarkdown(selectedItem)" title="Export to Markdown">
+            <mat-icon class="inline-icon">download</mat-icon> Export MD
+          </button>
+          <button class="btn btn-small" (click)="exportSingleJSON(selectedItem)" title="Export to JSON">
+            <mat-icon class="inline-icon">download</mat-icon> Export JSON
+          </button>
           <button class="btn btn-small btn-primary" (click)="continueSession(selectedItem)" title="Continue this conversation">
             <mat-icon class="inline-icon">play_arrow</mat-icon> Continue
           </button>
@@ -55,6 +168,47 @@
         </div>
       </div>
       
+      <!-- Star & Tags Editor in Detail -->
+      <div class="detail-meta-section">
+        <div class="meta-label">Star & Tags</div>
+        <div class="meta-content">
+          <button 
+            class="detail-star-btn" 
+            [class.starred]="selectedItem.starred" 
+            (click)="toggleStar(selectedItem, $event)"
+            title="Star/Unstar"
+          >
+            <mat-icon class="inline-icon">{{ selectedItem.starred ? 'star' : 'star_border' }}</mat-icon>
+            {{ selectedItem.starred ? 'Starred' : 'Star' }}
+          </button>
+
+          <div class="detail-tags">
+            <span *ngFor="let tag of selectedItem.tags || []" class="detail-tag-chip">
+              #{{ tag }}
+              <button class="remove-tag-chip-btn" (click)="removeTag(selectedItem, tag)" title="Remove tag">&times;</button>
+            </span>
+            
+            <div class="detail-add-tag">
+              <input 
+                type="text" 
+                class="prompt-input detail-tag-input" 
+                placeholder="+ Add tag..." 
+                [(ngModel)]="newTagInput"
+                (keyup.enter)="addTag(selectedItem)"
+              />
+              <button 
+                class="add-tag-confirm-btn" 
+                *ngIf="newTagInput.trim()"
+                (click)="addTag(selectedItem)"
+                title="Add tag"
+              >
+                ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="detail-section">
         <div class="detail-header">
           <div class="detail-label">Question / Prompt</div>
@@ -80,6 +234,14 @@
             <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.geminiResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
           </div>
           <div #geminiResponseContent class="response-container" [innerHTML]="selectedItem.geminiResponse"></div>
+        </div>
+
+        <div class="response-section" *ngIf="selectedItem.claudeResponse">
+          <div class="response-label">
+            <span>Claude Response</span>
+            <button class="btn-icon copy-btn" (click)="copyToClipboard(selectedItem.claudeResponse || '')" title="Copy"><mat-icon>content_copy</mat-icon></button>
+          </div>
+          <div #claudeResponseContent class="response-container" [innerHTML]="selectedItem.claudeResponse"></div>
         </div>
 
         <div class="response-section" *ngIf="selectedItem.lmstudioResponse">

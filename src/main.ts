@@ -26,6 +26,7 @@ import { registerPreferencesIPC } from './main/ipc/preferences';
 import { registerScreenshotsIPC } from './main/ipc/screenshots';
 import { registerAIIPC } from './main/ipc/ai';
 import { registerVoiceIPC } from './main/ipc/voice';
+import { registerShortcutsIPC } from './main/ipc/shortcuts';
 import { registerGlobalShortcuts, unregisterAllShortcuts } from './main/shortcuts';
 import { createStore } from './main/store';
 import { createWindow, getMainWindow, hideMainWindow, moveWindow, showMainWindow } from './main/window';
@@ -78,6 +79,14 @@ registerFilesIPC(ipcMain, {
   mainWindow: getMainWindow
 });
 registerPreferencesIPC(ipcMain, { store, log, getApiKey: (type) => getApiKey(type, store, log), mainWindow: getMainWindow });
+registerShortcutsIPC(ipcMain, {
+  store,
+  log,
+  reapplyShortcuts: () => {
+    unregisterAllShortcuts();
+    return registerGlobalShortcuts({ store, log, preloadPath });
+  },
+});
 registerOverlayIPC(ipcMain, { preloadPath });
 registerDocumentsIPC(ipcMain, { mainWindow: getMainWindow, log });
 

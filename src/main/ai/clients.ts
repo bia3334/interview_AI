@@ -18,15 +18,162 @@ export const AI_CONFIG = {
   zai: {
     baseUrl: ZAI_CONFIG.BASE_URL,
     model: ZAI_CONFIG.DEFAULT_MODEL
+  },
+  claude: {
+    model: AI_MODELS.claude.default
+  }
+};
+
+// Token cost calculation based on provider and model
+export const calculateTokenCost = (provider: string, model: string, promptTokens: number, completionTokens: number): number => {
+  const modelLower = model ? model.toLowerCase() : '';
+  let inputCostPerM = 0;
+  let outputCostPerM = 0;
+
+  if (provider === 'openai') {
+    if (modelLower.includes('gpt-4o-mini')) {
+      inputCostPerM = 0.15;
+      outputCostPerM = 0.60;
+    } else if (modelLower.includes('gpt-4o')) {
+      inputCostPerM = 2.50;
+      outputCostPerM = 10.00;
+    } else if (modelLower.includes('gpt-4')) {
+      inputCostPerM = 30.00;
+      outputCostPerM = 60.00;
+    } else if (modelLower.includes('gpt-3.5')) {
+      inputCostPerM = 0.50;
+      outputCostPerM = 1.50;
+    } else if (modelLower.includes('o1-mini')) {
+      inputCostPerM = 3.00;
+      outputCostPerM = 12.00;
+    } else if (modelLower.includes('o1')) {
+      inputCostPerM = 15.00;
+      outputCostPerM = 60.00;
+    } else if (modelLower.includes('o3-mini')) {
+      inputCostPerM = 1.10;
+      outputCostPerM = 4.40;
+    } else {
+      inputCostPerM = 2.50;
+      outputCostPerM = 10.00;
+    }
+  } else if (provider === 'gemini') {
+    if (modelLower.includes('gemini-2.5-flash') || modelLower.includes('gemini-2.0-flash')) {
+      inputCostPerM = 0.075;
+      outputCostPerM = 0.30;
+    } else if (modelLower.includes('gemini-1.5-flash')) {
+      inputCostPerM = 0.075;
+      outputCostPerM = 0.30;
+    } else if (modelLower.includes('gemini-1.5-pro') || modelLower.includes('gemini-2.0-pro') || modelLower.includes('gemini-2.5-pro')) {
+      inputCostPerM = 1.25;
+      outputCostPerM = 5.00;
+    } else if (modelLower.includes('gemini-1.0-pro')) {
+      inputCostPerM = 0.50;
+      outputCostPerM = 1.50;
+    } else {
+      inputCostPerM = 0.075;
+      outputCostPerM = 0.30;
+    }
+  } else if (provider === 'zai') {
+    if (modelLower.includes('flash')) {
+      inputCostPerM = 0.0;
+      outputCostPerM = 0.0;
+    } else if (modelLower.includes('glm-4.7') || modelLower.includes('glm-4.5')) {
+      inputCostPerM = 0.60;
+      outputCostPerM = 2.20;
+    } else if (modelLower.includes('air')) {
+      inputCostPerM = 0.20;
+      outputCostPerM = 1.10;
+    } else if (modelLower.includes('32b')) {
+      inputCostPerM = 0.10;
+      outputCostPerM = 0.10;
+    } else {
+      inputCostPerM = 0.60;
+      outputCostPerM = 2.20;
+    }
+  } else if (provider === 'lmstudio') {
+    inputCostPerM = 0.0;
+    outputCostPerM = 0.0;
+  } else if (provider === 'claude') {
+    if (modelLower.includes('haiku')) {
+      inputCostPerM = 0.80;
+      outputCostPerM = 4.00;
+    } else if (modelLower.includes('sonnet')) {
+      inputCostPerM = 3.00;
+      outputCostPerM = 15.00;
+    } else if (modelLower.includes('opus')) {
+      inputCostPerM = 15.00;
+      outputCostPerM = 75.00;
+    } else {
+      // Default Sonnet 3.5 pricing
+      inputCostPerM = 3.00;
+      outputCostPerM = 15.00;
+    }
+  }
+
+  const inputCost = (promptTokens / 1_000_000) * inputCostPerM;
+  const outputCost = (completionTokens / 1_000_000) * outputCostPerM;
+
+  return inputCost + outputCost;
+};
+
+// Record token usage in store and emit IPC event to renderer
+export const recordTokenUsage = (
+  store: any,
+  provider: string,
+  model: string,
+  promptTokens: number,
+  completionTokens: number
+) => {
+  const totalTokens = promptTokens + completionTokens;
+  const cost = calculateTokenCost(provider, model, promptTokens, completionTokens);
+
+  try {
+    const accumulated = store.get('accumulatedTokenUsage') || {};
+    const currentProviderUsage = accumulated[provider] || {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      cost: 0,
+      requestCount: 0
+    };
+
+    const updatedProviderUsage = {
+      inputTokens: currentProviderUsage.inputTokens + promptTokens,
+      outputTokens: currentProviderUsage.outputTokens + completionTokens,
+      totalTokens: currentProviderUsage.totalTokens + totalTokens,
+      cost: currentProviderUsage.cost + cost,
+      requestCount: (currentProviderUsage.requestCount || 0) + 1
+    };
+
+    accumulated[provider] = updatedProviderUsage;
+    store.set('accumulatedTokenUsage', accumulated);
+
+    // Notify renderer via IPC
+    const { getMainWindow } = require('../window');
+    const mainWindow = getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('token-usage-updated', {
+        provider,
+        model,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        cost,
+        cumulative: accumulated
+      });
+    }
+  } catch (err) {
+    console.error('Error recording token usage:', err);
   }
 };
 
 // API Key Management
-export const getApiKey = (type: 'openai' | 'gemini' | 'zai', store: any, log: any) => {
+export const getApiKey = (type: 'openai' | 'gemini' | 'zai' | 'claude', store: any, log: any) => {
   const keys = {
     openai: store.get('openaiApiKey') || store.get('apiKey') || process.env.OPENAI_API_KEY || '',
     gemini: store.get('geminiApiKey') || process.env.GEMINI_API_KEY || '',
-    zai: store.get('zaiApiKey') || process.env.ZAI_API_KEY || ''
+    zai: store.get('zaiApiKey') || process.env.ZAI_API_KEY || '',
+    claude: store.get('claudeApiKey') || process.env.ANTHROPIC_API_KEY || ''
   };
   
   const key = keys[type];
@@ -104,6 +251,15 @@ export const sendPromptToOpenAICompatible = async (
     model,
     messages,
   });
+  if (response.usage) {
+    recordTokenUsage(
+      store,
+      providerId,
+      model,
+      response.usage.prompt_tokens || 0,
+      response.usage.completion_tokens || 0
+    );
+  }
   return response.choices[0]?.message?.content || '';
 };
 
@@ -132,6 +288,15 @@ export const sendConversationToOpenAICompatible = async (
     model,
     messages: apiMessages,
   });
+  if (response.usage) {
+    recordTokenUsage(
+      store,
+      providerId,
+      model,
+      response.usage.prompt_tokens || 0,
+      response.usage.completion_tokens || 0
+    );
+  }
   return response.choices[0]?.message?.content || '';
 };
 
@@ -159,6 +324,198 @@ export const testOpenAICompatibleConnection = async (
   } catch (error: any) {
     return { success: false, error: error.message || 'Connection failed' };
   }
+};
+
+// ============================================================
+// Streaming (token-by-token) variants
+// These mirror the non-streaming functions above but invoke a
+// transport-agnostic `onDelta` callback for each token chunk and
+// resolve with the full concatenated text. They are intentionally
+// IPC-free — the caller (ipc/ai.ts) wires `onDelta` to the renderer.
+// ============================================================
+
+type OnDelta = (delta: string) => void;
+
+// Generic OpenAI-compatible chat-completion stream. `messages` is passed
+// through verbatim so it also supports multimodal (image_url) content.
+export const streamChatCompletion = async (
+  client: OpenAI,
+  model: string,
+  messages: any[],
+  onDelta: OnDelta,
+  store?: any,
+  providerId?: string
+): Promise<string> => {
+  const options: any = {
+    model,
+    messages,
+    stream: true,
+  };
+
+  // Only request usage options for known cloud providers to prevent issues with local/mock endpoints
+  if (providerId === 'openai' || providerId === 'zai') {
+    options.stream_options = { include_usage: true };
+  }
+
+  const stream = await client.chat.completions.create(options);
+
+  let full = '';
+  for await (const chunk of stream as any) {
+    const delta = chunk.choices?.[0]?.delta?.content || '';
+    if (delta) {
+      full += delta;
+      onDelta(delta);
+    }
+    if (chunk.usage && store && providerId) {
+      recordTokenUsage(
+        store,
+        providerId,
+        model,
+        chunk.usage.prompt_tokens || 0,
+        chunk.usage.completion_tokens || 0
+      );
+    }
+  }
+  return full;
+};
+
+export const streamPromptToOpenAICompatible = async (
+  providerId: string,
+  prompt: string,
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const client = getOpenAICompatibleClient(providerId, store);
+  const model = getOpenAICompatibleModel(providerId, store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
+
+  return streamChatCompletion(client, model, messages, onDelta, store, providerId);
+};
+
+export const streamConversationToOpenAICompatible = async (
+  providerId: string,
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const client = getOpenAICompatibleClient(providerId, store);
+  const model = getOpenAICompatibleModel(providerId, store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+  if (systemPrompt) {
+    apiMessages.push({ role: 'system', content: systemPrompt });
+  }
+  apiMessages.push(...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+
+  return streamChatCompletion(client, model, apiMessages, onDelta, store, providerId);
+};
+
+export const streamPromptToOpenAI = (prompt: string, store: any, onDelta: OnDelta) =>
+  streamPromptToOpenAICompatible('openai', prompt, store, onDelta);
+export const streamPromptToZAI = (prompt: string, store: any, onDelta: OnDelta) =>
+  streamPromptToOpenAICompatible('zai', prompt, store, onDelta);
+export const streamPromptToLMStudio = (prompt: string, store: any, onDelta: OnDelta) =>
+  streamPromptToOpenAICompatible('lmstudio', prompt, store, onDelta);
+
+export const streamConversationToOpenAI = (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>, store: any, onDelta: OnDelta
+) => streamConversationToOpenAICompatible('openai', messages, store, onDelta);
+export const streamConversationToZAI = (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>, store: any, onDelta: OnDelta
+) => streamConversationToOpenAICompatible('zai', messages, store, onDelta);
+export const streamConversationToLMStudio = (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>, store: any, onDelta: OnDelta
+) => streamConversationToOpenAICompatible('lmstudio', messages, store, onDelta);
+
+// Gemini streaming. `parts` accepts plain text and/or createPartFromUri image
+// parts, mirroring sendPromptToGemini.
+export const streamPromptToGemini = async (
+  parts: any[],
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const ai = getGeminiClient(store);
+  const { createUserContent } = require('@google/genai');
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const model = getCurrentGeminiModel(store);
+  const config: any = {
+    model,
+    contents: [createUserContent(parts)],
+  };
+  if (systemPrompt) {
+    config.systemInstruction = systemPrompt;
+  }
+
+  const stream = await ai.models.generateContentStream(config);
+  let full = '';
+  for await (const chunk of stream) {
+    const t = chunk.text || '';
+    if (t) {
+      full += t;
+      onDelta(t);
+    }
+    if (chunk.usageMetadata) {
+      recordTokenUsage(
+        store,
+        'gemini',
+        model,
+        chunk.usageMetadata.promptTokenCount || 0,
+        chunk.usageMetadata.candidatesTokenCount || 0
+      );
+    }
+  }
+  return full;
+};
+
+export const streamConversationToGemini = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const ai = getGeminiClient(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const contents = messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+
+  const model = getCurrentGeminiModel(store);
+  const config: any = {
+    model,
+    contents,
+  };
+  if (systemPrompt) {
+    config.systemInstruction = systemPrompt;
+  }
+
+  const stream = await ai.models.generateContentStream(config);
+  let full = '';
+  for await (const chunk of stream) {
+    const t = chunk.text || '';
+    if (t) {
+      full += t;
+      onDelta(t);
+    }
+    if (chunk.usageMetadata) {
+      recordTokenUsage(
+        store,
+        'gemini',
+        model,
+        chunk.usageMetadata.promptTokenCount || 0,
+        chunk.usageMetadata.candidatesTokenCount || 0
+      );
+    }
+  }
+  return full;
 };
 
 // ============================================================
@@ -202,7 +559,7 @@ export const getCustomSystemPrompt = (store: any): string => {
 };
 
 // AI Request Functions
-export const sendPromptToGemini = (prompt: string[], store: any) => {
+export const sendPromptToGemini = async (prompt: string[], store: any) => {
   const ai = getGeminiClient(store);
   const { createUserContent } = require('@google/genai');
   const systemPrompt = getCustomSystemPrompt(store);
@@ -224,7 +581,19 @@ export const sendPromptToGemini = (prompt: string[], store: any) => {
   console.log('User Prompt:', prompt);
   console.log('====================================\n');
 
-  return ai.models.generateContent(config);
+  const response = await ai.models.generateContent(config);
+
+  if (response && response.usageMetadata) {
+    recordTokenUsage(
+      store,
+      'gemini',
+      config.model,
+      response.usageMetadata.promptTokenCount || 0,
+      response.usageMetadata.candidatesTokenCount || 0
+    );
+  }
+
+  return response;
 };
 
 // These now use the unified function internally
@@ -314,6 +683,16 @@ export const sendConversationToGemini = async (
   }
   
   const response = await ai.models.generateContent(config);
+
+  if (response && response.usageMetadata) {
+    recordTokenUsage(
+      store,
+      'gemini',
+      config.model,
+      response.usageMetadata.promptTokenCount || 0,
+      response.usageMetadata.candidatesTokenCount || 0
+    );
+  }
   
   return response.text || '';
 };
@@ -362,13 +741,23 @@ export const extractKeyInfoFromDocument = async (
     // Use OpenAI (selected or default for 'both')
     try {
       const openai = getOpenAIClient(store);
+      const model = getCurrentOpenAIModel(store);
       const response = await openai.chat.completions.create({
-        model: getCurrentOpenAIModel(store),
+        model,
         messages: [
           { role: 'system', content: 'You are a document analyzer. Extract key information accurately and comprehensively.' },
           { role: 'user', content: prompt }
         ],
       });
+      if (response.usage) {
+        recordTokenUsage(
+          store,
+          'openai',
+          model,
+          response.usage.prompt_tokens || 0,
+          response.usage.completion_tokens || 0
+        );
+      }
       return response.choices[0]?.message?.content || '';
     } catch (openaiError) {
       console.error('OpenAI extraction failed:', openaiError);
@@ -378,10 +767,20 @@ export const extractKeyInfoFromDocument = async (
     // Use Gemini (explicitly selected)
     try {
       const ai = getGeminiClient(store);
+      const model = getCurrentGeminiModel(store);
       const response = await ai.models.generateContent({
-        model: getCurrentGeminiModel(store),
+        model,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
+      if (response.usageMetadata) {
+        recordTokenUsage(
+          store,
+          'gemini',
+          model,
+          response.usageMetadata.promptTokenCount || 0,
+          response.usageMetadata.candidatesTokenCount || 0
+        );
+      }
       return response.text || '';
     } catch (geminiError) {
       console.error('Gemini extraction failed:', geminiError);
@@ -407,4 +806,430 @@ export const getLMStudioClient = (store: any) => {
 
 export const getCurrentLMStudioModel = (store: any) => {
   return getOpenAICompatibleModel('lmstudio', store);
+};
+
+// ============================================================
+// Anthropic / Claude Dedicated Client
+// ============================================================
+
+export const getClaudeClient = (store: any) => {
+  const apiKey = getApiKey('claude', store, console);
+  if (!apiKey) {
+    throw new Error('Claude API key is not configured');
+  }
+  return {
+    apiKey,
+    baseURL: 'https://api.anthropic.com/v1/messages'
+  };
+};
+
+export const getCurrentClaudeModel = (store: any) => {
+  return store.get('claudeModel') || AI_CONFIG.claude.model;
+};
+
+export const sendPromptToClaude = async (
+  prompt: string,
+  store: any
+): Promise<string> => {
+  const client = getClaudeClient(store);
+  const model = getCurrentClaudeModel(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const requestBody: any = {
+    model,
+    max_tokens: 4096,
+    messages: [
+      { role: 'user', content: prompt }
+    ]
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  console.log('\n========== CLAUDE PROMPT ==========');
+  console.log('Model:', model);
+  console.log('System Prompt:', systemPrompt || '(none)');
+  console.log('User Prompt:', prompt);
+  console.log('====================================\n');
+
+  const fetch = require('node-fetch');
+  const response = await fetch(client.baseURL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': client.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Claude API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (data.usage) {
+    recordTokenUsage(
+      store,
+      'claude',
+      model,
+      data.usage.input_tokens || 0,
+      data.usage.output_tokens || 0
+    );
+  }
+  return data.content?.[0]?.text || '';
+};
+
+export const sendConversationToClaude = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any
+): Promise<string> => {
+  const client = getClaudeClient(store);
+  const model = getCurrentClaudeModel(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const apiMessages = messages.map(m => ({
+    role: m.role,
+    content: m.content
+  }));
+
+  const requestBody: any = {
+    model,
+    max_tokens: 4096,
+    messages: apiMessages
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  console.log('\n========== CLAUDE CONVERSATION ==========');
+  console.log('Model:', model);
+  console.log('Messages:', JSON.stringify(apiMessages, null, 2));
+  console.log('==========================================\n');
+
+  const fetch = require('node-fetch');
+  const response = await fetch(client.baseURL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': client.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Claude API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (data.usage) {
+    recordTokenUsage(
+      store,
+      'claude',
+      model,
+      data.usage.input_tokens || 0,
+      data.usage.output_tokens || 0
+    );
+  }
+  return data.content?.[0]?.text || '';
+};
+
+export const sendPromptWithScreenshotsToClaude = async (
+  prompt: string,
+  screenshots: string[],
+  store: any
+): Promise<string> => {
+  const client = getClaudeClient(store);
+  const model = getCurrentClaudeModel(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+  const { imageToBase64 } = require('../utils/files');
+
+  const content: any[] = [{ type: 'text', text: prompt }];
+
+  for (const screenshotPath of screenshots) {
+    try {
+      const base64Image = imageToBase64(screenshotPath);
+      content.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: 'image/png',
+          data: base64Image
+        }
+      });
+    } catch (error) {
+      console.error(`Error processing image ${screenshotPath} for Claude:`, error);
+    }
+  }
+
+  const requestBody: any = {
+    model,
+    max_tokens: 4096,
+    messages: [
+      { role: 'user', content }
+    ]
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  console.log('\n========== CLAUDE PROMPT WITH SCREENSHOTS ==========');
+  console.log('Model:', model);
+  console.log('System Prompt:', systemPrompt || '(none)');
+  console.log('Text Prompt:', prompt);
+  console.log('Screenshots count:', screenshots.length);
+  console.log('====================================================\n');
+
+  const fetch = require('node-fetch');
+  const response = await fetch(client.baseURL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': client.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Claude API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (data.usage) {
+    recordTokenUsage(
+      store,
+      'claude',
+      model,
+      data.usage.input_tokens || 0,
+      data.usage.output_tokens || 0
+    );
+  }
+  return data.content?.[0]?.text || '';
+};
+
+const streamClaudeAPI = async (
+  client: any,
+  requestBody: any,
+  onDelta: OnDelta,
+  store: any
+): Promise<string> => {
+  const fetch = require('node-fetch');
+  const response = await fetch(client.baseURL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': client.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Claude API error (${response.status}): ${errorText}`);
+  }
+
+  let full = '';
+  const body = response.body;
+  if (!body) {
+    return '';
+  }
+
+  // Parse SSE stream
+  let buffer = '';
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for await (const chunk of body) {
+    buffer += chunk.toString('utf8');
+    let boundary = buffer.indexOf('\n');
+    while (boundary !== -1) {
+      const line = buffer.substring(0, boundary).trim();
+      buffer = buffer.substring(boundary + 1);
+      boundary = buffer.indexOf('\n');
+
+      if (line.startsWith('data:')) {
+        const dataStr = line.substring(5).trim();
+        if (dataStr === '[DONE]') {
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (parsed.type === 'message_start' && parsed.message?.usage?.input_tokens) {
+            inputTokens = parsed.message.usage.input_tokens;
+          }
+          if (parsed.type === 'message_delta' && parsed.usage?.output_tokens) {
+            outputTokens = parsed.usage.output_tokens;
+          }
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            const delta = parsed.delta.text;
+            full += delta;
+            onDelta(delta);
+          }
+        } catch (e) {
+          // Ignore parsing errors for non-JSON or partial lines
+        }
+      }
+    }
+  }
+
+  if (inputTokens > 0 || outputTokens > 0) {
+    recordTokenUsage(store, 'claude', requestBody.model, inputTokens, outputTokens);
+  }
+
+  return full;
+};
+
+export const streamPromptToClaude = async (
+  prompt: string,
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const client = getClaudeClient(store);
+  const model = getCurrentClaudeModel(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const requestBody: any = {
+    model,
+    max_tokens: 4096,
+    messages: [
+      { role: 'user', content: prompt }
+    ],
+    stream: true
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  console.log('\n========== CLAUDE STREAM PROMPT ==========');
+  console.log('Model:', model);
+  console.log('System Prompt:', systemPrompt || '(none)');
+  console.log('User Prompt:', prompt);
+  console.log('==========================================\n');
+
+  return streamClaudeAPI(client, requestBody, onDelta, store);
+};
+
+export const streamConversationToClaude = async (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const client = getClaudeClient(store);
+  const model = getCurrentClaudeModel(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+
+  const apiMessages = messages.map(m => ({
+    role: m.role,
+    content: m.content
+  }));
+
+  const requestBody: any = {
+    model,
+    max_tokens: 4096,
+    messages: apiMessages,
+    stream: true
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  console.log('\n========== CLAUDE STREAM CONVERSATION ==========');
+  console.log('Model:', model);
+  console.log('Messages:', JSON.stringify(apiMessages, null, 2));
+  console.log('================================================\n');
+
+  return streamClaudeAPI(client, requestBody, onDelta, store);
+};
+
+export const streamPromptWithScreenshotsToClaude = async (
+  prompt: string,
+  screenshots: string[],
+  store: any,
+  onDelta: OnDelta
+): Promise<string> => {
+  const client = getClaudeClient(store);
+  const model = getCurrentClaudeModel(store);
+  const systemPrompt = getCustomSystemPrompt(store);
+  const { imageToBase64 } = require('../utils/files');
+
+  const content: any[] = [{ type: 'text', text: prompt }];
+
+  for (const screenshotPath of screenshots) {
+    try {
+      const base64Image = imageToBase64(screenshotPath);
+      content.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: 'image/png',
+          data: base64Image
+        }
+      });
+    } catch (error) {
+      console.error(`Error processing image ${screenshotPath} for Claude:`, error);
+    }
+  }
+
+  const requestBody: any = {
+    model,
+    max_tokens: 4096,
+    messages: [
+      { role: 'user', content }
+    ],
+    stream: true
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  console.log('\n========== CLAUDE STREAM PROMPT WITH SCREENSHOTS ==========');
+  console.log('Model:', model);
+  console.log('System Prompt:', systemPrompt || '(none)');
+  console.log('Text Prompt:', prompt);
+  console.log('Screenshots count:', screenshots.length);
+  console.log('==========================================================\n');
+
+  return streamClaudeAPI(client, requestBody, onDelta, store);
+};
+
+export const testClaudeConnection = async (store: any): Promise<{ success: boolean; model?: string; error?: string }> => {
+  try {
+    const client = getClaudeClient(store);
+    const model = getCurrentClaudeModel(store);
+
+    const fetch = require('node-fetch');
+    const response = await fetch(client.baseURL, {
+      method: 'POST',
+      headers: {
+        'x-api-key': client.apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 5,
+        messages: [{ role: 'user', content: 'Hi' }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `Claude API error (${response.status}): ${errorText}` };
+    }
+
+    return { success: true, model };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Connection failed' };
+  }
 };

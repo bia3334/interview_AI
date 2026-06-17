@@ -4,6 +4,9 @@ import { MarkdownService } from '../../services/markdown.service';
 import { VoiceRecorderService } from '../../services/voice-recorder.service';
 import { DEFAULTS, AIProvider } from '../../constants/settings';
 
+/** Providers that support token streaming via the `ai-stream` IPC channel. */
+type StreamProvider = 'openai' | 'gemini' | 'claude' | 'zai' | 'lmstudio';
+
 @Component({
   selector: 'app-prompt-tab',
   templateUrl: './prompt-tab.component.html',
@@ -14,9 +17,15 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   userInput: string = '';
   openaiResponse: string = '';
   geminiResponse: string = '';
+  claudeResponse: string = '';
   lmstudioResponse: string = '';
   zaiResponse: string = '';
-  defaultModel: AIProvider = DEFAULTS.MODEL;
+  openaiUsage: any = null;
+  geminiUsage: any = null;
+  zaiUsage: any = null;
+  lmstudioUsage: any = null;
+  claudeUsage: any = null;
+  defaultModel: AIProvider | string = DEFAULTS.MODEL;
   showBoth: boolean = true;
   isLoading: boolean = false;
   screenshots: string[] = [];
@@ -25,6 +34,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   openaiEnabled: boolean = true;
   geminiEnabled: boolean = true;
   zaiEnabled: boolean = false;
+  claudeEnabled: boolean = true;
   lmstudioMode: boolean = false;
 
   // Document context
@@ -45,6 +55,15 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
   isConversationMode: boolean = false;
   currentHistoryItemId: string | null = null;
+
+  // In-flight token streams, keyed by requestId. Each accumulates raw text as
+  // `ai-stream` chunks arrive and throttle-renders markdown into its panel.
+  private activeStreams = new Map<string, {
+    provider: StreamProvider;
+    updateFn: (html: string) => void;
+    raw: string;
+    flushScheduled: boolean;
+  }>();
 
   // Voice recording state
   isRecording: boolean = false;
@@ -68,6 +87,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   @ViewChild('openaiResponseContainer') openaiResponseContainer!: ElementRef;
   @ViewChild('geminiResponseContainer') geminiResponseContainer!: ElementRef;
+  @ViewChild('claudeResponseContainer') claudeResponseContainer!: ElementRef;
   @ViewChild('lmstudioResponseContainer') lmstudioResponseContainer!: ElementRef;
   @ViewChild('zaiResponseContainer') zaiResponseContainer!: ElementRef;
   @ViewChild('notePreviewContainer') notePreviewContainer?: ElementRef;
@@ -122,6 +142,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.userInput = '';
     this.openaiResponse = item.openaiResponse || '';
     this.geminiResponse = item.geminiResponse || '';
+    this.claudeResponse = item.claudeResponse || '';
     this.lmstudioResponse = item.lmstudioResponse || '';
     this.zaiResponse = (item as any).zaiResponse || '';
     
@@ -137,7 +158,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     // provider actually answered — previously this only looked at OpenAI, so
     // continuing a Gemini/Z.AI/LM Studio session had no assistant context.
     const priorResponse =
-      item.openaiResponse || item.geminiResponse || item.zaiResponse || item.lmstudioResponse;
+      item.openaiResponse || item.geminiResponse || item.claudeResponse || item.zaiResponse || item.lmstudioResponse;
     if (priorResponse) {
       const textContent = this.stripHtml(priorResponse);
       this.conversationHistory.push({ role: 'assistant', content: textContent });
@@ -161,6 +182,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.currentHistoryItemId = null;
     this.openaiResponse = '';
     this.geminiResponse = '';
+    this.claudeResponse = '';
     this.lmstudioResponse = '';
     this.zaiResponse = '';
     this.userInput = '';
@@ -358,7 +380,10 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   }
 
   ngAfterViewChecked() {
-    this.renderMarkdownTargets();
+    // Intentionally empty. KaTeX/highlight rendering is triggered explicitly via
+    // scheduleMarkdownRender() after each content change. Re-rendering on every
+    // change-detection pass ran the full KaTeX + highlight.js pass dozens of
+    // times during streaming and made the answer flicker until it completed.
   }
 
   /**
@@ -372,6 +397,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     const targets = [
       this.openaiResponseContainer,
       this.geminiResponseContainer,
+      this.claudeResponseContainer,
       this.lmstudioResponseContainer,
       this.zaiResponseContainer,
       this.notePreviewContainer,
@@ -394,6 +420,10 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
    * guarantees the DOM is in place before we render.
    */
   private scheduleMarkdownRender() {
+    // Render on the next macrotask, once the DOM (including any *ngIf containers
+    // and their @ViewChild refs) has settled. KaTeX/highlight mutate the DOM
+    // directly, so this runs the pass exactly once per content change rather
+    // than on every change-detection tick.
     setTimeout(() => this.renderMarkdownTargets());
   }
 
@@ -423,7 +453,8 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         'both':     ['openai', 'gemini'],
         'openai':   ['openai'],
         'gemini':   ['gemini'],
-        'zai':      ['zai']
+        'zai':      ['zai'],
+        'claude':   ['claude']
       };
       // Default fallback (equivalent to your 'default' case)
       providers = legacyAliases[model] || ['openai', 'gemini'];
@@ -438,15 +469,22 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.openaiEnabled = false;
       this.geminiEnabled = false;
       this.zaiEnabled = false;
+      this.claudeEnabled = false;
     } else {
       // Otherwise, check inclusion for each cloud provider
       this.openaiEnabled = providers.includes('openai');
       this.geminiEnabled = providers.includes('gemini');
       this.zaiEnabled = providers.includes('zai');
+      this.claudeEnabled = providers.includes('claude');
     }
   }
 
   setupEventListeners() {
+    // Token stream chunks — route each to its panel's accumulator.
+    this.electronService.onAIStream().subscribe((evt) => {
+      this.onStreamDelta(evt);
+    });
+
     // Process screenshots (Ctrl+Shift+P)
     this.electronService.onProcessScreenshots().subscribe(() => {
       this.processScreenshots();
@@ -505,6 +543,24 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     // Voice recording shortcut (Ctrl+Shift+V)
     this.electronService.onToggleVoiceRecording().subscribe(() => {
       this.toggleVoiceRecording();
+    });
+
+    // Token usage updates
+    this.electronService.onTokenUsageUpdated().subscribe((data) => {
+      this.ngZone.run(() => {
+        if (data.provider === 'openai') {
+          this.openaiUsage = data;
+        } else if (data.provider === 'gemini') {
+          this.geminiUsage = data;
+        } else if (data.provider === 'zai') {
+          this.zaiUsage = data;
+        } else if (data.provider === 'lmstudio') {
+          this.lmstudioUsage = data;
+        } else if (data.provider === 'claude') {
+          this.claudeUsage = data;
+        }
+        this.cdr.detectChanges();
+      });
     });
   }
 
@@ -642,6 +698,9 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     if (!this.geminiEnabled) {
       this.geminiResponse = '';
     }
+    if (!this.claudeEnabled) {
+      this.claudeResponse = '';
+    }
     if (!this.zaiEnabled) {
       this.zaiResponse = '';
     }
@@ -654,6 +713,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     const providers: string[] = [];
     if (this.openaiEnabled) providers.push('OpenAI');
     if (this.geminiEnabled) providers.push('Gemini');
+    if (this.claudeEnabled) providers.push('Claude');
     if (this.zaiEnabled) providers.push('Z.AI');
     return providers.length > 0 ? providers.join(' + ') : 'No provider';
   }
@@ -668,22 +728,79 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
   }
 
   // =====================
+  // Token Streaming
+  // =====================
+
+  /** Unique id so the main process can tag stream chunks back to a panel. */
+  private genRequestId(provider: StreamProvider): string {
+    return `${provider}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /** Register a panel to receive streamed tokens for the given request. */
+  private beginStream(requestId: string, provider: StreamProvider, updateFn: (html: string) => void): void {
+    this.activeStreams.set(requestId, { provider, updateFn, raw: '', flushScheduled: false });
+  }
+
+  /** Stop routing chunks to a panel (the final render is done by the awaited call). */
+  private endStream(requestId: string): void {
+    this.activeStreams.delete(requestId);
+  }
+
+  /** Accumulate a chunk and schedule a throttled markdown re-render. */
+  private onStreamDelta(evt: { requestId: string; provider: string; delta: string }): void {
+    const entry = this.activeStreams.get(evt.requestId);
+    if (!entry) return;
+    entry.raw += evt.delta;
+    if (!entry.flushScheduled) {
+      entry.flushScheduled = true;
+      // Coalesce bursts of tokens — re-rendering markdown + KaTeX on every
+      // single token is wasteful and janky for long answers.
+      setTimeout(() => this.flushStream(evt.requestId), 50);
+    }
+  }
+
+  /** Render the accumulated raw text as markdown into the panel. */
+  private flushStream(requestId: string): void {
+    const entry = this.activeStreams.get(requestId);
+    if (!entry) return;
+    entry.flushScheduled = false;
+    const html = this.markdownService.renderMarkdown(entry.raw);
+    this.ngZone.run(() => {
+      entry.updateFn(html);
+      this.cdr.detectChanges();
+      // Note: we deliberately do NOT run KaTeX here. Code is highlighted inline
+      // by renderMarkdown(), so it stays styled as it streams, but math is left
+      // as raw `$…$` until the stream finishes — re-running KaTeX on every flush
+      // made formulas flicker between raw and rendered. The awaited completion
+      // path (handleProviderRequest) calls scheduleMarkdownRender() once to do
+      // the final KaTeX pass.
+    });
+  }
+
+  // =====================
   // Generic Provider Request Handler
   // =====================
 
   /**
    * Generic handler for any AI provider request.
    * Handles try/catch, markdown rendering, and UI updates in a unified way.
+   * When `provider` is supplied, a streaming requestId is generated and passed
+   * to `apiCall`; incoming `ai-stream` chunks update the panel live, and the
+   * awaited result does the final clean render.
    * @param apiCall - The async function that returns the raw string response.
    * @param updateFn - The callback to update the specific UI property.
+   * @param provider - Provider whose tokens should stream into this panel (optional).
    * @returns Promise<string> - The raw response (or empty string on error) for history tracking.
    */
   private async handleProviderRequest(
-    apiCall: () => Promise<string>,
-    updateFn: (formattedHtml: string) => void
+    apiCall: (requestId: string) => Promise<string>,
+    updateFn: (formattedHtml: string) => void,
+    provider?: StreamProvider
   ): Promise<string> {
+    const requestId = provider ? this.genRequestId(provider) : '';
+    if (provider) this.beginStream(requestId, provider, updateFn);
     try {
-      const raw = await apiCall();
+      const raw = await apiCall(requestId);
       const formatted = this.markdownService.renderMarkdown(raw);
       this.ngZone.run(() => {
         updateFn(formatted);
@@ -700,18 +817,25 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         this.scheduleMarkdownRender();
       });
       return ''; // Return empty so history ignores errors
+    } finally {
+      if (provider) this.endStream(requestId);
     }
   }
 
   /**
    * Handler for screenshot analysis requests (returns { success, analysis, error }).
+   * Streams tokens into the panel when `provider` is supplied (requestId is
+   * threaded through the options object by the caller).
    */
   private async handleScreenshotAnalysis(
-    apiCall: () => Promise<{ success: boolean; analysis?: string; error?: string }>,
-    updateFn: (formattedHtml: string) => void
+    apiCall: (requestId: string) => Promise<{ success: boolean; analysis?: string; error?: string }>,
+    updateFn: (formattedHtml: string) => void,
+    provider?: StreamProvider
   ): Promise<string> {
+    const requestId = provider ? this.genRequestId(provider) : '';
+    if (provider) this.beginStream(requestId, provider, updateFn);
     try {
-      const result = await apiCall();
+      const result = await apiCall(requestId);
       let formatted: string;
       if (result.success && result.analysis) {
         formatted = this.markdownService.renderMarkdown(result.analysis);
@@ -733,6 +857,8 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         this.scheduleMarkdownRender();
       });
       return '';
+    } finally {
+      if (provider) this.endStream(requestId);
     }
   }
 
@@ -745,8 +871,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.userInput = '';
     this.isLoading = true;
 
-    // Check if we have screenshots to include
+    // Check if we have screenshots to include. Snapshot the count now so a
+    // concurrent prompt clearing/adding screenshots can't change what this
+    // request records in history.
     const hasScreenshots = this.screenshots.length > 0;
+    const screenshotCountSnapshot = this.screenshots.length;
 
     // Add user message to conversation history if in conversation mode
     if (this.isConversationMode) {
@@ -756,88 +885,113 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     // Set loading indicators for all active providers
     if (this.openaiEnabled && !this.lmstudioMode) {
       this.openaiResponse = this.thinkingHtml('Thinking…');
+      this.openaiUsage = null;
     }
     if (this.geminiEnabled && !this.lmstudioMode) {
       this.geminiResponse = this.thinkingHtml('Thinking…');
+      this.geminiUsage = null;
     }
     if (this.zaiEnabled && !this.lmstudioMode) {
       this.zaiResponse = this.thinkingHtml('Thinking…');
+      this.zaiUsage = null;
+    }
+    if (this.claudeEnabled && !this.lmstudioMode) {
+      this.claudeResponse = this.thinkingHtml('Thinking…');
+      this.claudeUsage = null;
     }
     if (this.lmstudioMode) {
       this.lmstudioResponse = this.thinkingHtml('Thinking…');
+      this.lmstudioUsage = null;
     }
     this.cdr.detectChanges();
 
     // Build array of parallel tasks
     interface ProviderTask {
-      name: 'openai' | 'gemini' | 'zai' | 'lmstudio';
+      name: 'openai' | 'gemini' | 'zai' | 'lmstudio' | 'claude';
       promise: Promise<string>;
     }
     const tasks: ProviderTask[] = [];
 
     // OpenAI
     if (this.openaiEnabled && !this.lmstudioMode) {
-      const apiCall = () => {
+      const apiCall = (requestId: string) => {
         if (this.isConversationMode) {
-          return this.electronService.sendConversationToOpenAI(this.conversationHistory);
+          return this.electronService.sendConversationToOpenAI(this.conversationHistory, requestId);
         } else if (hasScreenshots) {
-          return this.electronService.sendPromptWithScreenshotsToOpenAI(savedPrompt);
+          return this.electronService.sendPromptWithScreenshotsToOpenAI(savedPrompt, requestId);
         } else {
-          return this.electronService.sendPromptToOpenAI(savedPrompt);
+          return this.electronService.sendPromptToOpenAI(savedPrompt, requestId);
         }
       };
       tasks.push({
         name: 'openai',
-        promise: this.handleProviderRequest(apiCall, (html) => this.openaiResponse = html)
+        promise: this.handleProviderRequest(apiCall, (html) => this.openaiResponse = html, 'openai')
       });
     }
 
     // Gemini
     if (this.geminiEnabled && !this.lmstudioMode) {
-      const apiCall = () => {
+      const apiCall = (requestId: string) => {
         if (this.isConversationMode) {
-          return this.electronService.sendConversationToGemini(this.conversationHistory);
+          return this.electronService.sendConversationToGemini(this.conversationHistory, requestId);
         } else if (hasScreenshots) {
-          return this.electronService.sendPromptWithScreenshotsToGemini(savedPrompt);
+          return this.electronService.sendPromptWithScreenshotsToGemini(savedPrompt, requestId);
         } else {
-          return this.electronService.sendPromptToGemini(savedPrompt);
+          return this.electronService.sendPromptToGemini(savedPrompt, requestId);
         }
       };
       tasks.push({
         name: 'gemini',
-        promise: this.handleProviderRequest(apiCall, (html) => this.geminiResponse = html)
+        promise: this.handleProviderRequest(apiCall, (html) => this.geminiResponse = html, 'gemini')
+      });
+    }
+
+    // Claude
+    if (this.claudeEnabled && !this.lmstudioMode) {
+      const apiCall = (requestId: string) => {
+        if (this.isConversationMode) {
+          return this.electronService.sendConversationToClaude(this.conversationHistory, requestId);
+        } else if (hasScreenshots) {
+          return this.electronService.sendPromptWithScreenshotsToClaude(savedPrompt, requestId);
+        } else {
+          return this.electronService.sendPromptToClaude(savedPrompt, requestId);
+        }
+      };
+      tasks.push({
+        name: 'claude',
+        promise: this.handleProviderRequest(apiCall, (html) => this.claudeResponse = html, 'claude')
       });
     }
 
     // Z.AI (now supports screenshots via vision model)
     if (this.zaiEnabled && !this.lmstudioMode) {
-      const apiCall = () => {
+      const apiCall = (requestId: string) => {
         if (this.isConversationMode) {
-          return this.electronService.sendConversationToZAI(this.conversationHistory);
+          return this.electronService.sendConversationToZAI(this.conversationHistory, requestId);
         } else if (hasScreenshots) {
-          return this.electronService.sendPromptWithScreenshotsToZAI(savedPrompt);
+          return this.electronService.sendPromptWithScreenshotsToZAI(savedPrompt, requestId);
         } else {
-          return this.electronService.sendPromptToZAI(savedPrompt);
+          return this.electronService.sendPromptToZAI(savedPrompt, requestId);
         }
       };
       tasks.push({
         name: 'zai',
-        promise: this.handleProviderRequest(apiCall, (html) => this.zaiResponse = html)
+        promise: this.handleProviderRequest(apiCall, (html) => this.zaiResponse = html, 'zai')
       });
     }
 
     // LM Studio (local, text-only)
     if (this.lmstudioMode) {
-      const apiCall = () => {
+      const apiCall = (requestId: string) => {
         if (this.isConversationMode) {
-          return this.electronService.sendConversationToLMStudio(this.conversationHistory);
+          return this.electronService.sendConversationToLMStudio(this.conversationHistory, requestId);
         } else {
-          return this.electronService.sendPromptToLMStudio(savedPrompt);
+          return this.electronService.sendPromptToLMStudio(savedPrompt, requestId);
         }
       };
       tasks.push({
         name: 'lmstudio',
-        promise: this.handleProviderRequest(apiCall, (html) => this.lmstudioResponse = html)
+        promise: this.handleProviderRequest(apiCall, (html) => this.lmstudioResponse = html, 'lmstudio')
       });
     }
 
@@ -853,47 +1007,63 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
       const rawOpenai = responseMap['openai'] || '';
       const rawGemini = responseMap['gemini'] || '';
+      const rawClaude = responseMap['claude'] || '';
       const rawZai = responseMap['zai'] || '';
       const rawLmstudio = responseMap['lmstudio'] || '';
 
       // Add assistant response to conversation history if in conversation mode
       if (this.isConversationMode) {
-        const assistantResponse = rawOpenai || rawGemini || rawLmstudio || rawZai;
+        const assistantResponse = rawOpenai || rawGemini || rawClaude || rawLmstudio || rawZai;
         if (assistantResponse) {
           this.conversationHistory.push({ role: 'assistant', content: assistantResponse });
         }
       }
 
+      // Render each provider's response from THIS request's own raw result.
+      // We must not read this.*Response here: those shared fields can already
+      // hold a concurrent prompt's answer (e.g. the user switched model and
+      // asked again before this call resolved), which would make every history
+      // item collapse onto the latest answer.
+      const htmlOpenai = rawOpenai ? this.markdownService.renderMarkdown(rawOpenai) : '';
+      const htmlGemini = rawGemini ? this.markdownService.renderMarkdown(rawGemini) : '';
+      const htmlClaude = rawClaude ? this.markdownService.renderMarkdown(rawClaude) : '';
+      const htmlLmstudio = rawLmstudio ? this.markdownService.renderMarkdown(rawLmstudio) : '';
+      const htmlZai = rawZai ? this.markdownService.renderMarkdown(rawZai) : '';
+
       // Save or update history
-      const hasAnyResponse = rawOpenai || rawGemini || rawLmstudio || rawZai;
+      const hasAnyResponse = rawOpenai || rawGemini || rawClaude || rawLmstudio || rawZai;
       if (hasAnyResponse) {
         if (this.isConversationMode && this.currentHistoryItemId) {
           // Update existing history item with the full conversation
           const allPrompts = this.conversationHistory
-            .filter(m => m.role === 'user')
-            .map(m => m.content)
-            .join('\n---\n');
+             .filter(m => m.role === 'user')
+             .map(m => m.content)
+             .join('\n---\n');
           this.electronService.updateHistoryItem({
             id: this.currentHistoryItemId,
             timestamp: new Date(),
             prompt: allPrompts,
-            screenshotCount: hasScreenshots ? this.screenshots.length : 0,
-            openaiResponse: this.openaiResponse,
-            geminiResponse: this.geminiResponse,
-            lmstudioResponse: this.lmstudioResponse,
-            zaiResponse: this.zaiResponse
+            screenshotCount: hasScreenshots ? screenshotCountSnapshot : 0,
+            openaiResponse: htmlOpenai,
+            geminiResponse: htmlGemini,
+            claudeResponse: htmlClaude,
+            lmstudioResponse: htmlLmstudio,
+            zaiResponse: htmlZai
           } as any);
         } else {
-          // Create new history item
+          // Create new history item. Add a random suffix so two prompts that
+          // resolve in the same millisecond don't share an id (which would let
+          // one overwrite the other on update).
           this.electronService.saveHistoryItem({
-            id: Date.now().toString(),
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             timestamp: new Date(),
             prompt: savedPrompt,
-            screenshotCount: hasScreenshots ? this.screenshots.length : 0,
-            openaiResponse: this.openaiResponse,
-            geminiResponse: this.geminiResponse,
-            lmstudioResponse: this.lmstudioResponse,
-            zaiResponse: this.zaiResponse
+            screenshotCount: hasScreenshots ? screenshotCountSnapshot : 0,
+            openaiResponse: htmlOpenai,
+            geminiResponse: htmlGemini,
+            claudeResponse: htmlClaude,
+            lmstudioResponse: htmlLmstudio,
+            zaiResponse: htmlZai
           } as any);
         }
       }
@@ -910,14 +1080,21 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       this.isLoading = true;
       this.openaiResponse = this.thinkingHtml('Processing clipboard text…');
       this.geminiResponse = this.thinkingHtml('Processing clipboard text…');
+      this.claudeResponse = this.thinkingHtml('Processing clipboard text…');
       this.lmstudioResponse = this.thinkingHtml('Processing clipboard text…');
       this.zaiResponse = this.thinkingHtml('Processing clipboard text…');
+      this.openaiUsage = null;
+      this.geminiUsage = null;
+      this.claudeUsage = null;
+      this.lmstudioUsage = null;
+      this.zaiUsage = null;
       this.cdr.detectChanges();
 
       const result = await this.electronService.processClipboardPrompt();
       
       let savedOpenaiResponse = '';
       let savedGeminiResponse = '';
+      let savedClaudeResponse = '';
       let savedLmstudioResponse = '';
       let savedZaiResponse = '';
       let promptText = '';
@@ -941,6 +1118,13 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
             this.geminiResponse = '<p>Gemini model not selected or failed</p>';
           }
 
+          if (result.claudeResponse) {
+            savedClaudeResponse = this.markdownService.renderMarkdown(result.claudeResponse);
+            this.claudeResponse = savedClaudeResponse;
+          } else {
+            this.claudeResponse = '<p>Claude model not selected or failed</p>';
+          }
+
           if (result.lmstudioResponse) {
             savedLmstudioResponse = this.markdownService.renderMarkdown(result.lmstudioResponse);
             this.lmstudioResponse = savedLmstudioResponse;
@@ -958,6 +1142,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
           const errorMsg = this.markdownService.renderMarkdown(`**Error:** ${result.error}`);
           this.openaiResponse = errorMsg;
           this.geminiResponse = errorMsg;
+          this.claudeResponse = errorMsg;
           this.lmstudioResponse = errorMsg;
           this.zaiResponse = errorMsg;
         }
@@ -966,7 +1151,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
       });
 
       // Save to history if we got responses
-      if (savedOpenaiResponse || savedGeminiResponse || savedLmstudioResponse || savedZaiResponse) {
+      if (savedOpenaiResponse || savedGeminiResponse || savedClaudeResponse || savedLmstudioResponse || savedZaiResponse) {
         this.electronService.saveHistoryItem({
           id: Date.now().toString(),
           timestamp: new Date(),
@@ -974,6 +1159,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
           screenshotCount: 0,
           openaiResponse: savedOpenaiResponse,
           geminiResponse: savedGeminiResponse,
+          claudeResponse: savedClaudeResponse,
           lmstudioResponse: savedLmstudioResponse,
           zaiResponse: savedZaiResponse
         } as any);
@@ -983,6 +1169,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         const errorMsg = this.markdownService.renderMarkdown(`**Error:** ${error.message}`);
         this.openaiResponse = errorMsg;
         this.geminiResponse = errorMsg;
+        this.claudeResponse = errorMsg;
         this.lmstudioResponse = errorMsg;
         this.zaiResponse = errorMsg;
         this.cdr.detectChanges();
@@ -1009,15 +1196,23 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     // Set loading indicators for all active providers
     if (this.openaiEnabled && !this.lmstudioMode) {
       this.openaiResponse = this.thinkingHtml('Analyzing screenshots…');
+      this.openaiUsage = null;
     }
     if (this.geminiEnabled && !this.lmstudioMode) {
       this.geminiResponse = this.thinkingHtml('Analyzing screenshots…');
+      this.geminiUsage = null;
+    }
+    if (this.claudeEnabled && !this.lmstudioMode) {
+      this.claudeResponse = this.thinkingHtml('Analyzing screenshots…');
+      this.claudeUsage = null;
     }
     if (this.zaiEnabled && !this.lmstudioMode) {
       this.zaiResponse = this.thinkingHtml('Analyzing screenshots…');
+      this.zaiUsage = null;
     }
     if (this.lmstudioMode) {
       this.lmstudioResponse = '<p>LM Studio does not support image analysis</p>';
+      this.lmstudioUsage = null;
     }
     this.cdr.detectChanges();
 
@@ -1027,7 +1222,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
       // Build array of parallel tasks
       interface ProviderTask {
-        name: 'openai' | 'gemini' | 'zai';
+        name: 'openai' | 'gemini' | 'zai' | 'claude';
         promise: Promise<string>;
       }
       const tasks: ProviderTask[] = [];
@@ -1054,6 +1249,17 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         });
       }
 
+      // Claude
+      if (this.claudeEnabled && !this.lmstudioMode) {
+        tasks.push({
+          name: 'claude',
+          promise: this.handleScreenshotAnalysis(
+            () => this.electronService.analyzeScreenshotsWithClaude({ language }),
+            (html) => this.claudeResponse = html
+          )
+        });
+      }
+
       // Z.AI (supports vision via GLM-4.6V-Flash model)
       if (this.zaiEnabled && !this.lmstudioMode) {
         tasks.push({
@@ -1076,10 +1282,11 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
       const rawOpenai = responseMap['openai'] || '';
       const rawGemini = responseMap['gemini'] || '';
+      const rawClaude = responseMap['claude'] || '';
       const rawZai = responseMap['zai'] || '';
 
       // Save to history if we got responses
-      if (rawOpenai || rawGemini || rawZai) {
+      if (rawOpenai || rawGemini || rawClaude || rawZai) {
         this.electronService.saveHistoryItem({
           id: Date.now().toString(),
           timestamp: new Date(),
@@ -1087,6 +1294,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
           screenshotCount: screenshotCount,
           openaiResponse: this.openaiResponse,
           geminiResponse: this.geminiResponse,
+          claudeResponse: this.claudeResponse,
           lmstudioResponse: '',
           zaiResponse: this.zaiResponse
         } as any);
@@ -1098,6 +1306,7 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
         // otherwise the Z.AI panel stayed stuck on "Analyzing…".
         if (this.openaiEnabled) this.openaiResponse = errorMsg;
         if (this.geminiEnabled) this.geminiResponse = errorMsg;
+        if (this.claudeEnabled) this.claudeResponse = errorMsg;
         if (this.zaiEnabled) this.zaiResponse = errorMsg;
         this.cdr.detectChanges();
       });

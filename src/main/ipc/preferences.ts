@@ -25,7 +25,7 @@ export function registerPreferencesIPC(
   deps: {
     store: { get: (k: string, d?: any) => any; set: (k: string, v: any) => void };
     log: { info: (...args: any[]) => void; error: (...args: any[]) => void };
-    getApiKey: (type: 'openai' | 'gemini' | 'zai') => string;
+    getApiKey: (type: 'openai' | 'gemini' | 'zai' | 'claude') => string;
     mainWindow: () => Electron.BrowserWindow | null;
   }
 ) {
@@ -65,9 +65,21 @@ export function registerPreferencesIPC(
     }
   });
 
+  ipcMain.handle('saveClaudeApiKey', (_event: IpcMainInvokeEvent, apiKey: string) => {
+    try {
+      store.set('claudeApiKey', apiKey);
+      log.info('Claude API key saved successfully');
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving Claude API key:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('getGeminiApiKey', () => getApiKey('gemini'));
   ipcMain.handle('getOpenAIApiKey', () => getApiKey('openai'));
-  ipcMain.handle('get-api-key', () => getApiKey('openai') || getApiKey('gemini'));
+  ipcMain.handle('getClaudeApiKey', () => getApiKey('claude'));
+  ipcMain.handle('get-api-key', () => getApiKey('openai') || getApiKey('gemini') || getApiKey('claude'));
 
   ipcMain.handle(
     'save-preferences',
@@ -127,6 +139,17 @@ export function registerPreferencesIPC(
       return { success: true };
     } catch (error: any) {
       log.error('Error saving Gemini model preference:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('getClaudeModel', () => store.get('claudeModel'));
+  ipcMain.handle('saveClaudeModel', (_event: IpcMainInvokeEvent, model: string) => {
+    try {
+      store.set('claudeModel', model);
+      return { success: true };
+    } catch (error: any) {
+      log.error('Error saving Claude model preference:', error);
       return { success: false, error: error.message };
     }
   });

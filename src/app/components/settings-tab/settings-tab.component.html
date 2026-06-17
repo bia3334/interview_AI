@@ -29,6 +29,13 @@
     >
       <mat-icon>desktop_windows</mat-icon> Interface
     </button>
+    <button
+      class="sub-tab"
+      [class.active]="activeSubTab === 'usage'"
+      (click)="switchSubTab('usage')"
+    >
+      <mat-icon>bar_chart</mat-icon> Token Usage
+    </button>
   </div>
 
   <!-- ========================================================= -->
@@ -78,6 +85,19 @@
         />
         <small class="hint-text">
           <a href="https://z.ai/manage-apikey/apikey-list" target="_blank" rel="noopener" class="hint-link">Get an API key</a>
+        </small>
+      </div>
+      <div class="form-group">
+        <label for="claudeApiKey">Claude API Key</label>
+        <input
+          type="password"
+          id="claudeApiKey"
+          [(ngModel)]="claudeApiKey"
+          class="prompt-input"
+          placeholder="sk-ant-..."
+        />
+        <small class="hint-text">
+          <a href="https://console.anthropic.com/" target="_blank" rel="noopener" class="hint-link">Get an API key</a>
         </small>
       </div>
       <div class="form-actions">
@@ -153,19 +173,43 @@
             </small>
           </div>
         </div>
+
+        <!-- Claude -->
+        <div class="provider-option" [class.selected]="claudeEnabled">
+          <label class="checkbox-label provider-head">
+            <input type="checkbox" [(ngModel)]="claudeEnabled" (change)="onProviderToggle()" />
+            <span class="provider-dot" style="background: #d97706;"></span>
+            <span class="provider-name">Claude</span>
+          </label>
+          <div class="provider-body" *ngIf="claudeEnabled">
+            <input
+              type="text"
+              [(ngModel)]="claudeModel"
+              class="prompt-input"
+              placeholder="claude-sonnet-4-6"
+            />
+            <small class="hint-text">
+              Model name (e.g., claude-sonnet-4-6, claude-3-5-sonnet-20241022)
+              <a href="https://docs.anthropic.com/en/docs/about-claude/models" target="_blank" rel="noopener" class="hint-link">View models</a>
+            </small>
+          </div>
+        </div>
       </div>
 
-      <small class="warn-text" *ngIf="!openaiEnabled && !geminiEnabled && !zaiEnabled">
+      <small class="warn-text" *ngIf="!openaiEnabled && !geminiEnabled && !zaiEnabled && !claudeEnabled">
         <mat-icon class="inline-icon small">warning</mat-icon> Please select at least one provider.
       </small>
 
       <div class="form-actions form-actions-wrap">
-        <button class="btn btn-primary" (click)="saveModelSettings()" [disabled]="!openaiEnabled && !geminiEnabled && !zaiEnabled">Save Model Settings</button>
+        <button class="btn btn-primary" (click)="saveModelSettings()" [disabled]="!openaiEnabled && !geminiEnabled && !zaiEnabled && !claudeEnabled">Save Model Settings</button>
         <button class="btn" *ngIf="openaiEnabled" (click)="testConnection('openai')" [disabled]="loadingState['openai']">
           {{ loadingState['openai'] ? 'Testing...' : 'Test OpenAI' }}
         </button>
         <button class="btn" *ngIf="geminiEnabled" (click)="testConnection('gemini')" [disabled]="loadingState['gemini']">
           {{ loadingState['gemini'] ? 'Testing...' : 'Test Gemini' }}
+        </button>
+        <button class="btn" *ngIf="claudeEnabled" (click)="testConnection('claude')" [disabled]="loadingState['claude']">
+          {{ loadingState['claude'] ? 'Testing...' : 'Test Claude' }}
         </button>
         <button class="btn" *ngIf="zaiEnabled" (click)="testConnection('zai')" [disabled]="loadingState['zai']">
           {{ loadingState['zai'] ? 'Testing...' : 'Test Z.AI' }}
@@ -619,6 +663,183 @@
           When off (default): the window starts in click-through mode after every show; press Ctrl/Cmd+Shift+W to interact.<br />
           When on: every show makes the window immediately clickable. You can still press Ctrl/Cmd+Shift+W to toggle back to click-through.
         </small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- USAGE — token usage and cost statistics                  -->
+  <!-- ========================================================= -->
+  <div class="sub-tab-content" *ngIf="activeSubTab === 'usage'">
+    <div class="settings-group">
+      <h3><mat-icon class="inline-icon">bar_chart</mat-icon> Token Usage & Costs</h3>
+      <p class="group-description">
+        Track your per-provider token consumption and estimated costs based on your API usage.
+      </p>
+
+      <div class="usage-stats-dashboard">
+        <!-- Summary Cards / Grid -->
+        <div class="usage-grid" *ngIf="hasUsageData()">
+          <div class="usage-card openai" *ngIf="accumulatedTokenUsage?.openai && accumulatedTokenUsage.openai.totalTokens > 0">
+            <div class="card-header">
+              <span class="provider-dot" style="background: #10a37f;"></span>
+              <h4>OpenAI</h4>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-label">Prompt Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.openai.inputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Completion Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.openai.outputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Total Tokens:</span>
+                <span class="stat-val highlight">{{accumulatedTokenUsage.openai.totalTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Requests:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.openai.requestCount || 0 | number}}</span>
+              </div>
+              <div class="stat-row cost-row">
+                <span class="stat-label">Est. Cost:</span>
+                <span class="stat-val cost">{{accumulatedTokenUsage.openai.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="usage-card gemini" *ngIf="accumulatedTokenUsage?.gemini && accumulatedTokenUsage.gemini.totalTokens > 0">
+            <div class="card-header">
+              <span class="provider-dot" style="background: #4285f4;"></span>
+              <h4>Gemini</h4>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-label">Prompt Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.gemini.inputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Completion Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.gemini.outputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Total Tokens:</span>
+                <span class="stat-val highlight">{{accumulatedTokenUsage.gemini.totalTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Requests:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.gemini.requestCount || 0 | number}}</span>
+              </div>
+              <div class="stat-row cost-row">
+                <span class="stat-label">Est. Cost:</span>
+                <span class="stat-val cost">{{accumulatedTokenUsage.gemini.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="usage-card claude" *ngIf="accumulatedTokenUsage?.claude && accumulatedTokenUsage.claude.totalTokens > 0">
+            <div class="card-header">
+              <span class="provider-dot" style="background: #d97706;"></span>
+              <h4>Claude</h4>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-label">Prompt Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.claude.inputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Completion Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.claude.outputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Total Tokens:</span>
+                <span class="stat-val highlight">{{accumulatedTokenUsage.claude.totalTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Requests:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.claude.requestCount || 0 | number}}</span>
+              </div>
+              <div class="stat-row cost-row">
+                <span class="stat-label">Est. Cost:</span>
+                <span class="stat-val cost">{{accumulatedTokenUsage.claude.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="usage-card zai" *ngIf="accumulatedTokenUsage?.zai && accumulatedTokenUsage.zai.totalTokens > 0">
+            <div class="card-header">
+              <span class="provider-dot" style="background: #e0e0e0;"></span>
+              <h4>Z.AI</h4>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-label">Prompt Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.zai.inputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Completion Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.zai.outputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Total Tokens:</span>
+                <span class="stat-val highlight">{{accumulatedTokenUsage.zai.totalTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Requests:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.zai.requestCount || 0 | number}}</span>
+              </div>
+              <div class="stat-row cost-row">
+                <span class="stat-label">Est. Cost:</span>
+                <span class="stat-val cost">{{accumulatedTokenUsage.zai.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="usage-card lmstudio" *ngIf="accumulatedTokenUsage?.lmstudio && accumulatedTokenUsage.lmstudio.totalTokens > 0">
+            <div class="card-header">
+              <span class="provider-dot" style="background: #10b981;"></span>
+              <h4>LM Studio</h4>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-label">Prompt Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.lmstudio.inputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Completion Tokens:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.lmstudio.outputTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Total Tokens:</span>
+                <span class="stat-val highlight">{{accumulatedTokenUsage.lmstudio.totalTokens | number}}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Requests:</span>
+                <span class="stat-val">{{accumulatedTokenUsage.lmstudio.requestCount || 0 | number}}</span>
+              </div>
+              <div class="stat-row cost-row">
+                <span class="stat-label">Est. Cost:</span>
+                <span class="stat-val cost">Free</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-usage-data" *ngIf="!hasUsageData()">
+          <mat-icon class="large-icon">insert_chart_outlined</mat-icon>
+          <p>No token usage recorded yet. Start talking to AI to see statistics.</p>
+        </div>
+
+        <div class="usage-summary-footer" *ngIf="hasUsageData()">
+          <div class="grand-total">
+            <span class="footer-label">Grand Total Cost:</span>
+            <span class="footer-val">{{getGrandTotalCost() | currency:'USD':'symbol':'1.2-4'}}</span>
+          </div>
+          <button class="btn btn-danger" (click)="resetUsageStats()">
+            <mat-icon class="inline-icon">delete_forever</mat-icon> Reset Statistics
+          </button>
+        </div>
       </div>
     </div>
   </div>

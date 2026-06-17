@@ -83,6 +83,32 @@ export async function readDocumentContent(filePath: string): Promise<string> {
     return pdfData.text || '';
   }
   
+  if (ext === 'docx') {
+    try {
+      const mammoth = require('mammoth');
+      const result = await mammoth.extractRawText({ path: filePath });
+      return result.value || '';
+    } catch (e: any) {
+      return `[DOCX file: ${filePath}] - Unable to extract text content: ${e.message}`;
+    }
+  }
+  
+  if (ext === 'xlsx') {
+    try {
+      const XLSX = require('xlsx');
+      const workbook = XLSX.readFile(filePath);
+      let text = '';
+      workbook.SheetNames.forEach((sheetName: string) => {
+        text += `--- Sheet: ${sheetName} ---\n`;
+        const sheet = workbook.Sheets[sheetName];
+        text += XLSX.utils.sheet_to_csv(sheet, { FS: '\t' }) + '\n';
+      });
+      return text || '';
+    } catch (e: any) {
+      return `[XLSX file: ${filePath}] - Unable to extract text content: ${e.message}`;
+    }
+  }
+  
   if (ext === 'pptx') {
     // For PPTX, we'll read it as text (basic extraction)
     // Note: For better PPTX support, you might want to use a library like officegen or pptx-parser

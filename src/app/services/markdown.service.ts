@@ -101,7 +101,16 @@ export class MarkdownService {
   highlightCodeBlocks(): void {
     try {
       document.querySelectorAll('pre code').forEach((block) => {
-        hljs.highlightElement(block as HTMLElement);
+        const el = block as HTMLElement;
+        // Skip blocks that are already highlighted. `renderMarkdown()` highlights
+        // code as part of producing the HTML (adds the `hljs` class + tokenized
+        // spans), and re-running `highlightElement` on already-tokenized markup
+        // re-wraps the existing spans and garbles the output — the main cause of
+        // the answer visibly "reloading" while a response streams in.
+        if (el.classList.contains('hljs') || el.dataset['highlighted'] === 'yes') {
+          return;
+        }
+        hljs.highlightElement(el);
       });
     } catch (e) {
       console.error('Error applying syntax highlighting:', e);

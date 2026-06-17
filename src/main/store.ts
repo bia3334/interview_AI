@@ -15,13 +15,18 @@ export interface StoreSchema {
   windowSize: { width: number; height: number };
   preferredLanguage: string;
   answerStyle: 'code' | 'explanation' | 'multiple-choice';
-  defaultModel: 'both' | 'openai' | 'gemini' | 'lmstudio';
+  defaultModel: any; // Allow JSON array or legacy strings
   openaiModel: string;
+  geminiModel?: string;
+  zaiModel?: string;
+  claudeModel?: string;
   customSystemPrompt: string;
   promptTemplates: Array<{ id: string; name: string; prompt: string }>;
   apiKey?: string;
   openaiApiKey?: string;
   geminiApiKey?: string;
+  zaiApiKey?: string;
+  claudeApiKey?: string;
   // OCR settings
   ocrEnabled: boolean;
   ocrLanguage: OCRLanguage;
@@ -38,6 +43,18 @@ export interface StoreSchema {
   // note editor (current default); 'alongside' also renders the active note
   // next to the AI responses so the user can read it while reading the answer.
   noteViewMode: 'editor-only' | 'alongside';
+  // User-rebound global shortcuts: maps an editable shortcut id (see
+  // EDITABLE_SHORTCUTS) to its custom accelerator. Ids not present fall back
+  // to their built-in default accelerator.
+  shortcutOverrides: Record<string, string>;
+  // Token usage and cost tracking statistics
+  accumulatedTokenUsage?: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+    requestCount: number;
+  }>;
 }
 
 export const STORE_DEFAULTS: StoreSchema = {
@@ -47,6 +64,7 @@ export const STORE_DEFAULTS: StoreSchema = {
   answerStyle: DEFAULT_ANSWER_STYLE,
   defaultModel: AI_PROVIDER.BOTH,
   openaiModel: AI_CONFIG.openai.model,
+  claudeModel: 'claude-sonnet-4-6',
   customSystemPrompt: '',
   promptTemplates: DEFAULT_PROMPT_TEMPLATES,
   // OCR defaults
@@ -64,6 +82,9 @@ export const STORE_DEFAULTS: StoreSchema = {
   autoInteractionOnShow: false,
   // Default keeps the current behaviour: notes only render in the editor.
   noteViewMode: 'editor-only',
+  // No custom shortcut bindings by default — everything uses its default.
+  shortcutOverrides: {},
+  accumulatedTokenUsage: {},
 };
 
 export function createStore() {

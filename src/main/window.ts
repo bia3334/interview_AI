@@ -8,6 +8,29 @@ let isIgnoringMouseEvents = true;
 let isWindowVisible = true; // Changed to true so window shows by default
 
 /**
+ * Pool of innocuous, system-looking window titles. One is picked at random on
+ * every startup so the overlay can't be fingerprinted by a fixed window name
+ * during window-enumeration scans run by proctoring / monitoring software.
+ */
+const DECOY_WINDOW_TITLES = [
+  'Settings',
+  'System Configuration',
+  'Realtek Audio Console',
+  'NVIDIA Control Panel',
+  'Windows Security',
+  'Microsoft Store',
+  'Calculator',
+  'Sticky Notes',
+  'Task Host Window',
+  'Microsoft Text Input Application',
+];
+
+/** Pick a random innocuous window title for this session. */
+function generateRandomWindowTitle(): string {
+  return DECOY_WINDOW_TITLES[Math.floor(Math.random() * DECOY_WINDOW_TITLES.length)];
+}
+
+/**
  * Get main window instance
  */
 export const getMainWindow = () => mainWindow;
@@ -143,12 +166,17 @@ export function createWindow(store: any, preloadPath: string) {
   const x = Math.min(Math.max(savedPosition.x, 0), width - savedSize.width);
   const y = Math.min(Math.max(savedPosition.y, 0), height - savedSize.height);
 
+  // Randomized, innocuous window title applied fresh on every startup so the
+  // overlay can't be matched by a fixed name in window-enumeration scans.
+  const windowTitle = generateRandomWindowTitle();
+
   mainWindow = new BrowserWindow({
     width: savedSize.width,
     height: savedSize.height,
     x: x,
     y: y,
     show: isWindowVisible,
+    title: windowTitle,
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
@@ -164,6 +192,11 @@ export function createWindow(store: any, preloadPath: string) {
   mainWindow.setContentProtection(true);
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+
+  // Hold the randomized title: the Angular page's <title> would otherwise
+  // overwrite the OS-level window title once it loads, defeating the decoy.
+  mainWindow.setTitle(windowTitle);
+  mainWindow.on('page-title-updated', (event) => event.preventDefault());
 
   // Open external links (target="_blank") in the user's default browser instead
   // of spawning an in-app window. Block everything that isn't an http(s) URL.

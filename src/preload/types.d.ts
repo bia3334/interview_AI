@@ -1,16 +1,28 @@
 // path: src/preload/types.d.ts
+
+/** A rebindable global shortcut and its current accelerator. */
+export interface ShortcutBinding {
+  id: string;
+  label: string;
+  accelerator: string;
+  defaultAccelerator: string;
+}
+
 export interface ElectronAPI {
   sendPrompt: (prompt: string) => Promise<string>;
-  sendPromptToOpenAI: (prompt: string) => Promise<string>;
-  sendPromptToGemini: (prompt: string) => Promise<string>;
-  sendPromptToLMStudio: (prompt: string) => Promise<string>;
-  sendPromptToZAI: (prompt: string) => Promise<string>;
-  sendPromptWithScreenshotsToOpenAI: (prompt: string) => Promise<string>;
-  sendPromptWithScreenshotsToGemini: (prompt: string) => Promise<string>;
-  sendConversationToOpenAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
-  sendConversationToGemini: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
-  sendConversationToLMStudio: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
-  sendConversationToZAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>;
+  sendPromptToOpenAI: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptToGemini: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptToLMStudio: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptToZAI: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptToClaude: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptWithScreenshotsToOpenAI: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptWithScreenshotsToGemini: (prompt: string, requestId?: string) => Promise<string>;
+  sendPromptWithScreenshotsToClaude: (prompt: string, requestId?: string) => Promise<string>;
+  sendConversationToOpenAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
+  sendConversationToGemini: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
+  sendConversationToLMStudio: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
+  sendConversationToZAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
+  sendConversationToClaude: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
 
   closeWindow: () => void;
   hideWindow: () => void;
@@ -21,11 +33,12 @@ export interface ElectronAPI {
   takeRegionScreenshot: () => Promise<any>;
   captureRegion: (region: { x: number; y: number; width: number; height: number }) => void;
   cancelRegionScreenshot: () => void;
-  analyzeScreenshots: (options: { language?: string }) => Promise<any>;
-  analyzeScreenshotsWithOpenAI: (options: { language?: string }) => Promise<any>;
-  analyzeScreenshotsWithGemini: (options: { language?: string }) => Promise<any>;
-  analyzeScreenshotsWithZAI: (options: { language?: string }) => Promise<any>;
-  sendPromptWithScreenshotsToZAI: (prompt: string) => Promise<string>;
+  analyzeScreenshots: (options: { language?: string; requestId?: string }) => Promise<any>;
+  analyzeScreenshotsWithOpenAI: (options: { language?: string; requestId?: string }) => Promise<any>;
+  analyzeScreenshotsWithGemini: (options: { language?: string; requestId?: string }) => Promise<any>;
+  analyzeScreenshotsWithZAI: (options: { language?: string; requestId?: string }) => Promise<any>;
+  analyzeScreenshotsWithClaude: (options: { language?: string }) => Promise<any>;
+  sendPromptWithScreenshotsToZAI: (prompt: string, requestId?: string) => Promise<string>;
   extractTextFromScreenshots: () => Promise<any>;
   importClipboardImage: () => Promise<{ success: boolean; path?: string; error?: string }>;
 
@@ -59,15 +72,19 @@ export interface ElectronAPI {
   getOpenAIApiKey: () => Promise<string>;
   saveZAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
   getZAIApiKey: () => Promise<string>;
+  saveClaudeApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
+  getClaudeApiKey: () => Promise<string>;
   savePreferences: (preferences: { preferredLanguage: string; answerStyle?: 'code' | 'explanation' | 'multiple-choice' }) => Promise<{ success: boolean; error?: string }>;
   getPreferences: () => Promise<{ preferredLanguage: string; answerStyle: string }>;
-  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai') => Promise<{ success: boolean; error?: string }>;
-  getDefaultModel: () => Promise<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'>;
+  saveDefaultModel: (defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai' | 'claude' | string) => Promise<{ success: boolean; error?: string }>;
+  getDefaultModel: () => Promise<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai' | 'claude' | string>;
 
   saveOpenAIModel: (model: string) => Promise<{ success: boolean; error?: string }>;
   getOpenAIModel: () => Promise<string>;
   saveGeminiModel: (model: string) => Promise<{ success: boolean; error?: string }>;
   getGeminiModel: () => Promise<string>;
+  saveClaudeModel: (model: string) => Promise<{ success: boolean; error?: string }>;
+  getClaudeModel: () => Promise<string>;
 
   saveCustomSystemPrompt: (prompt: string) => Promise<{ success: boolean; error?: string }>;
   getCustomSystemPrompt: () => Promise<string>;
@@ -101,9 +118,13 @@ export interface ElectronAPI {
   // OpenAI & Gemini Test
   testOpenAIConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
   testGeminiConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
+  testClaudeConnection: () => Promise<{ success: boolean; model?: string; error?: string }>;
 
   copyLatestResponse: () => Promise<{ success: boolean; error?: string }>;
-  processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }>;
+  processClipboardPrompt: () => Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; claudeResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }>;
+
+  getAccumulatedTokenUsage: () => Promise<any>;
+  resetAccumulatedTokenUsage: () => Promise<{ success: boolean; error?: string }>;
 
   // Voice transcription
   transcribeAudio: (audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini') => Promise<{ success: boolean; text?: string; error?: string }>;
@@ -115,6 +136,12 @@ export interface ElectronAPI {
   saveAutoInteractionOnShow: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   getNoteViewMode: () => Promise<'editor-only' | 'alongside'>;
   saveNoteViewMode: (mode: 'editor-only' | 'alongside') => Promise<{ success: boolean; error?: string }>;
+
+  // Global shortcuts (rebindable)
+  getShortcuts: () => Promise<{ success: boolean; shortcuts?: ShortcutBinding[]; error?: string }>;
+  saveShortcut: (id: string, accelerator: string) => Promise<{ success: boolean; shortcuts?: ShortcutBinding[]; error?: string }>;
+  resetShortcuts: () => Promise<{ success: boolean; shortcuts?: ShortcutBinding[]; error?: string }>;
+  setShortcutCapture: (active: boolean) => Promise<{ success: boolean; error?: string }>;
 
   getScreenshots: () => Promise<string[]>;
   removeScreenshot: (index: number) => Promise<{ success: boolean; error?: string }>;
@@ -134,6 +161,8 @@ export interface ElectronAPI {
   onDocumentsUpdated: (callback: () => void) => () => void;
   onNotesUpdated: (callback: () => void) => () => void;
   onToggleVoiceRecording: (callback: () => void) => () => void;
+  onAIStream: (callback: (data: { requestId: string; provider: 'openai' | 'gemini' | 'zai' | 'lmstudio'; delta: string }) => void) => () => void;
+  onTokenUsageUpdated: (callback: (data: { provider: string; model: string; promptTokens: number; completionTokens: number; totalTokens: number; cost: number; cumulative: any }) => void) => () => void;
 }
 
 declare global {

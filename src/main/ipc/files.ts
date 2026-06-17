@@ -23,7 +23,7 @@ export function registerFilesIPC(
       title: 'Select a file to analyze',
       properties: ['openFile'],
       filters: [
-        { name: 'Text & PDF & PPTX', extensions: ['txt', 'md', 'csv', 'json', 'log', 'pdf', 'pptx'] },
+        { name: 'Documents & Spreadsheets', extensions: ['txt', 'md', 'csv', 'json', 'log', 'pdf', 'pptx', 'docx', 'xlsx'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     });

@@ -1,2 +1,66 @@
-/* Styles inherited from app.css */
+/* Layout for the rebindable shortcuts list.
+   Base .shortcuts-container / .shortcut-item / .key / .btn styles come from
+   the global styles/app.css; this file only adds the rebinding UI bits. */
 
+.shortcuts-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.shortcuts-hint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.shortcut-action {
+  font-size: 0.85rem;
+}
+
+.shortcut-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shortcut-key.capturing {
+  min-width: 6rem;
+  justify-content: center;
+}
+
+.capture-prompt {
+  font-size: 0.75rem;
+  color: var(--primary);
+  font-style: italic;
+  animation: capture-pulse 1s ease-in-out infinite;
+}
+
+@keyframes capture-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.plus {
+  color: var(--text-dim);
+  margin: 0 0.05rem;
+}
+
+/* Small button variant (not in the global sheet). */
+.btn-small {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-dim);
+}
+.btn-ghost:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}

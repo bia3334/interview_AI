@@ -184,6 +184,7 @@
     <span *ngIf="!lmstudioMode" class="provider-chip" [class.busy]="isLoading">
       <span *ngIf="openaiEnabled" class="provider-dot" style="color: #10a37f;">●</span>
       <span *ngIf="geminiEnabled" class="provider-dot" style="color: #4285f4;">●</span>
+      <span *ngIf="claudeEnabled" class="provider-dot" style="color: #d97706;">●</span>
       <span *ngIf="zaiEnabled" class="provider-dot" style="color: #e0e0e0;">●</span>
       <span style="opacity: 0.7; margin-left: 4px;">
         {{ getActiveProvidersLabel() }}{{ isLoading ? ' — responding…' : '' }}
@@ -221,6 +222,13 @@
         [class.loading]="isLoading"
         [innerHTML]="openaiResponse"
       ></div>
+      <div class="usage-stats-container" *ngIf="openaiUsage">
+        <span class="usage-label">Request:</span>
+        <span class="usage-value">{{openaiUsage.promptTokens | number}} in / {{openaiUsage.completionTokens | number}} out ({{openaiUsage.totalTokens | number}} total) · {{openaiUsage.cost | currency:'USD':'symbol':'1.4-4'}}</span>
+        <span class="usage-divider">|</span>
+        <span class="usage-label">Total:</span>
+        <span class="usage-value">{{openaiUsage.cumulative?.openai?.totalTokens | number}} tokens · {{openaiUsage.cumulative?.openai?.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+      </div>
     </div>
     <!-- Gemini Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="geminiEnabled && !lmstudioMode ? 'flex' : 'none'">
@@ -231,6 +239,30 @@
         [class.loading]="isLoading"
         [innerHTML]="geminiResponse"
       ></div>
+      <div class="usage-stats-container" *ngIf="geminiUsage">
+        <span class="usage-label">Request:</span>
+        <span class="usage-value">{{geminiUsage.promptTokens | number}} in / {{geminiUsage.completionTokens | number}} out ({{geminiUsage.totalTokens | number}} total) · {{geminiUsage.cost | currency:'USD':'symbol':'1.4-4'}}</span>
+        <span class="usage-divider">|</span>
+        <span class="usage-label">Total:</span>
+        <span class="usage-value">{{geminiUsage.cumulative?.gemini?.totalTokens | number}} tokens · {{geminiUsage.cumulative?.gemini?.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+      </div>
+    </div>
+    <!-- Claude Response -->
+    <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="claudeEnabled && !lmstudioMode ? 'flex' : 'none'">
+      <div style="font-weight: bold; margin-bottom: 0.5rem; color: #d97706;">Claude</div>
+      <div
+        #claudeResponseContainer
+        class="response-container"
+        [class.loading]="isLoading"
+        [innerHTML]="claudeResponse"
+      ></div>
+      <div class="usage-stats-container" *ngIf="claudeUsage">
+        <span class="usage-label">Request:</span>
+        <span class="usage-value">{{claudeUsage.promptTokens | number}} in / {{claudeUsage.completionTokens | number}} out ({{claudeUsage.totalTokens | number}} total) · {{claudeUsage.cost | currency:'USD':'symbol':'1.4-4'}}</span>
+        <span class="usage-divider">|</span>
+        <span class="usage-label">Total:</span>
+        <span class="usage-value">{{claudeUsage.cumulative?.claude?.totalTokens | number}} tokens · {{claudeUsage.cumulative?.claude?.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+      </div>
     </div>
     <!-- Z.AI Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="zaiEnabled && !lmstudioMode ? 'flex' : 'none'">
@@ -241,6 +273,13 @@
         [class.loading]="isLoading"
         [innerHTML]="zaiResponse"
       ></div>
+      <div class="usage-stats-container" *ngIf="zaiUsage">
+        <span class="usage-label">Request:</span>
+        <span class="usage-value">{{zaiUsage.promptTokens | number}} in / {{zaiUsage.completionTokens | number}} out ({{zaiUsage.totalTokens | number}} total) · {{zaiUsage.cost | currency:'USD':'symbol':'1.4-4'}}</span>
+        <span class="usage-divider">|</span>
+        <span class="usage-label">Total:</span>
+        <span class="usage-value">{{zaiUsage.cumulative?.zai?.totalTokens | number}} tokens · {{zaiUsage.cumulative?.zai?.cost | currency:'USD':'symbol':'1.2-4'}}</span>
+      </div>
     </div>
     <!-- LM Studio Response -->
     <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;" [style.display]="lmstudioMode ? 'flex' : 'none'">
@@ -251,6 +290,13 @@
         [class.loading]="isLoading"
         [innerHTML]="lmstudioResponse"
       ></div>
+      <div class="usage-stats-container" *ngIf="lmstudioUsage">
+        <span class="usage-label">Request:</span>
+        <span class="usage-value">{{lmstudioUsage.promptTokens | number}} in / {{lmstudioUsage.completionTokens | number}} out ({{lmstudioUsage.totalTokens | number}} total) · Free</span>
+        <span class="usage-divider">|</span>
+        <span class="usage-label">Total:</span>
+        <span class="usage-value">{{lmstudioUsage.cumulative?.lmstudio?.totalTokens | number}} tokens · Free</span>
+      </div>
     </div>
   </div>
 </div>

@@ -833,3 +833,165 @@
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
+
+/* ---------- Token Usage Dashboard ---------- */
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.usage-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1rem;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.usage-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.usage-card.openai {
+  border-left: 3px solid #10a37f;
+}
+
+.usage-card.gemini {
+  border-left: 3px solid #4285f4;
+}
+
+.usage-card.claude {
+  border-left: 3px solid #d97706;
+}
+
+.usage-card.zai {
+  border-left: 3px solid #e0e0e0;
+}
+
+.usage-card.lmstudio {
+  border-left: 3px solid #10b981;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.5rem;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-val {
+  color: rgba(255, 255, 255, 0.95);
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.stat-val.highlight {
+  color: #fff;
+  font-weight: 600;
+}
+
+.cost-row {
+  margin-top: 0.5rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: 0.5rem;
+}
+
+.stat-val.cost {
+  color: #facc15;
+  font-weight: 600;
+}
+
+.no-usage-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.no-usage-data .large-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.no-usage-data p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.usage-summary-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.grand-total {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.footer-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.footer-val {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #facc15;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fff;
+}

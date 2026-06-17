@@ -507,3 +507,33 @@
   background: rgba(239, 68, 68, 0.3);
   color: #ef4444;
 }
+
+/* Token Usage Stats container under response containers */
+.usage-stats-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin-top: 0.35rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.usage-label {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.usage-value {
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.usage-divider {
+  color: rgba(255, 255, 255, 0.15);
+  margin: 0 0.15rem;
+}

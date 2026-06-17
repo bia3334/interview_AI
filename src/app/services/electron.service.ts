@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
-import { ElectronAPI } from '../../preload/types';
+import { ElectronAPI, ShortcutBinding } from '../../preload/types';
 import { STORAGE_KEYS } from '../constants/settings';
 
 export interface HistoryItem {
@@ -10,8 +10,11 @@ export interface HistoryItem {
   screenshotCount: number;
   openaiResponse?: string;
   geminiResponse?: string;
+  claudeResponse?: string;
   lmstudioResponse?: string;
   zaiResponse?: string;
+  starred?: boolean;
+  tags?: string[];
 }
 
 @Injectable({
@@ -35,6 +38,8 @@ export class ElectronService {
   private documentsUpdated$ = new Subject<void>();
   private notesUpdated$ = new Subject<void>();
   private toggleVoiceRecording$ = new Subject<void>();
+  private aiStream$ = new Subject<{ requestId: string; provider: 'openai' | 'gemini' | 'zai' | 'lmstudio'; delta: string }>();
+  private tokenUsageUpdated$ = new Subject<{ provider: string; model: string; promptTokens: number; completionTokens: number; totalTokens: number; cost: number; cumulative: any }>();
 
   // Local history storage key
   private readonly HISTORY_KEY = STORAGE_KEYS.HISTORY;
@@ -67,6 +72,25 @@ export class ElectronService {
     this.electronAPI.onDocumentsUpdated(() => this.documentsUpdated$.next());
     this.electronAPI.onNotesUpdated(() => this.notesUpdated$.next());
     this.electronAPI.onToggleVoiceRecording(() => this.toggleVoiceRecording$.next());
+    this.electronAPI.onAIStream((data) => this.aiStream$.next(data));
+    this.electronAPI.onTokenUsageUpdated((data) => this.tokenUsageUpdated$.next(data));
+  }
+
+  /** Token-by-token AI stream chunks, tagged with `requestId` + `provider`. */
+  onAIStream(): Observable<{ requestId: string; provider: 'openai' | 'gemini' | 'zai' | 'lmstudio'; delta: string }> {
+    return this.aiStream$.asObservable();
+  }
+
+  getAccumulatedTokenUsage(): Promise<any> {
+    return this.electronAPI.getAccumulatedTokenUsage();
+  }
+
+  resetAccumulatedTokenUsage(): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.resetAccumulatedTokenUsage();
+  }
+
+  onTokenUsageUpdated(): Observable<{ provider: string; model: string; promptTokens: number; completionTokens: number; totalTokens: number; cost: number; cumulative: any }> {
+    return this.tokenUsageUpdated$.asObservable();
   }
 
   // Window controls
@@ -87,49 +111,61 @@ export class ElectronService {
   }
 
   // AI Prompts
-  sendPromptToOpenAI(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptToOpenAI(prompt);
+  sendPromptToOpenAI(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptToOpenAI(prompt, requestId);
   }
 
-  sendPromptToGemini(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptToGemini(prompt);
+  sendPromptToGemini(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptToGemini(prompt, requestId);
   }
 
-  sendPromptWithScreenshotsToOpenAI(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptWithScreenshotsToOpenAI(prompt);
+  sendPromptWithScreenshotsToOpenAI(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToOpenAI(prompt, requestId);
   }
 
-  sendPromptWithScreenshotsToGemini(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptWithScreenshotsToGemini(prompt);
+  sendPromptWithScreenshotsToGemini(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToGemini(prompt, requestId);
   }
 
-  sendConversationToOpenAI(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-    return this.electronAPI.sendConversationToOpenAI(messages);
+  sendConversationToOpenAI(messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string): Promise<string> {
+    return this.electronAPI.sendConversationToOpenAI(messages, requestId);
   }
 
-  sendConversationToGemini(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-    return this.electronAPI.sendConversationToGemini(messages);
+  sendConversationToGemini(messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string): Promise<string> {
+    return this.electronAPI.sendConversationToGemini(messages, requestId);
+  }
+
+  sendPromptToClaude(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptToClaude(prompt, requestId);
+  }
+
+  sendPromptWithScreenshotsToClaude(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToClaude(prompt, requestId);
+  }
+
+  sendConversationToClaude(messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string): Promise<string> {
+    return this.electronAPI.sendConversationToClaude(messages, requestId);
   }
 
   // LM Studio
-  sendPromptToLMStudio(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptToLMStudio(prompt);
+  sendPromptToLMStudio(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptToLMStudio(prompt, requestId);
   }
 
-  sendConversationToLMStudio(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-    return this.electronAPI.sendConversationToLMStudio(messages);
+  sendConversationToLMStudio(messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string): Promise<string> {
+    return this.electronAPI.sendConversationToLMStudio(messages, requestId);
   }
 
   // Z.AI
-  sendPromptToZAI(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptToZAI(prompt);
+  sendPromptToZAI(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptToZAI(prompt, requestId);
   }
 
-  sendConversationToZAI(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-    return this.electronAPI.sendConversationToZAI(messages);
+  sendConversationToZAI(messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string): Promise<string> {
+    return this.electronAPI.sendConversationToZAI(messages, requestId);
   }
 
-  processClipboardPrompt(): Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }> {
+  processClipboardPrompt(): Promise<{ success: boolean; prompt?: string; openaiResponse?: string; geminiResponse?: string; claudeResponse?: string; lmstudioResponse?: string; zaiResponse?: string; error?: string }> {
     return this.electronAPI.processClipboardPrompt();
   }
 
@@ -150,20 +186,24 @@ export class ElectronService {
     return this.electronAPI.removeScreenshot(index);
   }
 
-  analyzeScreenshotsWithOpenAI(options: { language?: string }): Promise<any> {
+  analyzeScreenshotsWithOpenAI(options: { language?: string; requestId?: string }): Promise<any> {
     return this.electronAPI.analyzeScreenshotsWithOpenAI(options);
   }
 
-  analyzeScreenshotsWithGemini(options: { language?: string }): Promise<any> {
+  analyzeScreenshotsWithGemini(options: { language?: string; requestId?: string }): Promise<any> {
     return this.electronAPI.analyzeScreenshotsWithGemini(options);
   }
 
-  analyzeScreenshotsWithZAI(options: { language?: string }): Promise<any> {
+  analyzeScreenshotsWithZAI(options: { language?: string; requestId?: string }): Promise<any> {
     return this.electronAPI.analyzeScreenshotsWithZAI(options);
   }
 
-  sendPromptWithScreenshotsToZAI(prompt: string): Promise<string> {
-    return this.electronAPI.sendPromptWithScreenshotsToZAI(prompt);
+  analyzeScreenshotsWithClaude(options: { language?: string }): Promise<any> {
+    return this.electronAPI.analyzeScreenshotsWithClaude(options);
+  }
+
+  sendPromptWithScreenshotsToZAI(prompt: string, requestId?: string): Promise<string> {
+    return this.electronAPI.sendPromptWithScreenshotsToZAI(prompt, requestId);
   }
 
   extractTextFromScreenshots(): Promise<any> {
@@ -179,11 +219,11 @@ export class ElectronService {
     return this.electronAPI.savePreferences(preferences);
   }
 
-  getDefaultModel(): Promise<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'> {
+  getDefaultModel(): Promise<'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai' | 'claude' | string> {
     return this.electronAPI.getDefaultModel();
   }
 
-  saveDefaultModel(defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai'): Promise<{ success: boolean; error?: string }> {
+  saveDefaultModel(defaultModel: 'openai' | 'gemini' | 'both' | 'lmstudio' | 'zai' | 'claude' | string): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveDefaultModel(defaultModel);
   }
 
@@ -213,6 +253,15 @@ export class ElectronService {
     return this.electronAPI.saveZAIApiKey(apiKey);
   }
 
+  // Claude API Key
+  getClaudeApiKey(): Promise<string> {
+    return this.electronAPI.getClaudeApiKey();
+  }
+
+  saveClaudeApiKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveClaudeApiKey(apiKey);
+  }
+
   // Custom Model Names
   getOpenAIModel(): Promise<string> {
     return this.electronAPI.getOpenAIModel();
@@ -228,6 +277,14 @@ export class ElectronService {
 
   saveGeminiModel(model: string): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveGeminiModel(model);
+  }
+
+  getClaudeModel(): Promise<string> {
+    return this.electronAPI.getClaudeModel();
+  }
+
+  saveClaudeModel(model: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveClaudeModel(model);
   }
 
   // Custom System Prompt
@@ -316,6 +373,10 @@ export class ElectronService {
     return this.electronAPI.testGeminiConnection();
   }
 
+  testClaudeConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
+    return this.electronAPI.testClaudeConnection();
+  }
+
   // Voice transcription
   transcribeAudio(audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini'): Promise<{ success: boolean; text?: string; error?: string }> {
     return this.electronAPI.transcribeAudio(audio, mimeType, provider);
@@ -351,6 +412,23 @@ export class ElectronService {
 
   saveNoteViewMode(mode: 'editor-only' | 'alongside'): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveNoteViewMode(mode);
+  }
+
+  // Global shortcuts (rebindable)
+  getShortcuts(): Promise<{ success: boolean; shortcuts?: ShortcutBinding[]; error?: string }> {
+    return this.electronAPI.getShortcuts();
+  }
+
+  saveShortcut(id: string, accelerator: string): Promise<{ success: boolean; shortcuts?: ShortcutBinding[]; error?: string }> {
+    return this.electronAPI.saveShortcut(id, accelerator);
+  }
+
+  resetShortcuts(): Promise<{ success: boolean; shortcuts?: ShortcutBinding[]; error?: string }> {
+    return this.electronAPI.resetShortcuts();
+  }
+
+  setShortcutCapture(active: boolean): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.setShortcutCapture(active);
   }
 
   onToggleVoiceRecording(): Observable<void> {
@@ -555,10 +633,13 @@ export class ElectronService {
       sendPromptToOpenAI: () => Promise.resolve('Mock OpenAI response'),
       sendPromptToGemini: () => Promise.resolve('Mock Gemini response'),
       sendPromptToLMStudio: () => Promise.resolve('Mock LM Studio response'),
+      sendPromptToClaude: () => Promise.resolve('Mock Claude response'),
       sendPromptWithScreenshotsToOpenAI: () => Promise.resolve('Mock OpenAI response with screenshots'),
       sendPromptWithScreenshotsToGemini: () => Promise.resolve('Mock Gemini response with screenshots'),
+      sendPromptWithScreenshotsToClaude: () => Promise.resolve('Mock Claude response with screenshots'),
       sendConversationToOpenAI: () => Promise.resolve('Mock OpenAI conversation response'),
       sendConversationToGemini: () => Promise.resolve('Mock Gemini conversation response'),
+      sendConversationToClaude: () => Promise.resolve('Mock Claude conversation response'),
       sendConversationToLMStudio: () => Promise.resolve('Mock LM Studio conversation response'),
       sendPromptToZAI: () => Promise.resolve('Mock Z.AI response'),
       sendConversationToZAI: () => Promise.resolve('Mock Z.AI conversation response'),
@@ -574,6 +655,7 @@ export class ElectronService {
       analyzeScreenshotsWithOpenAI: () => Promise.resolve({ success: false }),
       analyzeScreenshotsWithGemini: () => Promise.resolve({ success: false }),
       analyzeScreenshotsWithZAI: () => Promise.resolve({ success: false }),
+      analyzeScreenshotsWithClaude: () => Promise.resolve({ success: false }),
       sendPromptWithScreenshotsToZAI: () => Promise.resolve('Mock Z.AI with screenshots response'),
       extractTextFromScreenshots: () => Promise.resolve({ success: false }),
       importClipboardImage: () => Promise.resolve({ success: false }),
@@ -603,6 +685,8 @@ export class ElectronService {
       getOpenAIApiKey: () => Promise.resolve(''),
       saveZAIApiKey: () => Promise.resolve({ success: false }),
       getZAIApiKey: () => Promise.resolve(''),
+      saveClaudeApiKey: () => Promise.resolve({ success: false }),
+      getClaudeApiKey: () => Promise.resolve(''),
       savePreferences: () => Promise.resolve({ success: false }),
       getPreferences: () => Promise.resolve({ preferredLanguage: 'python', answerStyle: 'explanation' }),
       saveDefaultModel: () => Promise.resolve({ success: false }),
@@ -611,6 +695,8 @@ export class ElectronService {
       getOpenAIModel: () => Promise.resolve(''),
       saveGeminiModel: () => Promise.resolve({ success: false }),
       getGeminiModel: () => Promise.resolve(''),
+      saveClaudeModel: () => Promise.resolve({ success: false }),
+      getClaudeModel: () => Promise.resolve(''),
       saveCustomSystemPrompt: () => Promise.resolve({ success: false }),
       getCustomSystemPrompt: () => Promise.resolve(''),
       getUserPromptTemplates: () => Promise.resolve([]),
@@ -631,10 +717,13 @@ export class ElectronService {
       testZAIConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       testOpenAIConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       testGeminiConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      testClaudeConnection: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       copyLatestResponse: () => Promise.resolve({ success: false }),
       processClipboardPrompt: () => Promise.resolve({ success: false }),
       getScreenshots: () => Promise.resolve([]),
       removeScreenshot: () => Promise.resolve({ success: false }),
+      getAccumulatedTokenUsage: () => Promise.resolve({}),
+      resetAccumulatedTokenUsage: () => Promise.resolve({ success: true }),
       onScreenshotTaken: () => () => {},
       onProcessScreenshots: () => () => {},
       onModelChanged: () => () => {},
@@ -650,6 +739,8 @@ export class ElectronService {
       onDocumentsUpdated: () => () => {},
       onNotesUpdated: () => () => {},
       onToggleVoiceRecording: () => () => {},
+      onAIStream: () => () => {},
+      onTokenUsageUpdated: () => () => {},
       transcribeAudio: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       getVoiceProvider: () => Promise.resolve('openai'),
       saveVoiceProvider: () => Promise.resolve({ success: false }),
@@ -659,6 +750,10 @@ export class ElectronService {
       saveAutoInteractionOnShow: () => Promise.resolve({ success: false }),
       getNoteViewMode: () => Promise.resolve('editor-only'),
       saveNoteViewMode: () => Promise.resolve({ success: false }),
+      getShortcuts: () => Promise.resolve({ success: true, shortcuts: [] }),
+      saveShortcut: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      resetShortcuts: () => Promise.resolve({ success: true, shortcuts: [] }),
+      setShortcutCapture: () => Promise.resolve({ success: true }),
     } as ElectronAPI;
   }
 }

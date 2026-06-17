@@ -10,7 +10,7 @@ interface SystemPromptTemplate {
 }
 
 // Provider types for connection testing
-type ProviderType = 'openai' | 'gemini' | 'zai' | 'lmstudio';
+type ProviderType = 'openai' | 'gemini' | 'zai' | 'lmstudio' | 'claude';
 
 @Component({
   selector: 'app-settings-tab',
@@ -20,27 +20,34 @@ type ProviderType = 'openai' | 'gemini' | 'zai' | 'lmstudio';
 })
 export class SettingsTabComponent implements OnInit {
   // Sub-tab state
-  activeSubTab: 'models' | 'behavior' | 'capture' | 'interface' = 'models';
+  activeSubTab: 'models' | 'behavior' | 'capture' | 'interface' | 'usage' = 'models';
+
+  // Token usage
+  accumulatedTokenUsage: any = {};
 
   // API & Models
   openaiApiKey: string = '';
   geminiApiKey: string = '';
-  defaultModel: AIProvider = DEFAULTS.MODEL;
+  claudeApiKey: string = '';
+  defaultModel: AIProvider | string = DEFAULTS.MODEL;
   
   // Provider enabled states (for flexible selection)
   openaiEnabled: boolean = true;
   geminiEnabled: boolean = true;
   zaiEnabled: boolean = false;
+  claudeEnabled: boolean = true;
   
   // Custom model names for cloud providers
   openaiModel: string = 'gpt-5.2';
   geminiModel: string = 'gemini-3.0-flash-review';
+  claudeModel: string = 'claude-sonnet-4-6';
   
   // Unified loading state for all testable services
   loadingState: Record<string, boolean> = {
     openai: false,
     gemini: false,
     zai: false,
+    claude: false,
     lmstudio: false,
     ocr: false
   };
@@ -146,6 +153,9 @@ export class SettingsTabComponent implements OnInit {
         case 'zai':
           result = await this.electronService.testZAIConnection();
           break;
+        case 'claude':
+          result = await this.electronService.testClaudeConnection();
+          break;
         case 'lmstudio':
           result = await this.electronService.testLMStudioConnection();
           break;
@@ -182,6 +192,9 @@ export class SettingsTabComponent implements OnInit {
       case 'gemini':
         await this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-3-flash-preview');
         break;
+      case 'claude':
+        await this.electronService.saveClaudeModel(this.claudeModel.trim() || 'claude-sonnet-4-6');
+        break;
       case 'zai':
         await this.electronService.saveZAISettings({
           enabled: true,
@@ -206,6 +219,7 @@ export class SettingsTabComponent implements OnInit {
       openai: 'OpenAI',
       gemini: 'Gemini',
       zai: 'Z.AI',
+      claude: 'Claude',
       lmstudio: 'LM Studio'
     };
     return names[provider];
@@ -216,10 +230,11 @@ export class SettingsTabComponent implements OnInit {
     this.loadDocuments();
     this.loadTemplates();
     this.loadOCRSettings();
+    this.loadAccumulatedTokenUsage();
     this.setupEventListeners();
   }
 
-  async switchSubTab(tab: 'models' | 'behavior' | 'capture' | 'interface') {
+  async switchSubTab(tab: 'models' | 'behavior' | 'capture' | 'interface' | 'usage') {
     this.activeSubTab = tab;
 
     // Reload saved settings when switching tabs to discard unsaved changes
@@ -234,14 +249,17 @@ export class SettingsTabComponent implements OnInit {
     } else if (tab === 'capture') {
       // OCR lives in the Capture tab — refresh its saved state
       await this.loadOCRSettings();
+    } else if (tab === 'usage') {
+      await this.loadAccumulatedTokenUsage();
     }
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, zaiKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow, noteViewMode] = await Promise.all([
+    const [openaiKey, geminiKey, zaiKey, claudeKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, claudeModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow, noteViewMode] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
       this.electronService.getZAIApiKey(),
+      this.electronService.getClaudeApiKey(),
       this.electronService.getPreferences(),
       this.electronService.getDefaultModel(),
       this.electronService.getCustomSystemPrompt(),
@@ -249,6 +267,7 @@ export class SettingsTabComponent implements OnInit {
       this.electronService.getZAISettings(),
       this.electronService.getOpenAIModel(),
       this.electronService.getGeminiModel(),
+      this.electronService.getClaudeModel(),
       this.electronService.getVoiceProvider(),
       this.electronService.getVoiceScreenshotMode(),
       this.electronService.getAutoInteractionOnShow(),
@@ -262,6 +281,7 @@ export class SettingsTabComponent implements OnInit {
     this.openaiApiKey = openaiKey || '';
     this.geminiApiKey = geminiKey || '';
     this.zaiApiKey = zaiKey || '';
+    this.claudeApiKey = claudeKey || '';
     this.preferredLanguage = preferences.preferredLanguage || 'python';
     this.answerStyle = (preferences.answerStyle as any) || 'explanation';
     this.defaultModel = defaultModel;
@@ -270,6 +290,7 @@ export class SettingsTabComponent implements OnInit {
     // Custom model names
     this.openaiModel = openaiModelSetting || 'gpt-4o';
     this.geminiModel = geminiModelSetting || 'gemini-2.0-flash';
+    this.claudeModel = claudeModelSetting || 'claude-sonnet-4-6';
     
     // LM Studio settings
     this.lmstudioEnabled = lmstudioSettings.enabled;
@@ -301,11 +322,12 @@ export class SettingsTabComponent implements OnInit {
     // 2. If not found yet, map Legacy Aliases to Arrays
     if (providers.length === 0) {
       const legacyAliases: Record<string, string[]> = {
-        'all':      ['openai', 'gemini', 'zai'],
+        'all':      ['openai', 'gemini', 'zai', 'claude'],
         'both':     ['openai', 'gemini'],
         'openai':   ['openai'],
         'gemini':   ['gemini'],
         'zai':      ['zai'],
+        'claude':   ['claude'],
         // LM Studio is an exclusive local mode handled by its own toggle, so it
         // maps to no cloud providers here.
         'lmstudio': [],
@@ -317,6 +339,7 @@ export class SettingsTabComponent implements OnInit {
     this.openaiEnabled = providers.includes('openai');
     this.geminiEnabled = providers.includes('gemini');
     this.zaiEnabled = providers.includes('zai');
+    this.claudeEnabled = providers.includes('claude');
   }
 
   // Get enabled providers as array
@@ -325,6 +348,7 @@ export class SettingsTabComponent implements OnInit {
     if (this.openaiEnabled) providers.push('openai');
     if (this.geminiEnabled) providers.push('gemini');
     if (this.zaiEnabled) providers.push('zai');
+    if (this.claudeEnabled) providers.push('claude');
     return providers;
   }
 
@@ -339,6 +363,45 @@ export class SettingsTabComponent implements OnInit {
       this.ocrEnabled = settings.enabled;
       this.ocrLanguage = settings.language;
     });
+  }
+
+  async loadAccumulatedTokenUsage() {
+    try {
+      const usage = await this.electronService.getAccumulatedTokenUsage();
+      this.runInZone(() => {
+        this.accumulatedTokenUsage = usage || {};
+      });
+    } catch (error) {
+      console.error('Failed to load token usage statistics:', error);
+    }
+  }
+
+  async resetUsageStats() {
+    if (confirm('Are you sure you want to reset all token usage and cost statistics? This cannot be undone.')) {
+      try {
+        const result = await this.electronService.resetAccumulatedTokenUsage();
+        if (result.success) {
+          this.electronService.showToast('Usage statistics reset');
+          await this.loadAccumulatedTokenUsage();
+        } else {
+          this.electronService.showToast(result.error || 'Failed to reset statistics');
+        }
+      } catch (error: any) {
+        this.electronService.showToast(`Error: ${error.message}`);
+      }
+    }
+  }
+
+  hasUsageData(): boolean {
+    if (!this.accumulatedTokenUsage) return false;
+    return Object.values(this.accumulatedTokenUsage).some((provider: any) => provider && provider.totalTokens > 0);
+  }
+
+  getGrandTotalCost(): number {
+    if (!this.accumulatedTokenUsage) return 0;
+    return Object.values(this.accumulatedTokenUsage).reduce((acc: number, provider: any) => {
+      return acc + (provider?.cost || 0);
+    }, 0);
   }
 
   async saveOCRSettings() {
@@ -500,6 +563,13 @@ export class SettingsTabComponent implements OnInit {
     this.electronService.onDocumentsUpdated().subscribe(() => {
       this.loadDocuments();
     });
+
+    // Listen for live token usage updates to keep dashboard synced if open
+    this.electronService.onTokenUsageUpdated().subscribe((data) => {
+      this.runInZone(() => {
+        this.accumulatedTokenUsage = data.cumulative || {};
+      });
+    });
   }
 
   async saveApiKeys() {
@@ -511,6 +581,9 @@ export class SettingsTabComponent implements OnInit {
     }
     if (this.zaiApiKey.trim()) {
       await this.electronService.saveZAIApiKey(this.zaiApiKey.trim());
+    }
+    if (this.claudeApiKey.trim()) {
+      await this.electronService.saveClaudeApiKey(this.claudeApiKey.trim());
     }
     this.electronService.showToast('API Keys saved');
   }
@@ -530,6 +603,9 @@ export class SettingsTabComponent implements OnInit {
     }
     if (this.geminiEnabled) {
       saveTasks.push(this.electronService.saveGeminiModel(this.geminiModel.trim() || 'gemini-3-flash-preview'));
+    }
+    if (this.claudeEnabled) {
+      saveTasks.push(this.electronService.saveClaudeModel(this.claudeModel.trim() || 'claude-sonnet-4-6'));
     }
     if (this.zaiEnabled) {
       saveTasks.push(this.electronService.saveZAISettings({

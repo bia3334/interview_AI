@@ -75,3 +75,4 @@ The codebase has three layers that communicate through a strict bridge pattern:
 | `Ctrl+Shift+D` | Clear screenshots |
 | `Ctrl+Shift+Q` | Clipboard text as prompt |
 | `Ctrl+Shift+C` | Copy latest AI response |
+| `Ctrl+Shift+Backspace` | Panic: wipe screenshots/response/clipboard and quit instantly |

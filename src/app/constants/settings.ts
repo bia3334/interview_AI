@@ -10,6 +10,7 @@ export const AI_PROVIDER = {
   BOTH: 'both',
   LMSTUDIO: 'lmstudio',
   ZAI: 'zai',
+  CLAUDE: 'claude',
 } as const;
 
 export type AIProvider = typeof AI_PROVIDER[keyof typeof AI_PROVIDER];

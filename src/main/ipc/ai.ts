@@ -17,10 +17,27 @@ import {
   sendPromptToLMStudio,
   sendPromptToOpenAI,
   sendPromptToZAI,
+  streamChatCompletion,
+  streamConversationToGemini,
+  streamConversationToLMStudio,
+  streamConversationToOpenAI,
+  streamConversationToZAI,
+  streamPromptToGemini,
+  streamPromptToLMStudio,
+  streamPromptToOpenAI,
+  streamPromptToZAI,
   testLMStudioConnection,
   testZAIConnection,
   testOpenAIConnection,
-  testGeminiConnection
+  testGeminiConnection,
+  sendPromptToClaude,
+  sendConversationToClaude,
+  sendPromptWithScreenshotsToClaude,
+  testClaudeConnection,
+  streamPromptToClaude,
+  streamConversationToClaude,
+  streamPromptWithScreenshotsToClaude,
+  recordTokenUsage
 } from '../ai/clients';
 import { generatePrompt } from '../ai/prompts';
 import { combineOCRResults, extractTextFromImages, isConfidenceAcceptable, OCRResult } from '../ocr';
@@ -38,6 +55,28 @@ let latestAIResponse: string = '';
 
 export const getLatestAIResponse = () => latestAIResponse;
 export const setLatestAIResponse = (response: string) => { latestAIResponse = response; };
+
+type StreamProvider = 'openai' | 'gemini' | 'claude' | 'zai' | 'lmstudio';
+
+/**
+ * Build an `onDelta` callback that streams token chunks back to the renderer
+ * over the one-way `ai-stream` channel, tagged with the originating request and
+ * provider so the renderer can route each chunk to the correct panel. Returns a
+ * no-op when no `requestId` was supplied (caller opted out of streaming), so the
+ * same handler code works for both streamed and non-streamed paths.
+ */
+const makeStreamEmitter = (
+  event: IpcMainInvokeEvent,
+  requestId: string | undefined,
+  provider: StreamProvider
+): ((delta: string) => void) => {
+  if (!requestId) return () => {};
+  return (delta: string) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.send('ai-stream', { requestId, provider, delta });
+    }
+  };
+};
 
 /**
  * Build OCR context prefix if OCR is enabled and has results
@@ -93,6 +132,32 @@ export function registerAIIPC(
 ) {
   const { store, log, preloadPath } = deps;
 
+  // Token usage IPC handlers
+  ipcMain.handle('getAccumulatedTokenUsage', () => {
+    return store.get('accumulatedTokenUsage') || {};
+  });
+
+  ipcMain.handle('resetAccumulatedTokenUsage', () => {
+    store.set('accumulatedTokenUsage', {});
+    try {
+      const mainWindow = getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('token-usage-updated', {
+          provider: 'all',
+          model: 'all',
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          cost: 0,
+          cumulative: {}
+        });
+      }
+    } catch (err) {
+      log.error('Failed to notify renderer of token usage reset:', err);
+    }
+    return { success: true };
+  });
+
   // Helper to update response state and show overlay
   const handleAIResponse = (response: string) => {
     latestAIResponse = response;
@@ -126,16 +191,17 @@ export function registerAIIPC(
   });
 
   // Simple prompt handlers
-  ipcMain.handle('sendPromptToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptToGemini', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
     try {
       log.info('Sending request to Google Gemini API');
       const docPrefix = buildDocContextPrefix();
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const result = await sendPromptToGemini([finalPrompt], store);
 
-      const assistantReply = result.text || 'No response from Google Gemini.';
+      const assistantReply = requestId
+        ? await streamPromptToGemini([finalPrompt], store, makeStreamEmitter(event, requestId, 'gemini'))
+        : (await sendPromptToGemini([finalPrompt], store)).text || 'No response from Google Gemini.';
       handleAIResponse(assistantReply);
 
       log.info('Received response from Google Gemini API');
@@ -146,15 +212,17 @@ export function registerAIIPC(
     }
   });
 
-  ipcMain.handle('sendPromptToOpenAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptToOpenAI', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
     try {
       log.info('Sending request to OpenAI API');
       const docPrefix = buildDocContextPrefix();
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const assistantReply = await sendPromptToOpenAI(finalPrompt, store);
-      
+      const assistantReply = requestId
+        ? await streamPromptToOpenAI(finalPrompt, store, makeStreamEmitter(event, requestId, 'openai'))
+        : await sendPromptToOpenAI(finalPrompt, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received response from OpenAI API');
@@ -166,11 +234,13 @@ export function registerAIIPC(
   });
 
   // Conversation-aware prompts (with history)
-  ipcMain.handle('sendConversationToOpenAI', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+  ipcMain.handle('sendConversationToOpenAI', async (event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => {
     try {
       log.info('Sending conversation request to OpenAI API');
-      const assistantReply = await sendConversationToOpenAI(messages, store);
-      
+      const assistantReply = requestId
+        ? await streamConversationToOpenAI(messages, store, makeStreamEmitter(event, requestId, 'openai'))
+        : await sendConversationToOpenAI(messages, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received conversation response from OpenAI API');
@@ -181,11 +251,13 @@ export function registerAIIPC(
     }
   });
 
-  ipcMain.handle('sendConversationToGemini', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+  ipcMain.handle('sendConversationToGemini', async (event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => {
     try {
       log.info('Sending conversation request to Gemini API');
-      const assistantReply = await sendConversationToGemini(messages, store);
-      
+      const assistantReply = requestId
+        ? await streamConversationToGemini(messages, store, makeStreamEmitter(event, requestId, 'gemini'))
+        : await sendConversationToGemini(messages, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received conversation response from Gemini API');
@@ -197,15 +269,17 @@ export function registerAIIPC(
   });
 
   // LM Studio handlers
-  ipcMain.handle('sendPromptToLMStudio', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptToLMStudio', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
     try {
       log.info('Sending request to LM Studio');
       const docPrefix = buildDocContextPrefix();
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const assistantReply = await sendPromptToLMStudio(finalPrompt, store);
-      
+      const assistantReply = requestId
+        ? await streamPromptToLMStudio(finalPrompt, store, makeStreamEmitter(event, requestId, 'lmstudio'))
+        : await sendPromptToLMStudio(finalPrompt, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received response from LM Studio');
@@ -216,11 +290,13 @@ export function registerAIIPC(
     }
   });
 
-  ipcMain.handle('sendConversationToLMStudio', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+  ipcMain.handle('sendConversationToLMStudio', async (event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => {
     try {
       log.info('Sending conversation request to LM Studio');
-      const assistantReply = await sendConversationToLMStudio(messages, store);
-      
+      const assistantReply = requestId
+        ? await streamConversationToLMStudio(messages, store, makeStreamEmitter(event, requestId, 'lmstudio'))
+        : await sendConversationToLMStudio(messages, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received conversation response from LM Studio');
@@ -244,15 +320,17 @@ export function registerAIIPC(
   });
 
   // Z.AI handlers
-  ipcMain.handle('sendPromptToZAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptToZAI', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
     try {
       log.info('Sending request to Z.AI');
       const docPrefix = buildDocContextPrefix();
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const assistantReply = await sendPromptToZAI(finalPrompt, store);
-      
+      const assistantReply = requestId
+        ? await streamPromptToZAI(finalPrompt, store, makeStreamEmitter(event, requestId, 'zai'))
+        : await sendPromptToZAI(finalPrompt, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received response from Z.AI');
@@ -263,11 +341,13 @@ export function registerAIIPC(
     }
   });
 
-  ipcMain.handle('sendConversationToZAI', async (_event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+  ipcMain.handle('sendConversationToZAI', async (event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => {
     try {
       log.info('Sending conversation request to Z.AI');
-      const assistantReply = await sendConversationToZAI(messages, store);
-      
+      const assistantReply = requestId
+        ? await streamConversationToZAI(messages, store, makeStreamEmitter(event, requestId, 'zai'))
+        : await sendConversationToZAI(messages, store);
+
       handleAIResponse(assistantReply);
 
       log.info('Received conversation response from Z.AI');
@@ -314,8 +394,60 @@ export function registerAIIPC(
     }
   });
 
+  // Claude handlers
+  ipcMain.handle('sendPromptToClaude', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
+    try {
+      log.info('Sending request to Anthropic Claude API');
+      const docPrefix = buildDocContextPrefix();
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
+      const assistantReply = requestId
+        ? await streamPromptToClaude(finalPrompt, store, makeStreamEmitter(event, requestId, 'claude'))
+        : await sendPromptToClaude(finalPrompt, store);
+      
+      handleAIResponse(assistantReply);
+
+      log.info('Received response from Anthropic Claude API');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch from Claude:', error);
+      throw new Error(`Failed to fetch from Claude: ${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('sendConversationToClaude', async (event: IpcMainInvokeEvent, messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => {
+    try {
+      log.info('Sending conversation request to Claude API');
+      const assistantReply = requestId
+        ? await streamConversationToClaude(messages, store, makeStreamEmitter(event, requestId, 'claude'))
+        : await sendConversationToClaude(messages, store);
+      
+      handleAIResponse(assistantReply);
+
+      log.info('Received conversation response from Claude API');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch conversation from Claude:', error);
+      throw new Error(`Failed to fetch conversation from Claude: ${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('testClaudeConnection', async () => {
+    try {
+      log.info('Testing Claude connection');
+      const result = await testClaudeConnection(store);
+      log.info('Claude connection test result:', result);
+      return result;
+    } catch (error) {
+      log.error('Claude connection test failed:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
   // Prompt with screenshots
-  ipcMain.handle('sendPromptWithScreenshotsToOpenAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptWithScreenshotsToOpenAI', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
+    const onDelta = makeStreamEmitter(event, requestId, 'openai');
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
       // No screenshots queued — fall back to a plain text prompt. (We can't
@@ -326,7 +458,9 @@ export function registerAIIPC(
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const assistantReply = await sendPromptToOpenAI(finalPrompt, store);
+      const assistantReply = requestId
+        ? await streamPromptToOpenAI(finalPrompt, store, onDelta)
+        : await sendPromptToOpenAI(finalPrompt, store);
       handleAIResponse(assistantReply);
       return assistantReply;
     }
@@ -336,11 +470,11 @@ export function registerAIIPC(
       const openai = getOpenAIClient(store);
       const screenshots = [...screenshotQueue];
       const docPrefix = buildDocContextPrefix();
-      
+
       // Process OCR if enabled
       const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
       const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
-      
+
       const finalPrompt = `${docPrefix ? docPrefix + '\n\n' : ''}${ocrPrefix}${prompt}`;
 
       const content: ChatCompletionContentPart[] = [{ type: "text", text: finalPrompt }];
@@ -360,12 +494,24 @@ export function registerAIIPC(
         }
       }
 
-      const response = await openai.chat.completions.create({
-        model: getCurrentOpenAIModel(store),
-        messages: [{ role: 'user', content }],
-      });
-
-      const assistantReply = response.choices[0]?.message?.content || 'No response from OpenAI.';
+      const model = getCurrentOpenAIModel(store);
+      const messages = [{ role: 'user', content }];
+      let assistantReply = '';
+      if (requestId) {
+        assistantReply = (await streamChatCompletion(openai, model, messages, onDelta, store, 'openai')) || 'No response from OpenAI.';
+      } else {
+        const response = await openai.chat.completions.create({ model, messages: messages as any });
+        assistantReply = response.choices[0]?.message?.content || 'No response from OpenAI.';
+        if (response.usage) {
+          recordTokenUsage(
+            store,
+            'openai',
+            model,
+            response.usage.prompt_tokens || 0,
+            response.usage.completion_tokens || 0
+          );
+        }
+      }
       handleAIResponse(assistantReply);
 
       log.info('Received response from OpenAI API with screenshots');
@@ -376,7 +522,8 @@ export function registerAIIPC(
     }
   });
 
-  ipcMain.handle('sendPromptWithScreenshotsToGemini', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptWithScreenshotsToGemini', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
+    const onDelta = makeStreamEmitter(event, requestId, 'gemini');
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
       // No screenshots queued — fall back to a plain text prompt. (ipcMain.emit
@@ -386,8 +533,9 @@ export function registerAIIPC(
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const result = await sendPromptToGemini([finalPrompt], store);
-      const assistantReply = result.text || 'No response from Gemini.';
+      const assistantReply = requestId
+        ? await streamPromptToGemini([finalPrompt], store, onDelta)
+        : (await sendPromptToGemini([finalPrompt], store)).text || 'No response from Gemini.';
       handleAIResponse(assistantReply);
       return assistantReply;
     }
@@ -397,15 +545,15 @@ export function registerAIIPC(
       const ai = getGeminiClient(store);
       const screenshots = [...screenshotQueue];
       const docPrefix = buildDocContextPrefix();
-      
+
       // Process OCR if enabled
       const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
       const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
-      
+
       const finalPrompt = `${docPrefix ? docPrefix + '\n\n' : ''}${ocrPrefix}${prompt}`;
 
       const parts: any[] = [finalPrompt];
-      
+
       // Only include images if OCR mode requires it
       if (shouldIncludeImages) {
         for (const screenshotPath of screenshots) {
@@ -418,9 +566,10 @@ export function registerAIIPC(
         }
       }
 
-      const result = await sendPromptToGemini(parts, store);
-      const assistantReply = result.text || 'No response from Gemini.';
-      
+      const assistantReply = requestId
+        ? await streamPromptToGemini(parts, store, onDelta)
+        : (await sendPromptToGemini(parts, store)).text || 'No response from Gemini.';
+
       handleAIResponse(assistantReply);
 
       log.info('Received response from Gemini API with screenshots');
@@ -431,8 +580,56 @@ export function registerAIIPC(
     }
   });
 
+  // Claude with screenshots (vision-capable)
+  ipcMain.handle('sendPromptWithScreenshotsToClaude', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
+    const screenshotQueue = getScreenshotQueue();
+    if (screenshotQueue.length === 0) {
+      log.info('No screenshots queued; sending text-only prompt to Claude');
+      const docPrefix = buildDocContextPrefix();
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const language = store.get('preferredLanguage') || 'python';
+      const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
+      const assistantReply = requestId
+        ? await streamPromptToClaude(finalPrompt, store, makeStreamEmitter(event, requestId, 'claude'))
+        : await sendPromptToClaude(finalPrompt, store);
+      handleAIResponse(assistantReply);
+      return assistantReply;
+    }
+
+    try {
+      log.info('Sending prompt with screenshots to Claude API');
+      const screenshots = [...screenshotQueue];
+      const docPrefix = buildDocContextPrefix();
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const finalPrompt = `${docPrefix ? docPrefix + '\n\n' : ''}${ocrPrefix}${prompt}`;
+
+      let assistantReply: string;
+      if (shouldIncludeImages) {
+        assistantReply = requestId
+          ? await streamPromptWithScreenshotsToClaude(finalPrompt, screenshots, store, makeStreamEmitter(event, requestId, 'claude'))
+          : await sendPromptWithScreenshotsToClaude(finalPrompt, screenshots, store);
+      } else {
+        assistantReply = requestId
+          ? await streamPromptToClaude(finalPrompt, store, makeStreamEmitter(event, requestId, 'claude'))
+          : await sendPromptToClaude(finalPrompt, store);
+      }
+      handleAIResponse(assistantReply);
+
+      log.info('Received response from Claude API with screenshots');
+      return assistantReply;
+    } catch (error) {
+      log.error('Failed to fetch from Claude with screenshots:', error);
+      throw new Error(`Failed to fetch from Claude: ${(error as Error).message}`);
+    }
+  });
+
   // Z.AI with screenshots (vision-capable)
-  ipcMain.handle('sendPromptWithScreenshotsToZAI', async (_event: IpcMainInvokeEvent, prompt: string) => {
+  ipcMain.handle('sendPromptWithScreenshotsToZAI', async (event: IpcMainInvokeEvent, prompt: string, requestId?: string) => {
+    const onDelta = makeStreamEmitter(event, requestId, 'zai');
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
       // No screenshots queued — fall back to a plain text prompt. (ipcMain.emit
@@ -442,7 +639,9 @@ export function registerAIIPC(
       const answerStyle = store.get('answerStyle') || 'explanation';
       const language = store.get('preferredLanguage') || 'python';
       const finalPrompt = generatePrompt(answerStyle, language, prompt, docPrefix);
-      const assistantReply = await sendPromptToZAI(finalPrompt, store);
+      const assistantReply = requestId
+        ? await streamPromptToZAI(finalPrompt, store, onDelta)
+        : await sendPromptToZAI(finalPrompt, store);
       handleAIResponse(assistantReply);
       return assistantReply;
     }
@@ -488,13 +687,24 @@ export function registerAIIPC(
       });
 
       const zaiModel = store.get('zaiModel') || 'GLM-4.6V-Flash';
+      const messages = [{ role: 'user', content }];
 
-      const response = await zaiClient.chat.completions.create({
-        model: zaiModel,
-        messages: [{ role: 'user', content }],
-      });
-
-      const assistantReply = response.choices[0]?.message?.content || 'No response from Z.AI.';
+      let assistantReply = '';
+      if (requestId) {
+        assistantReply = (await streamChatCompletion(zaiClient, zaiModel, messages, onDelta, store, 'zai')) || 'No response from Z.AI.';
+      } else {
+        const response = await zaiClient.chat.completions.create({ model: zaiModel, messages });
+        assistantReply = response.choices[0]?.message?.content || 'No response from Z.AI.';
+        if (response.usage) {
+          recordTokenUsage(
+            store,
+            'zai',
+            zaiModel,
+            response.usage.prompt_tokens || 0,
+            response.usage.completion_tokens || 0
+          );
+        }
+      }
       handleAIResponse(assistantReply);
 
       log.info('Received response from Z.AI API with screenshots');
@@ -506,7 +716,7 @@ export function registerAIIPC(
   });
 
   // Screenshot Analysis
-  const analyzeScreenshotsWithGemini = async (options: { language?: string }) => {
+  const analyzeScreenshotsWithGemini = async (options: { language?: string }, onDelta?: (d: string) => void) => {
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
       return { success: false, error: 'No screenshots available to analyze' };
@@ -539,9 +749,10 @@ export function registerAIIPC(
         }
       }
 
-      const result = await sendPromptToGemini(parts, store);
-      const analysis = result.text || 'Analysis completed, but no specific solution was generated.';
-      
+      const analysis = (onDelta
+        ? await streamPromptToGemini(parts, store, onDelta)
+        : (await sendPromptToGemini(parts, store)).text) || 'Analysis completed, but no specific solution was generated.';
+
       handleAIResponse(analysis);
 
       return { success: true, analysis, screenshots };
@@ -551,7 +762,7 @@ export function registerAIIPC(
     }
   };
 
-  const analyzeScreenshotsWithOpenAI = async (options: { language?: string }) => {
+  const analyzeScreenshotsWithOpenAI = async (options: { language?: string }, onDelta?: (d: string) => void) => {
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
       return { success: false, error: 'No screenshots available to analyze' };
@@ -587,12 +798,24 @@ export function registerAIIPC(
         }
       }
 
-      const response = await openai.chat.completions.create({
-        model: getCurrentOpenAIModel(store),
-        messages: [{ role: 'user', content }],
-      });
-
-      const analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
+      const model = getCurrentOpenAIModel(store);
+      const messages = [{ role: 'user', content }];
+      let analysis = '';
+      if (onDelta) {
+        analysis = (await streamChatCompletion(openai, model, messages, onDelta, store, 'openai')) || 'Analysis completed, but no specific solution was generated.';
+      } else {
+        const response = await openai.chat.completions.create({ model, messages: messages as any });
+        analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
+        if (response.usage) {
+          recordTokenUsage(
+            store,
+            'openai',
+            model,
+            response.usage.prompt_tokens || 0,
+            response.usage.completion_tokens || 0
+          );
+        }
+      }
       handleAIResponse(analysis);
 
       return { success: true, analysis, screenshots };
@@ -603,7 +826,7 @@ export function registerAIIPC(
   };
 
   // Z.AI Screenshot Analysis (uses OpenAI-compatible vision API)
-  const analyzeScreenshotsWithZAI = async (options: { language?: string }) => {
+  const analyzeScreenshotsWithZAI = async (options: { language?: string }, onDelta?: (d: string) => void) => {
     const screenshotQueue = getScreenshotQueue();
     if (screenshotQueue.length === 0) {
       return { success: false, error: 'No screenshots available to analyze' };
@@ -653,13 +876,24 @@ export function registerAIIPC(
 
       // Use vision-capable model for image analysis
       const zaiModel = store.get('zaiModel') || 'GLM-4.6V-Flash';
+      const messages = [{ role: 'user', content }];
 
-      const response = await zaiClient.chat.completions.create({
-        model: zaiModel,
-        messages: [{ role: 'user', content }],
-      });
-
-      const analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
+      let analysis = '';
+      if (onDelta) {
+        analysis = (await streamChatCompletion(zaiClient, zaiModel, messages, onDelta, store, 'zai')) || 'Analysis completed, but no specific solution was generated.';
+      } else {
+        const response = await zaiClient.chat.completions.create({ model: zaiModel, messages });
+        analysis = response.choices[0]?.message?.content || 'Analysis completed, but no specific solution was generated.';
+        if (response.usage) {
+          recordTokenUsage(
+            store,
+            'zai',
+            zaiModel,
+            response.usage.prompt_tokens || 0,
+            response.usage.completion_tokens || 0
+          );
+        }
+      }
       handleAIResponse(analysis);
 
       return { success: true, analysis, screenshots };
@@ -669,14 +903,49 @@ export function registerAIIPC(
     }
   };
 
-  ipcMain.handle('analyze-screenshots', async (_event, options: { language?: string }) => 
-    analyzeScreenshotsWithGemini(options));
-  ipcMain.handle('analyzeScreenshotsWithGemini', async (_event, options: { language?: string }) => 
-    analyzeScreenshotsWithGemini(options));
-  ipcMain.handle('analyzeScreenshotsWithOpenAI', async (_event, options: { language?: string }) => 
-    analyzeScreenshotsWithOpenAI(options));
-  ipcMain.handle('analyzeScreenshotsWithZAI', async (_event, options: { language?: string }) => 
-    analyzeScreenshotsWithZAI(options));
+  const analyzeScreenshotsWithClaude = async (options: { language?: string }) => {
+    const screenshotQueue = getScreenshotQueue();
+    if (screenshotQueue.length === 0) {
+      return { success: false, error: 'No screenshots available to analyze' };
+    }
+
+    try {
+      const screenshots = [...screenshotQueue];
+      const language = options.language || store.get('preferredLanguage') || 'python';
+      const answerStyle = store.get('answerStyle') || 'explanation';
+      const docPrefix = buildDocContextPrefix();
+      
+      // Process OCR if enabled
+      const { ocrResult, shouldIncludeImages } = await processScreenshotsWithOCR(screenshots, store, log);
+      const ocrPrefix = buildOCRContextPrefix(ocrResult, log);
+      
+      const promptText = generatePrompt(answerStyle, language, undefined, docPrefix ? `${docPrefix}\n\n${ocrPrefix}` : ocrPrefix);
+
+      let analysis: string;
+      if (shouldIncludeImages) {
+        analysis = await sendPromptWithScreenshotsToClaude(promptText, screenshots, store);
+      } else {
+        analysis = await sendPromptToClaude(promptText, store);
+      }
+      handleAIResponse(analysis);
+
+      return { success: true, analysis, screenshots };
+    } catch (error) {
+      log.error('Error analyzing screenshots with Claude:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  };
+
+  ipcMain.handle('analyze-screenshots', async (event: IpcMainInvokeEvent, options: { language?: string; requestId?: string }) =>
+    analyzeScreenshotsWithGemini(options, options?.requestId ? makeStreamEmitter(event, options.requestId, 'gemini') : undefined));
+  ipcMain.handle('analyzeScreenshotsWithGemini', async (event: IpcMainInvokeEvent, options: { language?: string; requestId?: string }) =>
+    analyzeScreenshotsWithGemini(options, options?.requestId ? makeStreamEmitter(event, options.requestId, 'gemini') : undefined));
+  ipcMain.handle('analyzeScreenshotsWithOpenAI', async (event: IpcMainInvokeEvent, options: { language?: string; requestId?: string }) =>
+    analyzeScreenshotsWithOpenAI(options, options?.requestId ? makeStreamEmitter(event, options.requestId, 'openai') : undefined));
+  ipcMain.handle('analyzeScreenshotsWithZAI', async (event: IpcMainInvokeEvent, options: { language?: string; requestId?: string }) =>
+    analyzeScreenshotsWithZAI(options, options?.requestId ? makeStreamEmitter(event, options.requestId, 'zai') : undefined));
+  ipcMain.handle('analyzeScreenshotsWithClaude', async (_event, options: { language?: string }) => 
+    analyzeScreenshotsWithClaude(options));
 
   // Text extraction from screenshots
   const extractWithOpenAI = async (screenshots: string[], extractPrompt: string): Promise<string> => {
@@ -695,10 +964,21 @@ export function registerAIIPC(
       }
     }
 
+    const model = getCurrentOpenAIModel(store);
     const response = await openai.chat.completions.create({
-      model: getCurrentOpenAIModel(store),
+      model,
       messages: [{ role: 'user', content }],
     });
+
+    if (response.usage) {
+      recordTokenUsage(
+        store,
+        'openai',
+        model,
+        response.usage.prompt_tokens || 0,
+        response.usage.completion_tokens || 0
+      );
+    }
 
     return response.choices[0]?.message?.content || 'No text extracted';
   };
@@ -818,6 +1098,7 @@ export function registerAIIPC(
       let geminiEnabled = false;
       let lmstudioMode = false;
       let zaiEnabled = false;
+      let claudeEnabled = false;
 
       try {
         const providers = JSON.parse(defaultModel as string);
@@ -825,6 +1106,7 @@ export function registerAIIPC(
           openaiEnabled = providers.includes('openai');
           geminiEnabled = providers.includes('gemini');
           zaiEnabled = providers.includes('zai');
+          claudeEnabled = providers.includes('claude');
         }
       } catch {
         // Legacy format
@@ -845,6 +1127,9 @@ export function registerAIIPC(
           case 'zai':
             zaiEnabled = true;
             break;
+          case 'claude':
+            claudeEnabled = true;
+            break;
           default:
             openaiEnabled = true;
             geminiEnabled = true;
@@ -856,6 +1141,7 @@ export function registerAIIPC(
       let geminiResponse = '';
       let lmstudioResponse = '';
       let zaiResponse = '';
+      let claudeResponse = '';
       
       if (openaiEnabled && !lmstudioMode) {
         promises.push(
@@ -920,8 +1206,24 @@ export function registerAIIPC(
         );
       }
 
+      // Claude
+      if (claudeEnabled && !lmstudioMode) {
+        promises.push(
+          sendPromptToClaude(promptText, store)
+            .then(response => {
+              claudeResponse = response;
+              handleAIResponse(response);
+              return response;
+            })
+            .catch((error: Error) => {
+              claudeResponse = `Claude Error: ${error.message}`;
+              return claudeResponse;
+            })
+        );
+      }
+
       await Promise.allSettled(promises);
-      const finalResponse = latestAIResponse || openaiResponse || geminiResponse || lmstudioResponse || zaiResponse || 'No response received';
+      const finalResponse = latestAIResponse || openaiResponse || geminiResponse || claudeResponse || lmstudioResponse || zaiResponse || 'No response received';
 
       if (finalResponse && finalResponse !== 'No response received') {
         clipboard.writeText(finalResponse);
@@ -932,6 +1234,7 @@ export function registerAIIPC(
         prompt: clipboardText,
         openaiResponse,
         geminiResponse,
+        claudeResponse,
         lmstudioResponse,
         zaiResponse
       };

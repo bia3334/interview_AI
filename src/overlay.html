@@ -25,20 +25,41 @@
         max-height: 100%;
         color: #ffffff;
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-        font-size: 16px;
+        font-size: 15px;
         line-height: 1.5;
         /* extra top padding for more breathing room */
-        padding: 18px 14px 12px 14px;
+        padding: 12px 16px;
         margin: 10px;
-        backdrop-filter: blur(12px);
-        background: rgba(100, 100, 100, 0.42);
-        border-radius: 10px;
+        backdrop-filter: blur(16px);
+        background: rgba(15, 23, 42, 0.75); /* Slate 900 background, very sleek */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
         white-space: pre-wrap; /* Allow text wrapping while preserving line breaks */
         word-wrap: break-word; /* Break long words if needed */
         overflow-wrap: break-word;
         overflow-y: auto; /* Allow scrolling if content exceeds max height */
         overflow-x: hidden;
-        /* hide scrollbars in Chromium */
+        transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s;
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 8px 16px -8px rgba(0, 0, 0, 0.4);
+      }
+      .bubble:hover {
+        max-height: 350px !important;
+        background: rgba(15, 23, 42, 0.9) !important; /* slightly darker on hover for readability */
+        overflow-y: auto !important;
+      }
+      /* Thin, elegant scrollbar on hover */
+      .bubble:hover::-webkit-scrollbar {
+        width: 6px;
+      }
+      .bubble:hover::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .bubble:hover::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+      .bubble:hover::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.4);
       }
       .bubble::-webkit-scrollbar {
         width: 0px;
@@ -64,15 +85,15 @@
         const cs = window.getComputedStyle(el);
         const lh = parseFloat(cs.lineHeight);
         if (!isNaN(lh) && lh > 0) return lh;
-        const fs = parseFloat(cs.fontSize) || 16;
+        const fs = parseFloat(cs.fontSize) || 15;
         return fs * 1.5; // fallback if line-height is 'normal'
       };
 
       const setSingleLineViewport = () => {
         const lh = getLineHeightPx();
-        // lock line-height and height to exactly one line in pixels
         el.style.lineHeight = lh + 'px';
-        el.style.height = lh + 'px'; // viewport exactly one line
+        el.style.maxHeight = lh + 'px';
+        el.style.height = 'auto';
         el.style.overflowY = 'hidden';
         // snap to top when content updates
         el.scrollTop = 0;

@@ -8,6 +8,7 @@ export const AI_PROVIDER = {
   ZAI: 'zai',
   BOTH: 'both',
   LMSTUDIO: 'lmstudio',
+  CLAUDE: 'claude',
 } as const;
 
 export type AIProvider = typeof AI_PROVIDER[keyof typeof AI_PROVIDER];
@@ -21,6 +22,9 @@ export const AI_MODELS = {
   },
   zai: {
     default: 'glm-4.7',
+  },
+  claude: {
+    default: 'claude-sonnet-4-6',
   },
 } as const;
 

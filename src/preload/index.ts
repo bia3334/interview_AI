@@ -4,16 +4,19 @@ import type { ElectronAPI } from './types';
 
 const api: ElectronAPI = {
   sendPrompt: (prompt) => ipcRenderer.invoke('chatgpt-request', prompt),
-  sendPromptToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptToOpenAI', prompt),
-  sendPromptToGemini: (prompt) => ipcRenderer.invoke('sendPromptToGemini', prompt),
-  sendPromptToLMStudio: (prompt) => ipcRenderer.invoke('sendPromptToLMStudio', prompt),
-  sendPromptToZAI: (prompt) => ipcRenderer.invoke('sendPromptToZAI', prompt),
-  sendPromptWithScreenshotsToOpenAI: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToOpenAI', prompt),
-  sendPromptWithScreenshotsToGemini: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToGemini', prompt),
-  sendConversationToOpenAI: (messages) => ipcRenderer.invoke('sendConversationToOpenAI', messages),
-  sendConversationToGemini: (messages) => ipcRenderer.invoke('sendConversationToGemini', messages),
-  sendConversationToLMStudio: (messages) => ipcRenderer.invoke('sendConversationToLMStudio', messages),
-  sendConversationToZAI: (messages) => ipcRenderer.invoke('sendConversationToZAI', messages),
+  sendPromptToOpenAI: (prompt, requestId) => ipcRenderer.invoke('sendPromptToOpenAI', prompt, requestId),
+  sendPromptToGemini: (prompt, requestId) => ipcRenderer.invoke('sendPromptToGemini', prompt, requestId),
+  sendPromptToLMStudio: (prompt, requestId) => ipcRenderer.invoke('sendPromptToLMStudio', prompt, requestId),
+  sendPromptToZAI: (prompt, requestId) => ipcRenderer.invoke('sendPromptToZAI', prompt, requestId),
+  sendPromptToClaude: (prompt, requestId) => ipcRenderer.invoke('sendPromptToClaude', prompt, requestId),
+  sendPromptWithScreenshotsToOpenAI: (prompt, requestId) => ipcRenderer.invoke('sendPromptWithScreenshotsToOpenAI', prompt, requestId),
+  sendPromptWithScreenshotsToGemini: (prompt, requestId) => ipcRenderer.invoke('sendPromptWithScreenshotsToGemini', prompt, requestId),
+  sendPromptWithScreenshotsToClaude: (prompt, requestId) => ipcRenderer.invoke('sendPromptWithScreenshotsToClaude', prompt, requestId),
+  sendConversationToOpenAI: (messages, requestId) => ipcRenderer.invoke('sendConversationToOpenAI', messages, requestId),
+  sendConversationToGemini: (messages, requestId) => ipcRenderer.invoke('sendConversationToGemini', messages, requestId),
+  sendConversationToLMStudio: (messages, requestId) => ipcRenderer.invoke('sendConversationToLMStudio', messages, requestId),
+  sendConversationToZAI: (messages, requestId) => ipcRenderer.invoke('sendConversationToZAI', messages, requestId),
+  sendConversationToClaude: (messages, requestId) => ipcRenderer.invoke('sendConversationToClaude', messages, requestId),
 
   closeWindow: () => ipcRenderer.send('close-window'),
   hideWindow: () => ipcRenderer.send('hide-window'),
@@ -28,7 +31,8 @@ const api: ElectronAPI = {
   analyzeScreenshotsWithOpenAI: (options) => ipcRenderer.invoke('analyzeScreenshotsWithOpenAI', options),
   analyzeScreenshotsWithGemini: (options) => ipcRenderer.invoke('analyzeScreenshotsWithGemini', options),
   analyzeScreenshotsWithZAI: (options) => ipcRenderer.invoke('analyzeScreenshotsWithZAI', options),
-  sendPromptWithScreenshotsToZAI: (prompt) => ipcRenderer.invoke('sendPromptWithScreenshotsToZAI', prompt),
+  analyzeScreenshotsWithClaude: (options) => ipcRenderer.invoke('analyzeScreenshotsWithClaude', options),
+  sendPromptWithScreenshotsToZAI: (prompt, requestId) => ipcRenderer.invoke('sendPromptWithScreenshotsToZAI', prompt, requestId),
   extractTextFromScreenshots: () => ipcRenderer.invoke('extractTextFromScreenshots'),
   importClipboardImage: () => ipcRenderer.invoke('import-clipboard-image'),
 
@@ -62,6 +66,8 @@ const api: ElectronAPI = {
   getOpenAIApiKey: () => ipcRenderer.invoke('getOpenAIApiKey'),
   saveZAIApiKey: (apiKey) => ipcRenderer.invoke('saveZAIApiKey', apiKey),
   getZAIApiKey: () => ipcRenderer.invoke('getZAIApiKey'),
+  saveClaudeApiKey: (apiKey) => ipcRenderer.invoke('saveClaudeApiKey', apiKey),
+  getClaudeApiKey: () => ipcRenderer.invoke('getClaudeApiKey'),
   savePreferences: (preferences) => ipcRenderer.invoke('save-preferences', preferences),
   getPreferences: () => ipcRenderer.invoke('get-preferences'),
   saveDefaultModel: (defaultModel) => ipcRenderer.invoke('saveDefaultModel', defaultModel),
@@ -71,6 +77,8 @@ const api: ElectronAPI = {
   getOpenAIModel: () => ipcRenderer.invoke('getOpenAIModel'),
   saveGeminiModel: (model) => ipcRenderer.invoke('saveGeminiModel', model),
   getGeminiModel: () => ipcRenderer.invoke('getGeminiModel'),
+  saveClaudeModel: (model) => ipcRenderer.invoke('saveClaudeModel', model),
+  getClaudeModel: () => ipcRenderer.invoke('getClaudeModel'),
 
   saveCustomSystemPrompt: (prompt) => ipcRenderer.invoke('saveCustomSystemPrompt', prompt),
   getCustomSystemPrompt: () => ipcRenderer.invoke('getCustomSystemPrompt'),
@@ -104,9 +112,13 @@ const api: ElectronAPI = {
   // OpenAI & Gemini Test
   testOpenAIConnection: () => ipcRenderer.invoke('testOpenAIConnection'),
   testGeminiConnection: () => ipcRenderer.invoke('testGeminiConnection'),
+  testClaudeConnection: () => ipcRenderer.invoke('testClaudeConnection'),
 
   copyLatestResponse: () => ipcRenderer.invoke('copy-latest-response'),
   processClipboardPrompt: () => ipcRenderer.invoke('processClipboardPrompt'),
+
+  getAccumulatedTokenUsage: () => ipcRenderer.invoke('getAccumulatedTokenUsage'),
+  resetAccumulatedTokenUsage: () => ipcRenderer.invoke('resetAccumulatedTokenUsage'),
 
   // Voice transcription
   transcribeAudio: (audio, mimeType, provider) => ipcRenderer.invoke('transcribe-audio', { audio, mimeType, provider }),
@@ -118,6 +130,12 @@ const api: ElectronAPI = {
   saveAutoInteractionOnShow: (enabled) => ipcRenderer.invoke('saveAutoInteractionOnShow', enabled),
   getNoteViewMode: () => ipcRenderer.invoke('getNoteViewMode'),
   saveNoteViewMode: (mode) => ipcRenderer.invoke('saveNoteViewMode', mode),
+
+  // Global shortcuts (rebindable)
+  getShortcuts: () => ipcRenderer.invoke('getShortcuts'),
+  saveShortcut: (id, accelerator) => ipcRenderer.invoke('saveShortcut', id, accelerator),
+  resetShortcuts: () => ipcRenderer.invoke('resetShortcuts'),
+  setShortcutCapture: (active) => ipcRenderer.invoke('setShortcutCapture', active),
 
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
   removeScreenshot: (index) => ipcRenderer.invoke('remove-screenshot', index),
@@ -137,5 +155,7 @@ const api: ElectronAPI = {
   onDocumentsUpdated: (callback) => { ipcRenderer.on('documents-updated', () => callback()); return () => ipcRenderer.removeAllListeners('documents-updated'); },
   onNotesUpdated: (callback) => { ipcRenderer.on('notes-updated', () => callback()); return () => ipcRenderer.removeAllListeners('notes-updated'); },
   onToggleVoiceRecording: (callback) => { ipcRenderer.on('toggle-voice-recording', () => callback()); return () => ipcRenderer.removeAllListeners('toggle-voice-recording'); },
+  onAIStream: (callback) => { ipcRenderer.on('ai-stream', (_e, d) => callback(d)); return () => ipcRenderer.removeAllListeners('ai-stream'); },
+  onTokenUsageUpdated: (callback) => { ipcRenderer.on('token-usage-updated', (_e, d) => callback(d)); return () => ipcRenderer.removeAllListeners('token-usage-updated'); },
 };
 contextBridge.exposeInMainWorld('electronAPI', api);

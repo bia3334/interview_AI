@@ -90,6 +90,30 @@ export const clearScreenshots = async (log: any) => {
   }
 };
 
+/**
+ * Synchronously wipe every screenshot from disk and empty the queue.
+ *
+ * Used by the panic hotkey: unlike clearScreenshots() this blocks until the
+ * files are gone so it can run immediately before the process exits, where an
+ * async cleanup would be cut off. Best-effort per file — a Windows file lock on
+ * one screenshot must not stop the others from being deleted.
+ */
+export const clearScreenshotsSync = (log?: any) => {
+  try {
+    for (const file of fs.readdirSync(tempDir)) {
+      try {
+        fs.unlinkSync(path.join(tempDir, file));
+      } catch {
+        // Ignore locked/already-gone files during panic.
+      }
+    }
+  } catch (err) {
+    log?.error?.('Panic: failed to clear screenshots:', err);
+  } finally {
+    screenshotQueue = [];
+  }
+};
+
 // Region screenshot state
 let isRegionScreenshotInProgress = false;
 

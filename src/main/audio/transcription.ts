@@ -54,8 +54,9 @@ async function transcribeWithGemini(
   const ai = getGeminiClient(store);
   const base64Audio = audioBuffer.toString('base64');
   const geminiModel = store.get('geminiModel') || 'gemini-2.0-flash';
+  const cleanMime = mimeType.split(';')[0].trim();
 
-  log.info(`Gemini: transcribing ${audioBuffer.length} bytes (${mimeType}) with ${geminiModel}`);
+  log.info(`Gemini: transcribing ${audioBuffer.length} bytes (original: ${mimeType}, cleaned: ${cleanMime}) with ${geminiModel}`);
 
   const response = await ai.models.generateContent({
     model: geminiModel,
@@ -63,7 +64,7 @@ async function transcribeWithGemini(
       role: 'user',
       parts: [
         { text: 'Transcribe the spoken English content of the following audio. The audio is in English; transcribe verbatim in English only. Return only the transcribed text with no commentary or formatting.' },
-        { inlineData: { mimeType, data: base64Audio } },
+        { inlineData: { mimeType: cleanMime, data: base64Audio } },
       ],
     }],
   });

@@ -146,16 +146,23 @@ select.prompt-input option:hover, select.prompt-input option:checked { backgroun
 .response-container ul, .response-container ol { margin-left: 2rem; margin-bottom: 1rem; }
 
 /* Content reveal: when a response lands, blocks fade in with a slight
-   stagger — quick and quiet, no theatrics. */
+   stagger — quick and quiet, no theatrics.
+   IMPORTANT: scoped to :not(.loading). While a response streams, the panel's
+   innerHTML is rebuilt on every token flush (~50ms), which destroys and
+   recreates every child node. If the entrance animation applied during
+   streaming, each rebuild would replay it from opacity:0 — making the whole
+   answer flash/"reload" repeatedly until the stream finished. Restricting it to
+   the settled (non-loading) state lets streamed text grow in place, and the
+   reveal still plays for history items and completed non-streamed renders. */
 @keyframes streamIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
-.response-container > * { animation: streamIn 0.22s ease both; }
-.response-container > *:nth-child(2) { animation-delay: 0.04s; }
-.response-container > *:nth-child(3) { animation-delay: 0.08s; }
-.response-container > *:nth-child(4) { animation-delay: 0.12s; }
-.response-container > *:nth-child(n+5) { animation-delay: 0.16s; }
+.response-container:not(.loading) > * { animation: streamIn 0.22s ease both; }
+.response-container:not(.loading) > *:nth-child(2) { animation-delay: 0.04s; }
+.response-container:not(.loading) > *:nth-child(3) { animation-delay: 0.08s; }
+.response-container:not(.loading) > *:nth-child(4) { animation-delay: 0.12s; }
+.response-container:not(.loading) > *:nth-child(n+5) { animation-delay: 0.16s; }
 
 /* In-flight state: thin progress beam along the top edge, like a
    browser loading bar. Border picks up a faint accent tint. */

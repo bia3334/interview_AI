@@ -77,6 +77,8 @@ export const generateKeyInfoExtractionPrompt = (fileName: string, fileContent: s
   
   let documentType = 'document';
   if (ext === '.pdf') documentType = 'PDF document';
+  else if (ext === '.docx') documentType = 'Word document';
+  else if (ext === '.xlsx') documentType = 'Excel spreadsheet';
   else if (ext === '.pptx') documentType = 'PowerPoint presentation';
   else if (ext === '.md') documentType = 'Markdown document';
   else if (ext === '.txt') documentType = 'text document';
