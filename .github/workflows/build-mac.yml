@@ -12,6 +12,8 @@ on:
 jobs:
   build-mac:
     runs-on: macos-latest
+    permissions:
+      contents: write   # allow the release step to create/attach the .dmg
     steps:
       - name: Checkout
         uses: actions/checkout@v4

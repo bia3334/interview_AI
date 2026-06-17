@@ -10,7 +10,7 @@
     "start": "npm run ng:build && tsc && node scripts/copy-assets.js && electron dist/main.js",
     "dev": "npm run ng:build && tsc && node scripts/copy-assets.js && electron dist/main.js",
     "build": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --win --config.win.signAndEditExecutable=false",
-    "build:mac": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --mac",
+    "build:mac": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --mac --publish never",
     "build:linux": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --linux",
     "clean": "rimraf dist"
   },
