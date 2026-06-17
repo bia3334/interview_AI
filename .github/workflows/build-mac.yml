@@ -19,11 +19,12 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
 
       - name: Install dependencies
-        run: npm ci
+        # package-lock.json is gitignored in this repo, so use `npm install`
+        # (npm ci / setup-node cache both require a committed lockfile).
+        run: npm install
 
       - name: Build macOS .dmg (x64 + arm64, unsigned)
         run: npm run build:mac
