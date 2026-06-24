@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://bia3334.github.io/interview_AI/sitemap.xml
+Sitemap: https://screen-genius.vercel.app/sitemap.xml
