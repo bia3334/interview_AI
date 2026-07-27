@@ -5,7 +5,7 @@
 An invisible desktop overlay that captures your screen, analyzes questions with AI (OpenAI/Gemini/Z.AI), and provides instant answers — all without leaving your interview window.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![Electron](https://img.shields.io/badge/electron-28-green)
+![Electron](https://img.shields.io/badge/electron-29-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%23FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/screengenius)
@@ -51,16 +51,16 @@ An invisible desktop overlay that captures your screen, analyzes questions with 
 ## Quick Start
 
 ### Prerequisites
-- Windows 10/11
-- Node.js 18+
+- Windows 10/11 (primary), macOS/Linux (supported)
+- Node.js 20+
 - OpenAI API key and/or Google Gemini API key
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/interview-ai.git
-cd interview-ai
+git clone https://github.com/bia3334/interview_AI.git
+cd interview_AI
 
 # Install dependencies
 npm install
@@ -92,6 +92,7 @@ npm start
 | `Ctrl+Shift+D` | Clear all screenshots |
 | `Ctrl+Shift+Q` | Process clipboard text as prompt |
 | `Ctrl+Shift+C` | Copy latest AI response |
+| `Ctrl+Shift+Backspace` | Panic mode: clear data and quit instantly |
 
 ---
 
@@ -228,4 +229,3 @@ Pull requests welcome! Please open an issue first to discuss major changes.
 <p align="center">
   <b>Good luck with your interviews/exams! 🍀</b>
 </p>
-
