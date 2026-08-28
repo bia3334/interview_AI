@@ -36,7 +36,12 @@ The codebase has three layers that communicate through a strict bridge pattern:
 - `services/electron.service.ts` — the single bridge to the main process; wraps all IPC calls and exposes RxJS `Subject`/`BehaviorSubject` for reactive updates
 - `components/` — prompt-tab (input + screenshot queue), settings-tab, history-tab, shortcuts-tab, toast
 
-**Shared Types** (`src/shared/types.ts`) — IPC payload interfaces used by both Main and Renderer.
+**Shared Types** — IPC payload types live in `src/preload/types.d.ts` (imported with `import type` from the renderer; a value import breaks the Angular build because the `.d.ts` has no runtime module).
+
+**App Modes** — On launch the renderer shows a picker (`components/mode-select`) and the user chooses one of two modes (`src/app/constants/app-mode.ts`, persisted as `appMode` in the store only to preselect next time):
+- `exam` — the stealth overlay: tabs (prompt/history/settings/shortcuts), click-through window, screenshots/OCR, multi-provider panels, overlay bubble.
+- `interview` — `components/interview`: always-interactive readable panel (`body.mode-interview` bumps contrast/type scale, content protection stays on). Two listening modes (`interviewListenMode`): **standard** — `services/live-listener.service.ts` captures system audio, cuts utterances with a local energy VAD, each is transcribed as a file (`transcribe-audio`, language `auto|en|vi`); **realtime** — `services/realtime-listener.service.ts` streams 24 kHz PCM16 over `realtime:audio` to `src/main/audio/realtime-transcription.ts`, a `ws` client for the OpenAI Realtime API transcription session (server VAD; `realtime-transcript` events `delta/completed/speech_started/...` back to the renderer; GA `session.update` shape with a one-shot fallback to the pre-GA `transcription_session.update`). Either way the pending transcript is answered, after a short debounce, by ONE provider via the `sendInterviewPrompt` IPC (`generateInterviewPrompt` in `ai/prompts.ts` — spoken-style, EN/VI). Ctrl+Shift+V toggles listening and Ctrl+Shift+P answers the pending transcript (same global shortcuts as exam; only the active mode's component subscribes).
+- `src/main/ipc/mode.ts` owns `getAppMode/setAppMode/getInterviewSettings/saveInterviewSettings`; `window.ts#applyAppMode` switches click-through. The window starts interactive so the picker is clickable; choosing Exam re-applies stealth.
 
 **Extra Windows** — `src/overlay.html` (floating AI answer bubble) and `src/region-selection.html` (transparent fullscreen crop tool) are copied to `dist/angular/` during build.
 

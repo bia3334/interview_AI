@@ -4,8 +4,14 @@ import * as url from 'url';
 import { WINDOW_MOVE_STEP } from './constants/app';
 
 let mainWindow: BrowserWindow | null = null;
-let isIgnoringMouseEvents = true;
+// Start interactive: the launch mode picker must be clickable before any
+// hotkey is known. Choosing Exam re-applies click-through via applyAppMode().
+let isIgnoringMouseEvents = false;
 let isWindowVisible = true; // Changed to true so window shows by default
+
+export type AppMode = 'exam' | 'interview';
+// Mode currently shown by the renderer; null while the launch picker is up.
+let currentMode: AppMode | null = null;
 
 /**
  * Pool of innocuous, system-looking window titles. One is picked at random on
@@ -70,10 +76,29 @@ export function hideMainWindow(store: any) {
  */
 function applyAutoInteractionIfEnabled(store: any) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (store.get('autoInteractionOnShow')) {
+  // Only exam mode is ever click-through (and then only unless the user opted
+  // into auto-interaction). Interview mode is a panel you work in, and the
+  // launch picker must stay clickable.
+  if (currentMode !== 'exam' || store.get('autoInteractionOnShow')) {
     isIgnoringMouseEvents = false;
     mainWindow.setIgnoreMouseEvents(false, { forward: true });
   }
+}
+
+/**
+ * Apply window behaviour for the chosen app mode.
+ *   exam      — stealth: click-through unless auto-interaction is enabled
+ *   interview — interactive panel (content protection stays on so the window
+ *               is still invisible to screen sharing / recording)
+ *   null      — mode picker is showing: interactive so it can be clicked
+ */
+export function applyAppMode(mode: AppMode | null, store: any) {
+  currentMode = mode;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const stealth = mode === 'exam' && !store.get('autoInteractionOnShow');
+  isIgnoringMouseEvents = stealth;
+  mainWindow.setIgnoreMouseEvents(stealth, { forward: true });
+  mainWindow.setContentProtection(true);
 }
 
 /**

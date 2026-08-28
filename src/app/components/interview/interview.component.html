@@ -1,0 +1,152 @@
+<div class="iv">
+  <!-- Toolbar -->
+  <div class="iv-toolbar">
+    <button
+      type="button"
+      class="btn iv-listen"
+      [class.on]="listening || connecting"
+      (click)="toggleListening()"
+      title="Toggle live listening (Ctrl+Shift+V). Captures the call audio playing through your speakers.">
+      <mat-icon class="inline-icon">{{ listening || connecting ? 'stop_circle' : 'hearing' }}</mat-icon>
+      {{ listening || connecting ? 'Stop' : 'Listen' }}
+    </button>
+
+    <div class="iv-status" [class.live]="listening" [class.busy]="isAnswering || transcribingCount > 0 || connecting">
+      <span class="iv-dot"></span>
+      <span class="iv-status-text">{{ statusLabel }}</span>
+      <span class="iv-meter" *ngIf="listening"><span class="iv-meter-fill" [style.width.%]="levelPercent"></span></span>
+    </div>
+
+    <div class="iv-segmented" role="radiogroup" [title]="listenModeHint">
+      <button
+        *ngFor="let m of listenModeOptions"
+        type="button"
+        class="iv-segment"
+        [class.active]="listenMode === m.id"
+        [title]="m.hint"
+        (click)="listenMode = m.id; onListenModeChange()">
+        <mat-icon class="inline-icon small" *ngIf="m.id === 'realtime'">bolt</mat-icon>{{ m.label }}
+      </button>
+    </div>
+
+    <div class="iv-spacer"></div>
+
+    <label class="iv-field">
+      <span>Speech</span>
+      <select class="prompt-input" [(ngModel)]="speechLanguage" (change)="onSpeechLanguageChange()">
+        <option *ngFor="let l of languageOptions" [value]="l.id">{{ l.label }}</option>
+      </select>
+    </label>
+    <label class="iv-field">
+      <span>Answer</span>
+      <select class="prompt-input" [(ngModel)]="answerLanguage" (change)="onAnswerLanguageChange()">
+        <option *ngFor="let l of languageOptions" [value]="l.id">{{ l.label }}</option>
+      </select>
+    </label>
+    <label class="iv-field">
+      <span>Model</span>
+      <select class="prompt-input" [(ngModel)]="provider" (change)="onProviderChange()">
+        <option *ngFor="let p of providerOptions" [value]="p.id">{{ p.label }}</option>
+      </select>
+    </label>
+    <label class="iv-toggle" title="Answer automatically after each transcribed question">
+      <input type="checkbox" [(ngModel)]="autoAnswer" (change)="onAutoAnswerChange()" />
+      <span>Auto-answer</span>
+    </label>
+  </div>
+
+  <div class="iv-body">
+    <!-- Transcript column -->
+    <section class="iv-transcript">
+      <div class="iv-section-head">
+        <span>Transcript</span>
+        <button type="button" class="btn btn-small" (click)="clearSession()" [disabled]="segments.length === 0 && history.length === 0">Clear</button>
+      </div>
+
+      <div class="iv-transcript-list" #transcriptList>
+        <div class="iv-empty" *ngIf="segments.length === 0">
+          <ng-container *ngIf="!listening">
+            Press <strong>Listen</strong> (or <kbd>Ctrl+Shift+V</kbd>) when the call starts. Each thing the interviewer says shows up here and gets answered on the right.
+          </ng-container>
+          <ng-container *ngIf="listening && !liveText">
+            Listening for speech… make sure the call audio is playing through your speakers.
+          </ng-container>
+        </div>
+        <div class="iv-seg" *ngFor="let s of segments" [class.pending]="!s.answered">
+          <span class="iv-seg-time">{{ s.at | date:'HH:mm:ss' }}</span>
+          <span class="iv-seg-text">{{ s.text }}</span>
+        </div>
+        <!-- Realtime: the utterance being spoken right now, word by word -->
+        <div class="iv-seg live" *ngIf="liveText">
+          <span class="iv-seg-time"><span class="iv-live-dot"></span></span>
+          <span class="iv-seg-text">{{ liveText }}<span class="iv-caret"></span></span>
+        </div>
+      </div>
+
+      <div class="iv-pending" *ngIf="pendingQuestion">
+        <div class="iv-pending-label">
+          <span>{{ autoAnswer && !isAnswering ? 'Answering shortly…' : 'Waiting to answer' }}</span>
+        </div>
+        <div class="iv-pending-text">{{ pendingQuestion }}</div>
+        <div class="iv-pending-actions">
+          <button type="button" class="btn btn-primary btn-small" (click)="answerNow()">
+            Answer now <kbd>Ctrl+Shift+P</kbd>
+          </button>
+          <button type="button" class="btn btn-small" (click)="discardPending()">Discard</button>
+        </div>
+      </div>
+
+      <form class="iv-ask" (submit)="askTyped(); $event.preventDefault()">
+        <input
+          class="prompt-input"
+          name="typedQuestion"
+          [(ngModel)]="typedQuestion"
+          placeholder="Type a question instead… (Enter)"
+          autocomplete="off" />
+        <button type="submit" class="btn btn-primary" [disabled]="!typedQuestion.trim()">Ask</button>
+      </form>
+    </section>
+
+    <!-- Answer column -->
+    <section class="iv-answer">
+      <div class="iv-section-head">
+        <span>Say this</span>
+        <span class="iv-answer-meta" *ngIf="answeredBy">{{ answeredBy }}</span>
+        <span class="iv-answer-meta" *ngIf="lastUsage">· {{ lastUsage.promptTokens + lastUsage.completionTokens | number }} tok · {{ lastUsage.cost | currency:'USD':'symbol':'1.4-4' }}</span>
+        <span class="iv-spacer"></span>
+        <button type="button" class="btn btn-small" (click)="copyAnswer()" [disabled]="!answerRaw">
+          Copy <kbd>Ctrl+Shift+C</kbd>
+        </button>
+      </div>
+
+      <div class="iv-question" *ngIf="currentQuestion">
+        <mat-icon class="inline-icon small">format_quote</mat-icon>{{ currentQuestion }}
+      </div>
+
+      <div
+        #answerContainer
+        class="response-container iv-answer-body"
+        [class.loading]="isAnswering"
+        [class.empty]="!answerHtml && !answerError"
+        [innerHTML]="answerHtml"></div>
+
+      <div class="iv-empty iv-answer-empty" *ngIf="!answerHtml && !answerError && !currentQuestion">
+        Your answer will stream in here — a one-line reply first, then a few points you can say.
+      </div>
+
+      <div class="iv-error" *ngIf="answerError">
+        <mat-icon class="inline-icon small">error_outline</mat-icon>{{ answerError }}
+      </div>
+
+      <div class="iv-history" *ngIf="earlierAnswers.length > 0">
+        <div class="iv-section-head small"><span>Earlier</span></div>
+        <div class="iv-history-list">
+          <button type="button" class="iv-history-item" *ngFor="let h of earlierAnswers" (click)="showHistoryItem(h)">
+            <span class="iv-history-q">{{ h.question }}</span>
+            <span class="iv-history-time">{{ h.at | date:'HH:mm' }}</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

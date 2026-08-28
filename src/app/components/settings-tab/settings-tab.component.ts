@@ -1,4 +1,6 @@
-import { Component, OnInit, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ElectronService } from '../../services/electron.service';
 import { DEFAULTS, AIProvider, AnswerStyle } from '../../constants/settings';
 import { OCR_LANGUAGES, OCRSettings, DEFAULT_OCR_SETTINGS } from '../../constants/ocr';
@@ -18,7 +20,15 @@ type ProviderType = 'openai' | 'gemini' | 'zai' | 'lmstudio' | 'claude';
   styleUrls: ['./settings-tab.component.css'],
   standalone: false
 })
-export class SettingsTabComponent implements OnInit {
+export class SettingsTabComponent implements OnInit, OnDestroy {
+  /** Tears down IPC-event subscriptions when the exam UI is left. */
+  private destroy$ = new Subject<void>();
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   // Sub-tab state
   activeSubTab: 'models' | 'behavior' | 'capture' | 'interface' | 'usage' = 'models';
 
@@ -64,6 +74,10 @@ export class SettingsTabComponent implements OnInit {
   // Voice Transcription
   voiceProvider: 'openai' | 'gemini' = 'openai';
   voiceScreenshotMode: 'full' | 'region' | 'none' = 'full';
+  voiceLanguage: 'auto' | 'en' | 'vi' = 'auto';
+  // Interview live-listening
+  interviewListenMode: 'standard' | 'realtime' = 'standard';
+  interviewRealtimeModel: string = 'gpt-live-transcribe';
 
   // Window Behavior
   autoInteractionOnShow: boolean = false;
@@ -255,7 +269,7 @@ export class SettingsTabComponent implements OnInit {
   }
 
   async loadSettings() {
-    const [openaiKey, geminiKey, zaiKey, claudeKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, claudeModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow, noteViewMode] = await Promise.all([
+    const [openaiKey, geminiKey, zaiKey, claudeKey, preferences, defaultModel, customPrompt, lmstudioSettings, zaiSettings, openaiModelSetting, geminiModelSetting, claudeModelSetting, voiceProvider, voiceScreenshotMode, autoInteractionOnShow, noteViewMode, voiceLanguage, interviewSettings] = await Promise.all([
       this.electronService.getOpenAIApiKey(),
       this.electronService.getGeminiApiKey(),
       this.electronService.getZAIApiKey(),
@@ -271,10 +285,15 @@ export class SettingsTabComponent implements OnInit {
       this.electronService.getVoiceProvider(),
       this.electronService.getVoiceScreenshotMode(),
       this.electronService.getAutoInteractionOnShow(),
-      this.electronService.getNoteViewMode()
+      this.electronService.getNoteViewMode(),
+      this.electronService.getVoiceLanguage(),
+      this.electronService.getInterviewSettings()
     ]);
     this.voiceProvider = voiceProvider || 'openai';
     this.voiceScreenshotMode = voiceScreenshotMode || 'full';
+    this.voiceLanguage = voiceLanguage || 'auto';
+    this.interviewListenMode = interviewSettings?.listenMode || 'standard';
+    this.interviewRealtimeModel = interviewSettings?.realtimeModel || 'gpt-live-transcribe';
     this.autoInteractionOnShow = !!autoInteractionOnShow;
     this.noteViewMode = noteViewMode || 'editor-only';
 
@@ -423,6 +442,32 @@ export class SettingsTabComponent implements OnInit {
     }
   }
 
+  async saveVoiceLanguage() {
+    const result = await this.electronService.saveVoiceLanguage(this.voiceLanguage);
+    if (result.success) {
+      const label = this.voiceLanguage === 'en' ? 'English' : this.voiceLanguage === 'vi' ? 'Tiếng Việt' : 'Auto-detect';
+      this.electronService.showToast(`Speech language: ${label}`);
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save speech language');
+    }
+  }
+
+  async saveInterviewListening() {
+    const result = await this.electronService.saveInterviewSettings({
+      listenMode: this.interviewListenMode,
+      realtimeModel: this.interviewRealtimeModel,
+    });
+    if (result.success) {
+      this.electronService.showToast(
+        this.interviewListenMode === 'realtime'
+          ? `Interview listening: Realtime (${this.interviewRealtimeModel})`
+          : 'Interview listening: Standard'
+      );
+    } else {
+      this.electronService.showToast(result.error || 'Failed to save listening settings');
+    }
+  }
+
   async saveVoiceScreenshotMode() {
     const result = await this.electronService.saveVoiceScreenshotMode(this.voiceScreenshotMode);
     if (result.success) {
@@ -555,17 +600,17 @@ export class SettingsTabComponent implements OnInit {
   }
 
   setupEventListeners() {
-    this.electronService.onModelChanged().subscribe((model) => {
+    this.electronService.onModelChanged().pipe(takeUntil(this.destroy$)).subscribe((model) => {
       this.defaultModel = model;
     });
 
     // Reload documents when they are updated (e.g., after import with key info)
-    this.electronService.onDocumentsUpdated().subscribe(() => {
+    this.electronService.onDocumentsUpdated().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadDocuments();
     });
 
     // Listen for live token usage updates to keep dashboard synced if open
-    this.electronService.onTokenUsageUpdated().subscribe((data) => {
+    this.electronService.onTokenUsageUpdated().pipe(takeUntil(this.destroy$)).subscribe((data) => {
       this.runInZone(() => {
         this.accumulatedTokenUsage = data.cumulative || {};
       });

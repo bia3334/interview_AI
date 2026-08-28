@@ -1,0 +1,29 @@
+<div class="mode-select">
+  <div class="mode-select-heading">
+    <div class="mode-select-title">How are you using Screen Genius today?</div>
+    <div class="mode-select-subtitle">You can switch later from the header.</div>
+  </div>
+
+  <div class="mode-cards">
+    <button
+      *ngFor="let option of options"
+      type="button"
+      class="mode-card"
+      [class.focused]="focused === option.id"
+      [class.exam]="option.id === 'exam'"
+      [class.interview]="option.id === 'interview'"
+      (mouseenter)="focused = option.id"
+      (click)="select(option.id)">
+      <div class="mode-card-top">
+        <mat-icon class="mode-card-icon">{{ option.id === 'exam' ? 'visibility_off' : 'record_voice_over' }}</mat-icon>
+        <span class="mode-card-hotkey">{{ option.hotkey }}</span>
+      </div>
+      <div class="mode-card-title">{{ option.title }}</div>
+      <div class="mode-card-tagline">{{ option.tagline }}</div>
+      <ul class="mode-card-points">
+        <li *ngFor="let point of option.points">{{ point }}</li>
+      </ul>
+      <div class="mode-card-cta">{{ focused === option.id ? 'Press Enter' : 'Select' }}</div>
+    </button>
+  </div>
+</div>

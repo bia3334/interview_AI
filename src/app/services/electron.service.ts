@@ -1,7 +1,27 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
-import { ElectronAPI, ShortcutBinding } from '../../preload/types';
+import type {
+  AppMode,
+  ElectronAPI,
+  InterviewPromptArgs,
+  InterviewSettings,
+  ListenMode,
+  RealtimeTranscriptEvent,
+  ShortcutBinding,
+  StreamProvider,
+  VoiceLanguage,
+} from '../../preload/types';
 import { STORAGE_KEYS } from '../constants/settings';
+
+export type {
+  AppMode,
+  InterviewPromptArgs,
+  InterviewSettings,
+  ListenMode,
+  RealtimeTranscriptEvent,
+  StreamProvider,
+  VoiceLanguage,
+};
 
 export interface HistoryItem {
   id: string;
@@ -38,7 +58,8 @@ export class ElectronService {
   private documentsUpdated$ = new Subject<void>();
   private notesUpdated$ = new Subject<void>();
   private toggleVoiceRecording$ = new Subject<void>();
-  private aiStream$ = new Subject<{ requestId: string; provider: 'openai' | 'gemini' | 'zai' | 'lmstudio'; delta: string }>();
+  private aiStream$ = new Subject<{ requestId: string; provider: StreamProvider; delta: string }>();
+  private realtimeTranscript$ = new Subject<RealtimeTranscriptEvent>();
   private tokenUsageUpdated$ = new Subject<{ provider: string; model: string; promptTokens: number; completionTokens: number; totalTokens: number; cost: number; cumulative: any }>();
 
   // Local history storage key
@@ -74,11 +95,50 @@ export class ElectronService {
     this.electronAPI.onToggleVoiceRecording(() => this.toggleVoiceRecording$.next());
     this.electronAPI.onAIStream((data) => this.aiStream$.next(data));
     this.electronAPI.onTokenUsageUpdated((data) => this.tokenUsageUpdated$.next(data));
+    this.electronAPI.onRealtimeTranscript((event) => this.realtimeTranscript$.next(event));
+  }
+
+  // Realtime (streaming) transcription
+  startRealtimeTranscription(args?: { language?: VoiceLanguage; model?: string }): Promise<{ success: boolean; data?: { model: string; language: VoiceLanguage }; error?: string }> {
+    return this.electronAPI.startRealtimeTranscription(args);
+  }
+
+  sendRealtimeAudio(pcm16: ArrayBuffer): void {
+    this.electronAPI.sendRealtimeAudio(pcm16);
+  }
+
+  stopRealtimeTranscription(): Promise<{ success: boolean }> {
+    return this.electronAPI.stopRealtimeTranscription();
+  }
+
+  onRealtimeTranscript(): Observable<RealtimeTranscriptEvent> {
+    return this.realtimeTranscript$.asObservable();
   }
 
   /** Token-by-token AI stream chunks, tagged with `requestId` + `provider`. */
-  onAIStream(): Observable<{ requestId: string; provider: 'openai' | 'gemini' | 'zai' | 'lmstudio'; delta: string }> {
+  onAIStream(): Observable<{ requestId: string; provider: StreamProvider; delta: string }> {
     return this.aiStream$.asObservable();
+  }
+
+  // App mode (Exam / Interview)
+  getAppMode(): Promise<AppMode | null> {
+    return this.electronAPI.getAppMode();
+  }
+
+  setAppMode(mode: AppMode | null): Promise<{ success: boolean; data?: AppMode | null; error?: string }> {
+    return this.electronAPI.setAppMode(mode);
+  }
+
+  getInterviewSettings(): Promise<InterviewSettings> {
+    return this.electronAPI.getInterviewSettings();
+  }
+
+  saveInterviewSettings(settings: Partial<InterviewSettings>): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveInterviewSettings(settings);
+  }
+
+  sendInterviewPrompt(args: InterviewPromptArgs): Promise<{ success: boolean; data?: { reply: string; provider: StreamProvider }; error?: string }> {
+    return this.electronAPI.sendInterviewPrompt(args);
   }
 
   getAccumulatedTokenUsage(): Promise<any> {
@@ -378,12 +438,20 @@ export class ElectronService {
   }
 
   // Voice transcription
-  transcribeAudio(audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini'): Promise<{ success: boolean; text?: string; error?: string }> {
-    return this.electronAPI.transcribeAudio(audio, mimeType, provider);
+  transcribeAudio(audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini', language?: VoiceLanguage): Promise<{ success: boolean; text?: string; error?: string }> {
+    return this.electronAPI.transcribeAudio(audio, mimeType, provider, language);
   }
 
   getVoiceProvider(): Promise<'openai' | 'gemini'> {
     return this.electronAPI.getVoiceProvider();
+  }
+
+  getVoiceLanguage(): Promise<VoiceLanguage> {
+    return this.electronAPI.getVoiceLanguage();
+  }
+
+  saveVoiceLanguage(language: VoiceLanguage): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.saveVoiceLanguage(language);
   }
 
   saveVoiceProvider(provider: 'openai' | 'gemini'): Promise<{ success: boolean; error?: string }> {
@@ -643,6 +711,15 @@ export class ElectronService {
       sendConversationToLMStudio: () => Promise.resolve('Mock LM Studio conversation response'),
       sendPromptToZAI: () => Promise.resolve('Mock Z.AI response'),
       sendConversationToZAI: () => Promise.resolve('Mock Z.AI conversation response'),
+      getAppMode: () => Promise.resolve(null),
+      setAppMode: () => Promise.resolve({ success: true, data: null }),
+      getInterviewSettings: () => Promise.resolve({ provider: 'auto', answerLanguage: 'auto', autoAnswer: true, listenMode: 'standard', realtimeModel: 'gpt-live-transcribe' }),
+      startRealtimeTranscription: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      sendRealtimeAudio: () => {},
+      stopRealtimeTranscription: () => Promise.resolve({ success: true }),
+      onRealtimeTranscript: () => () => {},
+      saveInterviewSettings: () => Promise.resolve({ success: false }),
+      sendInterviewPrompt: () => Promise.resolve({ success: true, data: { reply: 'Mock interview answer', provider: 'openai' } }),
       closeWindow: () => {},
       hideWindow: () => {},
       showWindow: () => {},
@@ -744,6 +821,8 @@ export class ElectronService {
       transcribeAudio: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       getVoiceProvider: () => Promise.resolve('openai'),
       saveVoiceProvider: () => Promise.resolve({ success: false }),
+      getVoiceLanguage: () => Promise.resolve('auto'),
+      saveVoiceLanguage: () => Promise.resolve({ success: false }),
       getVoiceScreenshotMode: () => Promise.resolve('full'),
       saveVoiceScreenshotMode: () => Promise.resolve({ success: false }),
       getAutoInteractionOnShow: () => Promise.resolve(false),

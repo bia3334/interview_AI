@@ -1,0 +1,111 @@
+:host {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.mode-select {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  animation: modeIn 0.22s ease;
+}
+
+@keyframes modeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.mode-select-heading { text-align: center; }
+.mode-select-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.mode-select-subtitle {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 320px));
+  gap: 1rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  text-align: left;
+  padding: 1.1rem 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+.mode-card:hover { background: var(--surface-hover); }
+.mode-card.focused {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(79, 143, 247, 0.18);
+}
+.mode-card:active { transform: translateY(1px); }
+
+.mode-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mode-card-icon {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+  color: var(--text-dim);
+}
+.mode-card.focused .mode-card-icon { color: var(--primary); }
+.mode-card-hotkey {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.4rem;
+}
+
+.mode-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 0.2rem;
+}
+.mode-card-tagline {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.mode-card-points {
+  margin: 0.4rem 0 0 1.05rem;
+  padding: 0;
+  font-size: 0.82rem;
+  color: rgba(237, 237, 239, 0.8);
+  line-height: 1.5;
+}
+
+.mode-card-cta {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+}
+.mode-card.focused .mode-card-cta { color: var(--primary); }

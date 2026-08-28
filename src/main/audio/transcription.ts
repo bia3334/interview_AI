@@ -4,12 +4,15 @@
  * Both providers reuse the API keys already configured for chat,
  * so no new credentials are required.
  */
-import { getGeminiClient, getOpenAIClient } from '../ai/clients';
+import { getGeminiClient, getOpenAIClient, getCurrentGeminiModel } from '../ai/clients';
 import type { AppStore } from '../store';
 
 const { toFile } = require('openai');
 
 export type TranscriptionProvider = 'openai' | 'gemini';
+
+/** Spoken language hint. 'auto' lets the model detect English vs Vietnamese. */
+export type TranscriptionLanguage = 'auto' | 'en' | 'vi';
 
 export interface TranscriptionResult {
   success: boolean;
@@ -26,9 +29,14 @@ function fileExtensionForMime(mimeType: string): string {
   return 'webm';
 }
 
+export function normalizeTranscriptionLanguage(value: unknown): TranscriptionLanguage {
+  return value === 'en' || value === 'vi' ? value : 'auto';
+}
+
 async function transcribeWithWhisper(
   audioBuffer: Buffer,
   mimeType: string,
+  language: TranscriptionLanguage,
   store: AppStore,
   log: any
 ): Promise<TranscriptionResult> {
@@ -36,34 +44,46 @@ async function transcribeWithWhisper(
   const ext = fileExtensionForMime(mimeType);
   const file = await toFile(audioBuffer, `voice-${Date.now()}.${ext}`, { type: mimeType });
 
-  log.info(`Whisper: transcribing ${audioBuffer.length} bytes (${mimeType})`);
-  const response = await openai.audio.transcriptions.create({
-    file,
-    model: 'whisper-1',
-    language: 'en',
-  });
+  log.info(`Whisper: transcribing ${audioBuffer.length} bytes (${mimeType}, lang=${language})`);
+  const request: any = { file, model: 'whisper-1' };
+  // Omitting `language` makes Whisper auto-detect; pinning it avoids the
+  // occasional wrong-language hallucination on short, accented utterances.
+  if (language !== 'auto') request.language = language;
+  const response = await openai.audio.transcriptions.create(request);
   return { success: true, text: response.text || '' };
+}
+
+function geminiTranscriptionInstruction(language: TranscriptionLanguage): string {
+  switch (language) {
+    case 'en':
+      return 'Transcribe the spoken English content of the following audio verbatim, in English only. Return only the transcribed text with no commentary or formatting.';
+    case 'vi':
+      return 'Chép lại nguyên văn nội dung tiếng Việt trong đoạn âm thanh sau, giữ nguyên các thuật ngữ tiếng Anh nếu có. Chỉ trả về phần văn bản đã chép, không thêm bình luận hay định dạng.';
+    default:
+      return 'Transcribe the speech in the following audio verbatim. It is either English or Vietnamese (possibly mixed, with English technical terms). Keep the original language of each word — do not translate. Return only the transcribed text with no commentary or formatting. If there is no speech, return an empty string.';
+  }
 }
 
 async function transcribeWithGemini(
   audioBuffer: Buffer,
   mimeType: string,
+  language: TranscriptionLanguage,
   store: AppStore,
   log: any
 ): Promise<TranscriptionResult> {
   const ai = getGeminiClient(store);
   const base64Audio = audioBuffer.toString('base64');
-  const geminiModel = store.get('geminiModel') || 'gemini-2.0-flash';
+  const geminiModel = getCurrentGeminiModel(store);
   const cleanMime = mimeType.split(';')[0].trim();
 
-  log.info(`Gemini: transcribing ${audioBuffer.length} bytes (original: ${mimeType}, cleaned: ${cleanMime}) with ${geminiModel}`);
+  log.info(`Gemini: transcribing ${audioBuffer.length} bytes (original: ${mimeType}, cleaned: ${cleanMime}, lang=${language}) with ${geminiModel}`);
 
   const response = await ai.models.generateContent({
     model: geminiModel,
     contents: [{
       role: 'user',
       parts: [
-        { text: 'Transcribe the spoken English content of the following audio. The audio is in English; transcribe verbatim in English only. Return only the transcribed text with no commentary or formatting.' },
+        { text: geminiTranscriptionInstruction(language) },
         { inlineData: { mimeType: cleanMime, data: base64Audio } },
       ],
     }],
@@ -78,14 +98,15 @@ export async function transcribeAudio(
   mimeType: string,
   provider: TranscriptionProvider,
   store: AppStore,
-  log: any
+  log: any,
+  language: TranscriptionLanguage = 'auto'
 ): Promise<TranscriptionResult> {
   try {
     if (provider === 'openai') {
-      return await transcribeWithWhisper(audioBuffer, mimeType, store, log);
+      return await transcribeWithWhisper(audioBuffer, mimeType, language, store, log);
     }
     if (provider === 'gemini') {
-      return await transcribeWithGemini(audioBuffer, mimeType, store, log);
+      return await transcribeWithGemini(audioBuffer, mimeType, language, store, log);
     }
     return { success: false, error: `Unknown transcription provider: ${provider}` };
   } catch (error: any) {

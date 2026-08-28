@@ -70,6 +70,43 @@ ${MATH_FORMATTING_RULES}
   return docContextPrefix ? `${docContextPrefix}\n\n${body}` : body;
 };
 /**
+ * Live interview answer prompt. The question is an auto-transcribed utterance
+ * from the interviewer, so the model is told to tolerate transcription noise
+ * and to reply with something the candidate can say out loud immediately —
+ * short, first person, no coaching preamble.
+ */
+export const generateInterviewPrompt = (
+  question: string,
+  answerLanguage: 'auto' | 'en' | 'vi',
+  codeLanguage: string,
+  docContextPrefix?: string
+) => {
+  const languageRule =
+    answerLanguage === 'en'
+      ? 'Answer in English.'
+      : answerLanguage === 'vi'
+        ? 'Trả lời bằng tiếng Việt tự nhiên; giữ nguyên thuật ngữ kỹ thuật bằng tiếng Anh.'
+        : 'Answer in the same language the interviewer used (English or Vietnamese). If the transcript mixes both, answer in Vietnamese and keep technical terms in English.';
+
+  const body = `You are my real-time interview assistant. The interviewer just said this (auto-transcribed from audio, so it may contain small recognition errors — infer the intended meaning):
+
+"${question}"
+
+Write exactly what I should say out loud, right now, as the candidate.
+
+Rules:
+- ${languageRule}
+- First line: a direct one-sentence answer.
+- Then 3–5 short bullet points I can speak naturally, in first person. Lead with the most important point.
+- Keep the whole reply under ~120 words. Only add a single short ${codeLanguage} code block if the question genuinely requires code.
+- No preamble, no headers, no "great question", no notes about the transcription, no coaching commentary.
+- If it is not really a question (small talk, an instruction, or an unclear fragment), reply with one short natural line I can say in response.
+- If context about me (CV, notes) is provided above, draw on it and be consistent with it.`;
+
+  return docContextPrefix ? `${docContextPrefix}\n\n${body}` : body;
+};
+
+/**
  * Generate prompt for extracting key information from a document
  */
 export const generateKeyInfoExtractionPrompt = (fileName: string, fileContent: string) => {

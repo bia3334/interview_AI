@@ -505,6 +505,58 @@
         </small>
       </div>
       <div class="form-group">
+        <label for="voiceLanguage">Speech Language</label>
+        <select
+          id="voiceLanguage"
+          [(ngModel)]="voiceLanguage"
+          class="prompt-input"
+          (change)="saveVoiceLanguage()">
+          <option value="auto">Auto-detect (English / Tiếng Việt)</option>
+          <option value="en">English only</option>
+          <option value="vi">Tiếng Việt only</option>
+        </select>
+        <small class="hint-text">
+          Used by both Exam voice capture and Interview live listening. Pin a language if auto-detect mixes them up on short phrases.
+        </small>
+      </div>
+    </div>
+
+    <!-- Interview live listening -->
+    <div class="settings-group">
+      <h3><mat-icon class="inline-icon">hearing</mat-icon> Interview Listening</h3>
+      <p class="group-description">
+        How Interview mode turns the call audio into text. You can also switch this from the Interview toolbar.
+      </p>
+      <div class="form-group">
+        <label for="interviewListenMode">Listening Mode</label>
+        <select
+          id="interviewListenMode"
+          [(ngModel)]="interviewListenMode"
+          class="prompt-input"
+          (change)="saveInterviewListening()">
+          <option value="standard">Standard — one transcript per sentence (Whisper / Gemini, any provider key)</option>
+          <option value="realtime">Realtime — words appear as they're spoken (OpenAI Realtime API, needs OpenAI key)</option>
+        </select>
+        <small class="hint-text">
+          Standard waits for a pause, then transcribes the sentence (~2–4 s to the answer). Realtime streams audio continuously with server-side turn detection (~1–2 s), and costs a little more per minute.
+        </small>
+      </div>
+      <div class="form-group" *ngIf="interviewListenMode === 'realtime'">
+        <label for="interviewRealtimeModel">Realtime Transcription Model</label>
+        <select
+          id="interviewRealtimeModel"
+          [(ngModel)]="interviewRealtimeModel"
+          class="prompt-input"
+          (change)="saveInterviewListening()">
+          <option value="gpt-live-transcribe">gpt-live-transcribe — words stream in as they're spoken (recommended)</option>
+          <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe — one sentence at a time, cheapest</option>
+          <option value="gpt-4o-transcribe">gpt-4o-transcribe — one sentence at a time, highest accuracy</option>
+        </select>
+        <small class="hint-text">
+          Only gpt-live-transcribe shows partial words live; the gpt-4o models wait for the server to detect a pause and then return the whole sentence.
+        </small>
+      </div>
+      <div class="form-group">
         <label for="voiceScreenshotMode">Auto-Screenshot On Stop</label>
         <select
           id="voiceScreenshotMode"

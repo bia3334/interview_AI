@@ -37,6 +37,22 @@ export interface StoreSchema {
   // Voice transcription settings
   voiceTranscriptionProvider: 'openai' | 'gemini';
   voiceScreenshotMode: 'full' | 'region' | 'none';
+  // Spoken language of captured audio: 'auto' lets the transcriber detect
+  // English vs Vietnamese per utterance; 'en' / 'vi' pin it.
+  voiceLanguage: 'auto' | 'en' | 'vi';
+  // App mode chosen on the launch picker. Persisted only so the picker can
+  // preselect the last choice — the picker is shown on every launch.
+  appMode?: 'exam' | 'interview';
+  // Interview mode: which single provider answers live questions ('auto' =
+  // first enabled provider with an API key), what language the answer is
+  // spoken in, and whether each transcribed utterance auto-triggers an answer.
+  interviewProvider: 'auto' | 'openai' | 'gemini' | 'claude' | 'zai' | 'lmstudio';
+  interviewAnswerLanguage: 'auto' | 'en' | 'vi';
+  interviewAutoAnswer: boolean;
+  // 'standard' = local VAD + per-utterance Whisper/Gemini; 'realtime' = OpenAI
+  // Realtime API streaming (words appear as spoken, needs an OpenAI key).
+  interviewListenMode: 'standard' | 'realtime';
+  interviewRealtimeModel: string;
   // Window behavior
   autoInteractionOnShow: boolean;
   // Note view mode: 'editor-only' shows the rendered preview only inside the
@@ -77,6 +93,13 @@ export const STORE_DEFAULTS: StoreSchema = {
   // Voice transcription default
   voiceTranscriptionProvider: 'openai',
   voiceScreenshotMode: 'full',
+  voiceLanguage: 'auto',
+  // Interview mode defaults
+  interviewProvider: 'auto',
+  interviewAnswerLanguage: 'auto',
+  interviewAutoAnswer: true,
+  interviewListenMode: 'standard',
+  interviewRealtimeModel: 'gpt-live-transcribe',
   // Window behavior default — keep current click-through-on-show behavior
   // unless the user opts in to auto-interaction.
   autoInteractionOnShow: false,

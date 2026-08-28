@@ -1,38 +1,57 @@
 <div class="app-container">
   <div class="header">
-    <h1>Screen Genius</h1>
+    <h1>
+      Screen Genius
+      <span class="mode-badge" *ngIf="mode" [class.interview]="mode === APP_MODE.INTERVIEW">{{ mode }}</span>
+    </h1>
     <div class="header-controls">
+      <button *ngIf="mode" class="btn btn-switch-mode" (click)="switchMode()" title="Switch between Exam and Interview mode">
+        <mat-icon>swap_horiz</mat-icon> Switch mode
+      </button>
       <button id="minimizeBtn" class="btn" (click)="hideWindow()">_</button>
       <button id="closeBtn" class="btn" (click)="closeWindow()">×</button>
     </div>
   </div>
 
-  <div class="tabs">
-    <div 
-      *ngFor="let tab of tabs" 
-      class="tab" 
-      [class.active]="activeTab === tab.id" 
-      (click)="switchTab(tab.id)" 
-      [attr.data-tab]="tab.id">
-      {{ tab.label }}
-    </div>
-  </div>
+  <!-- Launch picker -->
+  <app-mode-select
+    *ngIf="modeLoaded && !mode"
+    [lastMode]="lastMode"
+    (modeSelected)="selectMode($event)"></app-mode-select>
 
-  <div class="content">
-    <app-prompt-tab [hidden]="activeTab !== TAB.PROMPT" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
-    <app-history-tab [hidden]="activeTab !== TAB.HISTORY" (continueItem)="onContinueItem($event)"></app-history-tab>
-    <app-settings-tab [hidden]="activeTab !== TAB.SETTINGS"></app-settings-tab>
-    <app-shortcuts-tab [hidden]="activeTab !== TAB.SHORTCUTS"></app-shortcuts-tab>
+  <!-- Exam mode: the stealth overlay UI -->
+  <ng-container *ngIf="mode === APP_MODE.EXAM">
+    <div class="tabs">
+      <div
+        *ngFor="let tab of tabs"
+        class="tab"
+        [class.active]="activeTab === tab.id"
+        (click)="switchTab(tab.id)"
+        [attr.data-tab]="tab.id">
+        {{ tab.label }}
+      </div>
+    </div>
+
+    <div class="content">
+      <app-prompt-tab [hidden]="activeTab !== TAB.PROMPT" [continuedItem]="continuedItem" (itemLoaded)="onItemLoaded()"></app-prompt-tab>
+      <app-history-tab [hidden]="activeTab !== TAB.HISTORY" (continueItem)="onContinueItem($event)"></app-history-tab>
+      <app-settings-tab [hidden]="activeTab !== TAB.SETTINGS"></app-settings-tab>
+      <app-shortcuts-tab [hidden]="activeTab !== TAB.SHORTCUTS"></app-shortcuts-tab>
+    </div>
+  </ng-container>
+
+  <!-- Interview mode: live listening + spoken answers -->
+  <div class="content" *ngIf="mode === APP_MODE.INTERVIEW">
+    <app-interview></app-interview>
   </div>
 
   <div class="footer">
     <div class="status">
       <div class="status-indicator"></div>
-      <span>Ready</span>
+      <span>{{ mode === APP_MODE.INTERVIEW ? 'Interview · Ctrl+Shift+V listen · Ctrl+Shift+P answer · Ctrl+Shift+A hide' : (mode === APP_MODE.EXAM ? 'Exam · Ctrl+Shift+A hide · Ctrl+Shift+W click-through' : 'Choose a mode') }}</span>
     </div>
     <div>Screen Genius v1.0.0</div>
   </div>
 </div>
 
 <app-toast></app-toast>
-

@@ -7,6 +7,8 @@ import { PromptTabComponent } from './components/prompt-tab/prompt-tab.component
 import { HistoryTabComponent } from './components/history-tab/history-tab.component';
 import { SettingsTabComponent } from './components/settings-tab/settings-tab.component';
 import { ShortcutsTabComponent } from './components/shortcuts-tab/shortcuts-tab.component';
+import { ModeSelectComponent } from './components/mode-select/mode-select.component';
+import { InterviewComponent } from './components/interview/interview.component';
 import { ElectronService } from './services/electron.service';
 import { MarkdownService } from './services/markdown.service';
 import { ToastComponent } from './components/toast/toast.component';
@@ -18,6 +20,8 @@ import { ToastComponent } from './components/toast/toast.component';
     HistoryTabComponent,
     SettingsTabComponent,
     ShortcutsTabComponent,
+    ModeSelectComponent,
+    InterviewComponent,
     ToastComponent
   ],
   imports: [

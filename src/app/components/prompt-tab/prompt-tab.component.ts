@@ -1,4 +1,6 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, NgZone, ChangeDetectorRef, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, NgZone, ChangeDetectorRef, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ElectronService, HistoryItem } from '../../services/electron.service';
 import { MarkdownService } from '../../services/markdown.service';
 import { VoiceRecorderService } from '../../services/voice-recorder.service';
@@ -13,7 +15,12 @@ type StreamProvider = 'openai' | 'gemini' | 'claude' | 'zai' | 'lmstudio';
   styleUrls: ['./prompt-tab.component.css'],
   standalone: false
 })
-export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
+export class PromptTabComponent implements OnInit, OnDestroy, AfterViewChecked, OnChanges {
+  // Completes on destroy so every IPC-event subscription is torn down. The
+  // exam tabs are re-created each time the user switches into Exam mode, so
+  // without this, hotkeys would be handled once per past instance.
+  private destroy$ = new Subject<void>();
+
   userInput: string = '';
   openaiResponse: string = '';
   geminiResponse: string = '';
@@ -109,6 +116,19 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     this.loadNotes();
     this.loadVoiceProvider();
     this.setupEventListeners();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+      this.recordingTimer = null;
+    }
+    if (this.isRecording) {
+      this.voiceRecorder.cancel();
+    }
+    this.activeStreams.clear();
   }
 
   async loadVoiceProvider() {
@@ -481,22 +501,22 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
 
   setupEventListeners() {
     // Token stream chunks — route each to its panel's accumulator.
-    this.electronService.onAIStream().subscribe((evt) => {
+    this.electronService.onAIStream().pipe(takeUntil(this.destroy$)).subscribe((evt) => {
       this.onStreamDelta(evt);
     });
 
     // Process screenshots (Ctrl+Shift+P)
-    this.electronService.onProcessScreenshots().subscribe(() => {
+    this.electronService.onProcessScreenshots().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.processScreenshots();
     });
 
     // Process clipboard prompt
-    this.electronService.onProcessClipboardPrompt().subscribe(() => {
+    this.electronService.onProcessClipboardPrompt().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.processClipboardPrompt();
     });
 
     // Model changed
-    this.electronService.onModelChanged().subscribe((model) => {
+    this.electronService.onModelChanged().pipe(takeUntil(this.destroy$)).subscribe((model) => {
       this.ngZone.run(() => {
         this.defaultModel = model;
         this.parseEnabledProviders(model);
@@ -506,47 +526,47 @@ export class PromptTabComponent implements OnInit, AfterViewChecked, OnChanges {
     });
 
     // Trigger region screenshot
-    this.electronService.onTriggerRegionScreenshot().subscribe(() => {
+    this.electronService.onTriggerRegionScreenshot().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.takeRegionScreenshot();
     });
 
     // Extract text from screenshots
-    this.electronService.onExtractTextFromScreenshots().subscribe(() => {
+    this.electronService.onExtractTextFromScreenshots().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.extractText();
     });
 
     // Screenshot taken - reload screenshots
-    this.electronService.onScreenshotTaken().subscribe(() => {
+    this.electronService.onScreenshotTaken().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadScreenshots();
     });
 
     // Screenshots cleared
-    this.electronService.onScreenshotsCleared().subscribe(() => {
+    this.electronService.onScreenshotsCleared().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadScreenshots();
     });
 
     // Window shown - reload screenshots in case any were taken while hidden
-    this.electronService.onWindowShown().subscribe(() => {
+    this.electronService.onWindowShown().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadScreenshots();
     });
 
     // Documents updated - reload document list
-    this.electronService.onDocumentsUpdated().subscribe(() => {
+    this.electronService.onDocumentsUpdated().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadDocuments();
     });
 
     // Notes updated - reload notes list
-    this.electronService.onNotesUpdated().subscribe(() => {
+    this.electronService.onNotesUpdated().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadNotes();
     });
 
     // Voice recording shortcut (Ctrl+Shift+V)
-    this.electronService.onToggleVoiceRecording().subscribe(() => {
+    this.electronService.onToggleVoiceRecording().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.toggleVoiceRecording();
     });
 
     // Token usage updates
-    this.electronService.onTokenUsageUpdated().subscribe((data) => {
+    this.electronService.onTokenUsageUpdated().pipe(takeUntil(this.destroy$)).subscribe((data) => {
       this.ngZone.run(() => {
         if (data.provider === 'openai') {
           this.openaiUsage = data;

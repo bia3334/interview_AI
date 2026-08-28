@@ -8,6 +8,43 @@ export interface ShortcutBinding {
   defaultAccelerator: string;
 }
 
+/** Launch-picker app mode. */
+export type AppMode = 'exam' | 'interview';
+
+/** Providers that can stream tokens over the `ai-stream` channel. */
+export type StreamProvider = 'openai' | 'gemini' | 'claude' | 'zai' | 'lmstudio';
+
+export type VoiceLanguage = 'auto' | 'en' | 'vi';
+
+/** standard = local VAD + per-utterance Whisper/Gemini; realtime = OpenAI Realtime streaming. */
+export type ListenMode = 'standard' | 'realtime';
+
+export interface InterviewSettings {
+  provider: 'auto' | StreamProvider;
+  answerLanguage: VoiceLanguage;
+  autoAnswer: boolean;
+  listenMode: ListenMode;
+  realtimeModel: string;
+}
+
+/** Events streamed back from a realtime transcription session. */
+export type RealtimeTranscriptEvent =
+  | { type: 'ready'; model: string; clientVad: boolean }
+  | { type: 'speech_started'; itemId?: string }
+  | { type: 'speech_stopped'; itemId?: string }
+  | { type: 'delta'; itemId: string; delta: string }
+  | { type: 'completed'; itemId: string; transcript: string }
+  | { type: 'error'; message: string }
+  | { type: 'closed'; reason: string };
+
+export interface InterviewPromptArgs {
+  provider: 'auto' | StreamProvider;
+  question: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  answerLanguage?: VoiceLanguage;
+  requestId?: string;
+}
+
 export interface ElectronAPI {
   sendPrompt: (prompt: string) => Promise<string>;
   sendPromptToOpenAI: (prompt: string, requestId?: string) => Promise<string>;
@@ -23,6 +60,13 @@ export interface ElectronAPI {
   sendConversationToLMStudio: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
   sendConversationToZAI: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
   sendConversationToClaude: (messages: Array<{ role: 'user' | 'assistant'; content: string }>, requestId?: string) => Promise<string>;
+
+  // App mode (Exam / Interview) + interview-mode settings and requests
+  getAppMode: () => Promise<AppMode | null>;
+  setAppMode: (mode: AppMode | null) => Promise<{ success: boolean; data?: AppMode | null; error?: string }>;
+  getInterviewSettings: () => Promise<InterviewSettings>;
+  saveInterviewSettings: (settings: Partial<InterviewSettings>) => Promise<{ success: boolean; error?: string }>;
+  sendInterviewPrompt: (args: InterviewPromptArgs) => Promise<{ success: boolean; data?: { reply: string; provider: StreamProvider }; error?: string }>;
 
   closeWindow: () => void;
   hideWindow: () => void;
@@ -127,9 +171,17 @@ export interface ElectronAPI {
   resetAccumulatedTokenUsage: () => Promise<{ success: boolean; error?: string }>;
 
   // Voice transcription
-  transcribeAudio: (audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini') => Promise<{ success: boolean; text?: string; error?: string }>;
+  transcribeAudio: (audio: ArrayBuffer, mimeType: string, provider: 'openai' | 'gemini', language?: VoiceLanguage) => Promise<{ success: boolean; text?: string; error?: string }>;
   getVoiceProvider: () => Promise<'openai' | 'gemini'>;
   saveVoiceProvider: (provider: 'openai' | 'gemini') => Promise<{ success: boolean; error?: string }>;
+  getVoiceLanguage: () => Promise<VoiceLanguage>;
+  saveVoiceLanguage: (language: VoiceLanguage) => Promise<{ success: boolean; error?: string }>;
+
+  // Realtime (streaming) transcription — renderer streams 24 kHz mono PCM16
+  startRealtimeTranscription: (args?: { language?: VoiceLanguage; model?: string }) => Promise<{ success: boolean; data?: { model: string; language: VoiceLanguage }; error?: string }>;
+  sendRealtimeAudio: (pcm16: ArrayBuffer) => void;
+  stopRealtimeTranscription: () => Promise<{ success: boolean }>;
+  onRealtimeTranscript: (callback: (event: RealtimeTranscriptEvent) => void) => () => void;
   getVoiceScreenshotMode: () => Promise<'full' | 'region' | 'none'>;
   saveVoiceScreenshotMode: (mode: 'full' | 'region' | 'none') => Promise<{ success: boolean; error?: string }>;
   getAutoInteractionOnShow: () => Promise<boolean>;
@@ -161,7 +213,7 @@ export interface ElectronAPI {
   onDocumentsUpdated: (callback: () => void) => () => void;
   onNotesUpdated: (callback: () => void) => () => void;
   onToggleVoiceRecording: (callback: () => void) => () => void;
-  onAIStream: (callback: (data: { requestId: string; provider: 'openai' | 'gemini' | 'zai' | 'lmstudio'; delta: string }) => void) => () => void;
+  onAIStream: (callback: (data: { requestId: string; provider: StreamProvider; delta: string }) => void) => () => void;
   onTokenUsageUpdated: (callback: (data: { provider: string; model: string; promptTokens: number; completionTokens: number; totalTokens: number; cost: number; cumulative: any }) => void) => () => void;
 }
 

@@ -39,7 +39,7 @@ import {
   streamPromptWithScreenshotsToClaude,
   recordTokenUsage
 } from '../ai/clients';
-import { generatePrompt } from '../ai/prompts';
+import { generateInterviewPrompt, generatePrompt } from '../ai/prompts';
 import { combineOCRResults, extractTextFromImages, isConfidenceAcceptable, OCRResult } from '../ocr';
 import type { AppStore } from '../store';
 import { imageToBase64 } from '../utils/files';
@@ -77,6 +77,54 @@ const makeStreamEmitter = (
     }
   };
 };
+
+/**
+ * Parse the `defaultModel` preference (JSON array or legacy alias) into the
+ * ordered list of providers the user enabled in Settings.
+ */
+function getEnabledProviders(store: AppStore): StreamProvider[] {
+  const raw = store.get('defaultModel') || 'both';
+  try {
+    const parsed = JSON.parse(raw as string);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean) as StreamProvider[];
+  } catch {
+    // legacy string aliases
+  }
+  const legacy: Record<string, StreamProvider[]> = {
+    both: ['openai', 'gemini'],
+    all: ['openai', 'gemini', 'zai'],
+    openai: ['openai'],
+    gemini: ['gemini'],
+    zai: ['zai'],
+    claude: ['claude'],
+    lmstudio: ['lmstudio'],
+  };
+  return legacy[raw as string] || ['openai', 'gemini'];
+}
+
+/** Whether a provider is usable right now (has a key / is enabled). */
+function isProviderReady(provider: StreamProvider, store: AppStore): boolean {
+  if (provider === 'lmstudio') return !!store.get('lmstudioEnabled');
+  return !!getApiKey(provider, store, { info() {}, warn() {} });
+}
+
+/**
+ * Interview mode answers with ONE provider for speed. 'auto' picks the first
+ * enabled provider that is actually configured; an explicit choice is used
+ * as-is (its own error surfaces if it's not configured).
+ */
+function resolveInterviewProvider(requested: string, store: AppStore): StreamProvider {
+  if (requested && requested !== 'auto') return requested as StreamProvider;
+  const candidates: StreamProvider[] = [
+    ...getEnabledProviders(store),
+    'openai', 'gemini', 'claude', 'zai', 'lmstudio',
+  ];
+  const ready = candidates.find(p => isProviderReady(p, store));
+  if (!ready) {
+    throw new Error('No AI provider is configured. Add an API key in Settings → Models.');
+  }
+  return ready;
+}
 
 /**
  * Build OCR context prefix if OCR is enabled and has results
@@ -442,6 +490,74 @@ export function registerAIIPC(
     } catch (error) {
       log.error('Claude connection test failed:', error);
       return { success: false, error: (error as Error).message };
+    }
+  });
+
+  // Interview mode: one provider, streamed, spoken-style answer to a live
+  // transcribed question. `history` carries prior Q/A turns (raw text) so
+  // follow-up questions keep context; the instruction prompt is only applied
+  // to the newest turn to keep token usage low.
+  ipcMain.handle('sendInterviewPrompt', async (
+    event: IpcMainInvokeEvent,
+    args: {
+      provider: string;
+      question: string;
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      answerLanguage?: 'auto' | 'en' | 'vi';
+      requestId?: string;
+    }
+  ) => {
+    try {
+      const question = (args?.question || '').trim();
+      if (!question) {
+        return { success: false, error: 'Empty question' };
+      }
+      const provider = resolveInterviewProvider(args.provider, store);
+      const answerLanguage = args.answerLanguage || 'auto';
+      const codeLanguage = store.get('preferredLanguage') || 'python';
+      const docPrefix = buildDocContextPrefix();
+      const finalPrompt = generateInterviewPrompt(question, answerLanguage, codeLanguage, docPrefix);
+
+      const history = Array.isArray(args.history) ? args.history : [];
+      const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+        ...history.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: finalPrompt },
+      ];
+
+      const onDelta = makeStreamEmitter(event, args.requestId, provider);
+      const stream = !!args.requestId;
+      log.info(`Interview: asking ${provider} (lang=${answerLanguage}, history=${history.length})`);
+
+      let reply = '';
+      switch (provider) {
+        case 'openai':
+          reply = stream ? await streamConversationToOpenAI(messages, store, onDelta) : await sendConversationToOpenAI(messages, store);
+          break;
+        case 'gemini':
+          reply = stream ? await streamConversationToGemini(messages, store, onDelta) : await sendConversationToGemini(messages, store);
+          break;
+        case 'claude':
+          reply = stream ? await streamConversationToClaude(messages, store, onDelta) : await sendConversationToClaude(messages, store);
+          break;
+        case 'zai':
+          reply = stream ? await streamConversationToZAI(messages, store, onDelta) : await sendConversationToZAI(messages, store);
+          break;
+        case 'lmstudio':
+          reply = stream ? await streamConversationToLMStudio(messages, store, onDelta) : await sendConversationToLMStudio(messages, store);
+          break;
+        default:
+          return { success: false, error: `Unknown provider: ${provider}` };
+      }
+
+      // Keep Ctrl+Shift+C (copy latest answer) working, but don't pop the exam
+      // overlay bubble — interview mode shows the answer in its own panel.
+      latestAIResponse = reply;
+      overlayManager.setLatestResponse(reply);
+
+      return { success: true, data: { reply, provider } };
+    } catch (error) {
+      log.error('Interview prompt failed:', error);
+      return { success: false, error: (error as Error).message || 'Interview request failed' };
     }
   });
 

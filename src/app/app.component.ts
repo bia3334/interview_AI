@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ElectronService } from './services/electron.service';
 import { HistoryItem } from './components/history-tab/history-tab.component';
 import { TABS, DEFAULT_TAB, TAB, TabConfig, TabId } from './constants/tabs';
+import { APP_MODE, AppMode } from './constants/app-mode';
 
 @Component({
   selector: 'app-root',
@@ -14,11 +15,48 @@ export class AppComponent implements OnInit {
   continuedItem: HistoryItem | null = null;
   tabs: TabConfig[] = TABS;
   TAB = TAB; // Expose to template
+  APP_MODE = APP_MODE;
 
-  constructor(private electronService: ElectronService) {}
+  /** Active mode; null shows the launch picker. */
+  mode: AppMode | null = null;
+  /** Last mode used (preselects the picker). */
+  lastMode: AppMode | null = null;
+  /** Prevents the picker flashing before the stored mode has been read. */
+  modeLoaded = false;
 
-  ngOnInit() {
+  constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef) {}
+
+  async ngOnInit() {
     console.log('AppComponent: Initialized');
+    try {
+      this.lastMode = await this.electronService.getAppMode();
+    } catch {
+      this.lastMode = null;
+    }
+    // Picker is showing: make sure the window accepts clicks.
+    await this.electronService.setAppMode(null);
+    this.modeLoaded = true;
+    this.cdr.detectChanges();
+  }
+
+  async selectMode(mode: AppMode) {
+    await this.electronService.setAppMode(mode);
+    this.mode = mode;
+    this.lastMode = mode;
+    this.activeTab = DEFAULT_TAB;
+    this.applyBodyClass();
+    this.cdr.detectChanges();
+  }
+
+  async switchMode() {
+    this.mode = null;
+    this.applyBodyClass();
+    await this.electronService.setAppMode(null);
+    this.cdr.detectChanges();
+  }
+
+  private applyBodyClass() {
+    document.body.classList.toggle('mode-interview', this.mode === APP_MODE.INTERVIEW);
   }
 
   switchTab(tabName: TabId) {
@@ -45,4 +83,3 @@ export class AppComponent implements OnInit {
     this.electronService.closeWindow();
   }
 }
-

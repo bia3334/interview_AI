@@ -1,4 +1,6 @@
-import { Component, OnInit, ChangeDetectorRef, NgZone, Output, EventEmitter, AfterViewChecked, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, Output, EventEmitter, AfterViewChecked, ViewChild, ElementRef } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ElectronService } from '../../services/electron.service';
 import { MarkdownService } from '../../services/markdown.service';
 
@@ -22,7 +24,15 @@ export interface HistoryItem {
   styleUrls: ['./history-tab.component.css'],
   standalone: false
 })
-export class HistoryTabComponent implements OnInit, AfterViewChecked {
+export class HistoryTabComponent implements OnInit, OnDestroy, AfterViewChecked {
+  /** Tears down IPC-event subscriptions when the exam UI is left. */
+  private destroy$ = new Subject<void>();
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   history: HistoryItem[] = [];
   selectedItem: HistoryItem | null = null;
 
@@ -102,7 +112,7 @@ export class HistoryTabComponent implements OnInit, AfterViewChecked {
 
   setupEventListeners() {
     // Listen for new history items
-    this.electronService.onHistoryUpdated().subscribe(() => {
+    this.electronService.onHistoryUpdated().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.loadHistory();
     });
   }

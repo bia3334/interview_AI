@@ -21,6 +21,7 @@ dns.setDefaultResultOrder('ipv4first');
 import { getApiKey } from './main/ai/clients';
 import { initDocumentsFromStore, registerDocumentsIPC } from './main/ipc/documents';
 import { registerFilesIPC } from './main/ipc/files';
+import { registerModeIPC } from './main/ipc/mode';
 import { registerOverlayIPC } from './main/ipc/overlay';
 import { registerPreferencesIPC } from './main/ipc/preferences';
 import { registerScreenshotsIPC } from './main/ipc/screenshots';
@@ -89,6 +90,7 @@ registerShortcutsIPC(ipcMain, {
 });
 registerOverlayIPC(ipcMain, { preloadPath });
 registerDocumentsIPC(ipcMain, { mainWindow: getMainWindow, log });
+registerModeIPC(ipcMain, { store, log });
 
 // Window management IPC
 ipcMain.on('close-window', () => getMainWindow()?.close());

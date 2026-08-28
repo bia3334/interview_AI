@@ -11,11 +11,12 @@ app-shortcuts-tab[hidden] {
 app-prompt-tab,
 app-history-tab,
 app-settings-tab,
-app-shortcuts-tab {
+app-shortcuts-tab,
+app-interview,
+app-mode-select {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
-

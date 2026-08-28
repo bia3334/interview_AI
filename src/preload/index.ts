@@ -18,6 +18,13 @@ const api: ElectronAPI = {
   sendConversationToZAI: (messages, requestId) => ipcRenderer.invoke('sendConversationToZAI', messages, requestId),
   sendConversationToClaude: (messages, requestId) => ipcRenderer.invoke('sendConversationToClaude', messages, requestId),
 
+  // App mode (Exam / Interview) + interview-mode settings and requests
+  getAppMode: () => ipcRenderer.invoke('getAppMode'),
+  setAppMode: (mode) => ipcRenderer.invoke('setAppMode', mode),
+  getInterviewSettings: () => ipcRenderer.invoke('getInterviewSettings'),
+  saveInterviewSettings: (settings) => ipcRenderer.invoke('saveInterviewSettings', settings),
+  sendInterviewPrompt: (args) => ipcRenderer.invoke('sendInterviewPrompt', args),
+
   closeWindow: () => ipcRenderer.send('close-window'),
   hideWindow: () => ipcRenderer.send('hide-window'),
   showWindow: () => ipcRenderer.send('show-window'),
@@ -121,9 +128,17 @@ const api: ElectronAPI = {
   resetAccumulatedTokenUsage: () => ipcRenderer.invoke('resetAccumulatedTokenUsage'),
 
   // Voice transcription
-  transcribeAudio: (audio, mimeType, provider) => ipcRenderer.invoke('transcribe-audio', { audio, mimeType, provider }),
+  transcribeAudio: (audio, mimeType, provider, language) => ipcRenderer.invoke('transcribe-audio', { audio, mimeType, provider, language }),
   getVoiceProvider: () => ipcRenderer.invoke('getVoiceProvider'),
   saveVoiceProvider: (provider) => ipcRenderer.invoke('saveVoiceProvider', provider),
+  getVoiceLanguage: () => ipcRenderer.invoke('getVoiceLanguage'),
+  saveVoiceLanguage: (language) => ipcRenderer.invoke('saveVoiceLanguage', language),
+
+  // Realtime (streaming) transcription
+  startRealtimeTranscription: (args) => ipcRenderer.invoke('realtime:start', args),
+  sendRealtimeAudio: (pcm16) => ipcRenderer.send('realtime:audio', new Uint8Array(pcm16)),
+  stopRealtimeTranscription: () => ipcRenderer.invoke('realtime:stop'),
+  onRealtimeTranscript: (callback) => { ipcRenderer.on('realtime-transcript', (_e, d) => callback(d)); return () => ipcRenderer.removeAllListeners('realtime-transcript'); },
   getVoiceScreenshotMode: () => ipcRenderer.invoke('getVoiceScreenshotMode'),
   saveVoiceScreenshotMode: (mode) => ipcRenderer.invoke('saveVoiceScreenshotMode', mode),
   getAutoInteractionOnShow: () => ipcRenderer.invoke('getAutoInteractionOnShow'),
