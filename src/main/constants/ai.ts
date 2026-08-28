@@ -15,13 +15,13 @@ export type AIProvider = typeof AI_PROVIDER[keyof typeof AI_PROVIDER];
 
 export const AI_MODELS = {
   openai: {
-    default: 'gpt-4o',
+    default: 'gpt-5.4-mini',
   },
   gemini: {
-    default: 'gemini-2.0-flash',
+    default: 'gemini-3.5-flash',
   },
   zai: {
-    default: 'glm-4.7',
+    default: 'GLM-4.7-Flash',
   },
   claude: {
     default: 'claude-sonnet-4-6',
