@@ -63,8 +63,8 @@ jobs:
         id: version
         run: node scripts/prepare-release.js
         env:
-          MANUAL_VERSION: ${{ inputs.version }}
-          BUMP_TYPE: ${{ inputs.bump_type }}
+          MANUAL_VERSION: ${{ github.event.inputs.version || '' }}
+          BUMP_TYPE: ${{ github.event.inputs.bump_type || '' }}
 
   build:
     name: Build (${{ matrix.platform }})
