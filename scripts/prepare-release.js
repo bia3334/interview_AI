@@ -54,12 +54,14 @@ function main() {
   const manualBumpType = (process.env.BUMP_TYPE || '').trim();
   const refName = (process.env.GITHUB_REF_NAME || '').trim();
   const refType = (process.env.GITHUB_REF_TYPE || '').trim();
+  const eventName = (process.env.GITHUB_EVENT_NAME || '').trim();
 
   const latestCommit = runGit('git log -1 --pretty=%B');
   const githubOutput = process.env.GITHUB_OUTPUT;
 
   // Check for [skip release] unless manually triggered or tag push
-  if (!manualVersion && refType !== 'tag' && /\[skip release\]/i.test(latestCommit)) {
+  const isManualTrigger = eventName === 'workflow_dispatch' || !!manualVersion;
+  if (!isManualTrigger && refType !== 'tag' && /\[skip release\]/i.test(latestCommit)) {
     console.log('Found [skip release] in commit message. Skipping release.');
     if (githubOutput) {
       fs.appendFileSync(githubOutput, `skip=true\n`);
