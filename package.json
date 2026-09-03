@@ -9,9 +9,9 @@
     "ng:build:prod": "ng build --configuration production",
     "start": "npm run ng:build && tsc && node scripts/copy-assets.js && electron dist/main.js",
     "dev": "npm run ng:build && tsc && node scripts/copy-assets.js && electron dist/main.js",
-    "build": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --win --config.win.signAndEditExecutable=false",
+    "build": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --win --config.win.signAndEditExecutable=false --publish never",
     "build:mac": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --mac --publish never",
-    "build:linux": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --linux",
+    "build:linux": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --linux --publish never",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -110,7 +110,7 @@
       "target": [
         "AppImage"
       ],
-      "icon": "assets/icons/png/icon-256x256.png"
+      "icon": "assets/icons/win/icon.png"
     }
   }
 }

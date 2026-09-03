@@ -12,11 +12,16 @@ Electron + Angular desktop app ("Screen Genius / Open Interview Coder") that run
 npm start          # Dev: builds Angular → compiles TS → copies HTMLs → launches Electron
 npm run dev        # Alias for npm start
 npm run ng:build   # Build Angular only (dev)
-npm run build      # Production: Angular (prod) → TS compile → electron-builder → release/
+npm run build      # Production (Windows): Angular (prod) → TS compile → electron-builder → release/
+npm run build:mac  # Production (macOS): Angular (prod) → TS compile → electron-builder → release/*.dmg
 npm run clean      # Clean dist/
 ```
 
-No test runner is configured. Verification is done by running the app with `npm start`.
+## CI/CD Workflows
+
+- `.github/workflows/ci.yml`: Pre-merge check running on PRs to `main` (validates TS compile, Angular prod build, asset scripts, and cross-platform packaging).
+- `.github/workflows/release.yml`: After-merge CD workflow running on push to `main` (or version tags / manual dispatch). Auto-computes semver, packages Windows and macOS binaries, and publishes a new GitHub Release with auto-generated release notes.
+- `scripts/prepare-release.js`: Computes next semver tag from git tags / commit message conventions.
 
 ## Architecture
 

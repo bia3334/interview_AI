@@ -1,0 +1,80 @@
+name: CI (Pre-Merge)
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Code & Build Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        # package-lock.json is gitignored in this repository, so use npm install
+        run: npm install
+
+      - name: Check Main & Preload TypeScript
+        run: npx tsc --noEmit
+
+      - name: Check Angular production build
+        run: npm run ng:build:prod
+
+      - name: Verify asset copy script
+        run: node scripts/copy-assets.js
+
+  build-packages:
+    name: Package Check (${{ matrix.platform }})
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: Windows
+            build_cmd: npm run build
+            artifact_name: ScreenGenius-PR-Windows
+            artifact_path: release/*.exe
+          - os: macos-latest
+            platform: macOS
+            build_cmd: npm run build:mac
+            artifact_name: ScreenGenius-PR-macOS
+            artifact_path: release/*.dmg
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build and Package (${{ matrix.platform }})
+        run: ${{ matrix.build_cmd }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload PR build artifacts (3-day test retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          retention-days: 3
+          if-no-files-found: error
