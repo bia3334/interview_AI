@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
+import { AudioSource, captureCallAudio } from './call-audio';
 
 const CANDIDATE_MIME_TYPES = [
   'audio/webm;codecs=opus',
@@ -19,10 +20,10 @@ export interface AudioSegment {
 /**
  * Continuous system-audio listener for interview mode.
  *
- * Captures the call audio (Zoom / Meet / Teams through the speakers) with the
- * same loopback trick as VoiceRecorderService, but instead of one start/stop
- * recording it runs forever and cuts the stream into utterances using a
- * simple energy-based voice-activity detector:
+ * Captures the call audio (Zoom / Meet / Teams) from the chosen source — the
+ * system loopback or an input device, see call-audio.ts — but instead of one
+ * start/stop recording it runs forever and cuts the stream into utterances
+ * using a simple energy-based voice-activity detector:
  *
  *   speech ──▶ ≥ SILENCE_MS of quiet ──▶ segment emitted ──▶ new recorder
  *
@@ -53,7 +54,6 @@ export class LiveListenerService {
   /** Floor for the speech threshold — below this is treated as noise. */
   private static readonly MIN_THRESHOLD = 0.012;
 
-  private displayStream: MediaStream | null = null;
   private audioStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
@@ -75,26 +75,14 @@ export class LiveListenerService {
     return this.listening;
   }
 
-  async start(): Promise<void> {
+  async start(audioSource: AudioSource = 'loopback'): Promise<void> {
     if (this.listening) return;
 
-    // Main process answers this via setDisplayMediaRequestHandler with the
-    // primary screen + audio: 'loopback'. Only the audio track is kept.
-    const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-    this.displayStream = stream;
-    stream.getVideoTracks().forEach((track) => track.stop());
-
-    const audioTracks = stream.getAudioTracks();
-    if (audioTracks.length === 0) {
-      this.cleanup();
-      throw new Error('No system audio track captured. Make sure the call audio plays through your speakers.');
-    }
-
-    this.audioStream = new MediaStream(audioTracks);
-    audioTracks[0].addEventListener('ended', () => {
+    this.audioStream = await captureCallAudio(audioSource);
+    this.audioStream.getAudioTracks()[0].addEventListener('ended', () => {
       if (this.listening) {
         this.stop();
-        this.ended$.next('System audio capture ended.');
+        this.ended$.next('Audio capture ended.');
       }
     });
 
@@ -244,10 +232,6 @@ export class LiveListenerService {
     if (this.audioStream) {
       this.audioStream.getTracks().forEach((track) => track.stop());
       this.audioStream = null;
-    }
-    if (this.displayStream) {
-      this.displayStream.getTracks().forEach((track) => track.stop());
-      this.displayStream = null;
     }
   }
 }

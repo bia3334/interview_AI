@@ -19,12 +19,16 @@ export type VoiceLanguage = 'auto' | 'en' | 'vi';
 /** standard = local VAD + per-utterance Whisper/Gemini; realtime = OpenAI Realtime streaming. */
 export type ListenMode = 'standard' | 'realtime';
 
+/** 'loopback' = system output mix (Windows); 'default' or a deviceId = an audio input device. */
+export type AudioSource = 'loopback' | 'default' | string;
+
 export interface InterviewSettings {
   provider: 'auto' | StreamProvider;
   answerLanguage: VoiceLanguage;
   autoAnswer: boolean;
   listenMode: ListenMode;
   realtimeModel: string;
+  audioSource: AudioSource;
 }
 
 /** Interview background context: CV, job description, notes. */
@@ -77,6 +81,7 @@ export interface ElectronAPI {
   setAppMode: (mode: AppMode | null) => Promise<{ success: boolean; data?: AppMode | null; error?: string }>;
   getInterviewSettings: () => Promise<InterviewSettings>;
   saveInterviewSettings: (settings: Partial<InterviewSettings>) => Promise<{ success: boolean; error?: string }>;
+  requestMicrophoneAccess: () => Promise<{ success: boolean; data?: { granted: boolean }; error?: string }>;
   getInterviewContext: () => Promise<{ success: boolean; data?: InterviewContext; error?: string }>;
   saveInterviewContext: (patch: InterviewContextPatch) => Promise<{ success: boolean; data?: InterviewContext; error?: string }>;
   importInterviewContextFile: (slot: InterviewContextSlot) => Promise<{ success: boolean; data?: { canceled: boolean; entry?: InterviewContextEntry }; error?: string }>;

@@ -4,6 +4,7 @@ import type {
   AppMode,
   ElectronAPI,
   InterviewPromptArgs,
+  AudioSource,
   InterviewContext,
   InterviewContextEntry,
   InterviewContextPatch,
@@ -20,6 +21,7 @@ import { STORAGE_KEYS } from '../constants/settings';
 export type {
   AppMode,
   InterviewPromptArgs,
+  AudioSource,
   InterviewContext,
   InterviewContextEntry,
   InterviewContextPatch,
@@ -143,6 +145,10 @@ export class ElectronService {
 
   saveInterviewSettings(settings: Partial<InterviewSettings>): Promise<{ success: boolean; error?: string }> {
     return this.electronAPI.saveInterviewSettings(settings);
+  }
+
+  requestMicrophoneAccess(): Promise<{ success: boolean; data?: { granted: boolean }; error?: string }> {
+    return this.electronAPI.requestMicrophoneAccess();
   }
 
   sendInterviewPrompt(args: InterviewPromptArgs): Promise<{ success: boolean; data?: { reply: string; provider: StreamProvider }; error?: string }> {
@@ -734,7 +740,8 @@ export class ElectronService {
       sendConversationToZAI: () => Promise.resolve('Mock Z.AI conversation response'),
       getAppMode: () => Promise.resolve(null),
       setAppMode: () => Promise.resolve({ success: true, data: null }),
-      getInterviewSettings: () => Promise.resolve({ provider: 'auto', answerLanguage: 'auto', autoAnswer: true, listenMode: 'standard', realtimeModel: 'gpt-live-transcribe' }),
+      getInterviewSettings: () => Promise.resolve({ provider: 'auto', answerLanguage: 'auto', autoAnswer: true, listenMode: 'standard', realtimeModel: 'gpt-live-transcribe', audioSource: 'default' }),
+      requestMicrophoneAccess: () => Promise.resolve({ success: true, data: { granted: true } }),
       startRealtimeTranscription: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       sendRealtimeAudio: () => {},
       stopRealtimeTranscription: () => Promise.resolve({ success: true }),

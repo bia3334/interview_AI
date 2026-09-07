@@ -105,7 +105,10 @@
       ],
       "icon": "assets/icons/win/icon.png",
       "identity": null,
-      "artifactName": "ScreenGenius-${arch}.dmg"
+      "artifactName": "ScreenGenius-${arch}.dmg",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Interview mode listens to the call through the selected audio input device (BlackHole or a microphone)."
+      }
     },
     "linux": {
       "target": [

@@ -12,17 +12,13 @@ declare const testAPI: {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Stand-in for Windows WASAPI loopback: route the services' getDisplayMedia
- * call to Chromium's fake capture device, which main.js feeds from the
- * synthetic interviewer WAV. Constraints mirror a raw loopback (no AEC/AGC).
+ * The scenarios listen on the 'default' input device — the app's real
+ * getUserMedia path (macOS via BlackHole, or a microphone) — which main.js
+ * points at Chromium's fake capture device fed from the interviewer WAV.
+ * The Windows loopback path differs only in how the MediaStream is obtained
+ * (see call-audio.ts); everything downstream is shared.
  */
-function useFakeLoopback() {
-  navigator.mediaDevices.getDisplayMedia = () =>
-    navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      video: false,
-    });
-}
+const SOURCE = 'default';
 
 async function runLoopback() {
   // Untouched app path: Electron's setDisplayMediaRequestHandler answers with
@@ -33,7 +29,7 @@ async function runLoopback() {
   let levelTicks = 0;
   svc.level$.subscribe((v) => { levelTicks += 1; if (v > maxLevel) maxLevel = v; });
   try {
-    await svc.start();
+    await svc.start('loopback');
     await sleep(2000);
     svc.stop();
     return { ok: true, note: 'getDisplayMedia returned a system audio track', maxLevel, levelTicks };
@@ -43,7 +39,6 @@ async function runLoopback() {
 }
 
 async function runStandard(runMs: number) {
-  useFakeLoopback();
   const svc = new LiveListenerService();
   let maxLevel = 0;
   let levelTicks = 0;
@@ -54,7 +49,7 @@ async function runStandard(runMs: number) {
   svc.ended$.subscribe((r) => ended.push(r));
 
   const t0 = Date.now();
-  await svc.start();
+  await svc.start(SOURCE);
   await sleep(runMs);
   svc.stop();
   await sleep(750); // MediaRecorder.onstop is async
@@ -86,7 +81,6 @@ async function runStandard(runMs: number) {
 }
 
 async function runRealtime(runMs: number) {
-  useFakeLoopback();
   const chunks = { count: 0, samples: 0, maxRms: 0 };
   const electronStub = {
     sendRealtimeAudio: (buf: ArrayBuffer) => {
@@ -106,7 +100,7 @@ async function runRealtime(runMs: number) {
   svc.level$.subscribe((v) => { if (v > maxLevel) maxLevel = v; });
   svc.ended$.subscribe((r) => ended.push(r));
 
-  await svc.start();
+  await svc.start(SOURCE);
   const contextSampleRate = (svc as any).audioContext?.sampleRate ?? null;
   await sleep(runMs);
   svc.stop();

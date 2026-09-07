@@ -17,6 +17,15 @@
       <span class="iv-meter" *ngIf="listening"><span class="iv-meter-fill" [style.width.%]="levelPercent"></span></span>
     </div>
 
+    <label class="iv-field" [title]="audioSourceHint">
+      <mat-icon class="inline-icon small">{{ usesInputDevice ? 'mic' : 'speaker' }}</mat-icon>
+      <select class="prompt-input iv-source" [(ngModel)]="audioSource" (change)="onAudioSourceChange()" name="audioSource">
+        <option value="loopback" *ngIf="!isMac">System audio (what you hear)</option>
+        <option value="default">Default input device</option>
+        <option *ngFor="let d of inputDevices" [value]="d.deviceId">{{ d.label }}</option>
+      </select>
+    </label>
+
     <div class="iv-segmented" role="radiogroup" [title]="listenModeHint">
       <button
         *ngFor="let m of listenModeOptions"
@@ -107,8 +116,11 @@
           <ng-container *ngIf="!listening">
             Press <strong>Listen</strong> (or <kbd>Ctrl+Shift+V</kbd>) when the call starts. Each thing the interviewer says shows up here and gets answered on the right.
           </ng-container>
-          <ng-container *ngIf="listening && !liveText">
-            Listening for speech… make sure the call audio is playing through your speakers.
+          <ng-container *ngIf="listening && !liveText && !usesInputDevice">
+            Listening for speech… make sure the call audio is playing on the default output device.
+          </ng-container>
+          <ng-container *ngIf="listening && !liveText && usesInputDevice">
+            Listening on the input device… {{ isMac ? 'route the call through BlackHole, or' : '' }} put the call on speaker near the microphone. Your own voice is transcribed too, so use <strong>Answer now</strong> when the interviewer finishes.
           </ng-container>
         </div>
         <div class="iv-seg" *ngFor="let s of segments" [class.pending]="!s.answered">

@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { Subscription } from 'rxjs';
 import {
+  AudioSource,
   ElectronService,
   HistoryItem,
   InterviewContext,
@@ -21,6 +22,7 @@ import {
 import { AudioSegment, LiveListenerService } from '../../services/live-listener.service';
 import { RealtimeListenerService } from '../../services/realtime-listener.service';
 import { MarkdownService } from '../../services/markdown.service';
+import { AudioInputDevice, isInputDeviceSource, listAudioInputDevices } from '../../services/call-audio';
 
 interface TranscriptSegment {
   id: string;
@@ -68,6 +70,10 @@ export class InterviewComponent implements OnInit, OnDestroy {
   autoAnswer = true;
   listenMode: ListenMode = 'standard';
   realtimeModel = 'gpt-live-transcribe';
+  /** 'loopback' (Windows system audio), 'default' or an input deviceId. */
+  audioSource: AudioSource = 'loopback';
+  inputDevices: AudioInputDevice[] = [];
+  readonly isMac = /Mac/i.test(navigator.platform);
   private voiceProvider: 'openai' | 'gemini' = 'openai';
 
   readonly providerOptions: Array<{ id: InterviewProvider; label: string }> = [
@@ -204,12 +210,47 @@ export class InterviewComponent implements OnInit, OnDestroy {
       this.autoAnswer = settings.autoAnswer !== false;
       this.listenMode = settings.listenMode || 'standard';
       this.realtimeModel = settings.realtimeModel || 'gpt-live-transcribe';
+      this.audioSource = settings.audioSource || (this.isMac ? 'default' : 'loopback');
       this.speechLanguage = speechLanguage || 'auto';
       this.voiceProvider = voiceProvider || 'openai';
     } catch {
       // keep defaults
     }
+    await this.refreshInputDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', () => void this.refreshInputDevices());
     this.cdr.detectChanges();
+  }
+
+  // ---------------------------------------------------------------------
+  // Audio source
+  // ---------------------------------------------------------------------
+
+  /** Input devices for the Source picker (labels appear once mic access was granted). */
+  async refreshInputDevices() {
+    this.inputDevices = await listAudioInputDevices();
+    this.cdr.detectChanges();
+  }
+
+  get usesInputDevice(): boolean {
+    return isInputDeviceSource(this.audioSource);
+  }
+
+  get audioSourceHint(): string {
+    if (!this.usesInputDevice) {
+      return 'Everything playing on the default output device (Windows only). Hears the call, never your microphone.';
+    }
+    if (this.isMac) {
+      return 'macOS has no system loopback: install BlackHole, set a Multi-Output Device (speakers + BlackHole) as the system output, then pick BlackHole here. A real microphone also works when the call runs on another device.';
+    }
+    return 'An input device. Pick a microphone when the call runs on another device (phone on speaker next to the laptop). It hears you too, so prefer Answer now over auto-answer.';
+  }
+
+  async onAudioSourceChange() {
+    await this.electronService.saveInterviewSettings({ audioSource: this.audioSource });
+    if (this.listening) {
+      this.stopListening();
+      await this.startListening();
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -334,16 +375,24 @@ export class InterviewComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     });
     try {
+      if (this.usesInputDevice) {
+        const access = await this.electronService.requestMicrophoneAccess();
+        if (access.success && access.data && !access.data.granted) {
+          throw new Error('Microphone access was denied. Allow it in System Settings → Privacy & Security → Microphone.');
+        }
+      }
       if (this.listenMode === 'realtime') {
         const started = await this.electronService.startRealtimeTranscription({
           language: this.speechLanguage,
           model: this.realtimeModel,
         });
         if (!started.success) throw new Error(started.error || 'Failed to start realtime transcription');
-        await this.realtimeListener.start();
+        await this.realtimeListener.start(this.audioSource);
       } else {
-        await this.listener.start();
+        await this.listener.start(this.audioSource);
       }
+      // A granted permission unlocks device labels.
+      if (this.usesInputDevice) void this.refreshInputDevices();
       this.ngZone.run(() => {
         this.listening = true;
         this.connecting = false;
@@ -355,7 +404,7 @@ export class InterviewComponent implements OnInit, OnDestroy {
       this.ngZone.run(() => {
         this.listening = false;
         this.connecting = false;
-        this.electronService.showToast(`Listen: ${err?.message || 'Failed to capture system audio'}`);
+        this.electronService.showToast(`Listen: ${err?.message || 'Failed to capture the call audio'}`);
         this.cdr.detectChanges();
       });
     }

@@ -125,6 +125,8 @@
   font-size: 0.8rem;
   min-width: 6.5rem;
 }
+.iv-field select.iv-source { max-width: 13rem; text-overflow: ellipsis; }
+.iv-field mat-icon { color: var(--text-dim); }
 .iv-toggle {
   display: inline-flex;
   align-items: center;

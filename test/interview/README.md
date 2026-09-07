@@ -5,7 +5,8 @@ way a Google Meet / Zoom / Teams call feeds it, without speakers, a
 microphone, an API key or a live call. It launches the real Electron/Chromium
 under Xvfb (or the current display), plays a synthetic "interviewer"
 recording through Chromium's fake capture device, and drives the app's own
-services:
+services on the `default` input-device source (the same `getUserMedia` path
+macOS uses through BlackHole, or a microphone):
 
 | Scenario | What runs | What is checked |
 |---|---|---|
@@ -54,6 +55,8 @@ Run one scenario with `node test/interview/run.js --only realtime` (or `context`
   an empty string for it, which the component discards.
 - The window has `setContentProtection(true)`, so a Meet screen or window
   share does not show it.
-- macOS: Electron's `audio: 'loopback'` is Windows-only and the app has no
-  microphone / input-device capture path, so a virtual device such as
-  BlackHole cannot feed it yet.
+- macOS: Electron's `audio: 'loopback'` is Windows-only. The Source picker
+  falls back to input devices there: install BlackHole, set a Multi-Output
+  Device (speakers + BlackHole) as the system output and pick BlackHole.
+- Call on another device (a phone on speaker): pick a microphone as the
+  source. It hears the candidate too, so answer on demand.

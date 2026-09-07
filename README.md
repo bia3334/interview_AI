@@ -99,7 +99,10 @@ Keys are stored on your machine and only ever sent to the provider they belong t
 
 - **Shortcuts do nothing** — another app owns the same hotkey. Rebind in Settings or close the other app.
 - **Screenshots are blank** — check the OS screen-recording permission for the app (macOS: System Settings → Privacy & Security → Screen Recording).
-- **No audio in Interview mode** — the app captures system audio through the OS loopback of the *default output device*, not the microphone. This works out of the box on Windows; make sure the call (Meet, Zoom, Teams) plays on the default speakers/headphones rather than a device picked inside the call app. macOS is not supported yet: Electron's loopback capture is Windows-only and the app has no input-device path, so a virtual device such as BlackHole cannot feed it.
+- **No audio in Interview mode** — check the **Source** picker in the interview toolbar:
+  - *System audio (what you hear)* — Windows only. Captures the OS loopback of the *default output device*, never the microphone. Make sure the call (Meet, Zoom, Teams) plays on the default speakers/headphones rather than a device picked inside the call app.
+  - *macOS* — there is no system loopback. Install [BlackHole](https://existential.audio/blackhole/), create a **Multi-Output Device** in Audio MIDI Setup (your speakers + BlackHole), set it as the system output, then pick *BlackHole* as the source. Allow microphone access when macOS asks.
+  - *Call on another device* (e.g. you joined from your phone) — put the call on speaker next to the laptop and pick a *microphone* as the source. It hears you too, so turn off auto-answer and press **Answer now** (Ctrl+Shift+P) when the interviewer finishes.
 - **API errors** — press Test next to the provider in Settings. Most failures are a wrong model name or an exhausted quota.
 
 ## Support

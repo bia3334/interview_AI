@@ -2,6 +2,7 @@
  * App mode IPC: launch picker (Exam / Interview) + interview-mode settings.
  */
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
+import { systemPreferences } from 'electron';
 import { applyAppMode, AppMode } from '../window';
 import { normalizeRealtimeModel } from './voice';
 
@@ -14,12 +15,29 @@ export type AnswerLanguage = 'auto' | 'en' | 'vi';
  */
 export type ListenMode = 'standard' | 'realtime';
 
+/**
+ * Where the call audio comes from: 'loopback' (system output mix, Windows),
+ * 'default' (OS default input device) or an input deviceId (e.g. BlackHole on
+ * macOS, or a microphone when the call runs on another device).
+ */
+export type AudioSource = 'loopback' | 'default' | string;
+
 export interface InterviewSettings {
   provider: InterviewProvider;
   answerLanguage: AnswerLanguage;
   autoAnswer: boolean;
   listenMode: ListenMode;
   realtimeModel: string;
+  audioSource: AudioSource;
+}
+
+/** Loopback exists only on Windows; elsewhere start on the default input. */
+export function defaultAudioSource(): AudioSource {
+  return process.platform === 'win32' ? 'loopback' : 'default';
+}
+
+function normalizeAudioSource(value: unknown): AudioSource {
+  return typeof value === 'string' && value.trim() ? value.trim() : defaultAudioSource();
 }
 
 const PROVIDERS: InterviewProvider[] = ['auto', 'openai', 'gemini', 'claude', 'zai', 'lmstudio'];
@@ -59,6 +77,23 @@ export function registerModeIPC(
     }
   });
 
+  /**
+   * Ask the OS for microphone access before an input-device capture. macOS
+   * shows its privacy prompt here (and needs NSMicrophoneUsageDescription in
+   * the packaged app); Windows/Linux resolve immediately.
+   */
+  ipcMain.handle('requestMicrophoneAccess', async () => {
+    try {
+      if (process.platform !== 'darwin') return { success: true, data: { granted: true } };
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      const granted = status === 'granted' ? true : await systemPreferences.askForMediaAccess('microphone');
+      return { success: true, data: { granted } };
+    } catch (error: any) {
+      log.error('requestMicrophoneAccess error:', error);
+      return { success: false, error: error.message || 'Microphone permission request failed' };
+    }
+  });
+
   ipcMain.handle('getInterviewSettings', (): InterviewSettings => {
     const provider = store.get('interviewProvider');
     const answerLanguage = store.get('interviewAnswerLanguage');
@@ -69,6 +104,7 @@ export function registerModeIPC(
       autoAnswer: store.get('interviewAutoAnswer') !== false,
       listenMode: LISTEN_MODES.includes(listenMode) ? listenMode : 'standard',
       realtimeModel: normalizeRealtimeModel(store.get('interviewRealtimeModel')),
+      audioSource: normalizeAudioSource(store.get('interviewAudioSource')),
     };
   });
 
@@ -88,6 +124,9 @@ export function registerModeIPC(
       }
       if (typeof settings.realtimeModel === 'string') {
         store.set('interviewRealtimeModel', normalizeRealtimeModel(settings.realtimeModel));
+      }
+      if (typeof settings.audioSource === 'string') {
+        store.set('interviewAudioSource', normalizeAudioSource(settings.audioSource));
       }
       return { success: true };
     } catch (error: any) {

@@ -54,6 +54,10 @@ export interface StoreSchema {
   // Realtime API streaming (words appear as spoken, needs an OpenAI key).
   interviewListenMode: 'standard' | 'realtime';
   interviewRealtimeModel: string;
+  // 'loopback' (Windows system audio), 'default' (OS default input) or an
+  // input deviceId (BlackHole on macOS, or a microphone). Unset → per-platform
+  // default from ipc/mode.ts#defaultAudioSource.
+  interviewAudioSource?: string;
   // Interview mode: the candidate's CV, the job description and notes, sent
   // ahead of every interview question so answers are grounded in them.
   interviewContext: InterviewContext;
