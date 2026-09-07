@@ -101,7 +101,7 @@ Rules:
 - Keep the whole reply under ~120 words. Only add a single short ${codeLanguage} code block if the question genuinely requires code.
 - No preamble, no headers, no "great question", no notes about the transcription, no coaching commentary.
 - If it is not really a question (small talk, an instruction, or an unclear fragment), reply with one short natural line I can say in response.
-- If context about me (CV, notes) is provided above, draw on it and be consistent with it.`;
+- If my CV, the job description or my notes are provided above, ground the answer in them: use my real experience and match it to what the role asks for. Never invent facts about me.`;
 
   return docContextPrefix ? `${docContextPrefix}\n\n${body}` : body;
 };

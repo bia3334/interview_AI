@@ -34,6 +34,8 @@ export interface RealtimeTranscriberOptions {
   language: TranscriptionLanguage;
   /** Quiet period (ms) that ends an utterance (server VAD or our local VAD). */
   silenceDurationMs?: number;
+  /** Override the Realtime endpoint (the test harness points this at a mock server). */
+  url?: string;
   log: { info: (...a: any[]) => void; warn: (...a: any[]) => void; error: (...a: any[]) => void };
   onEvent: (event: RealtimeTranscriptEvent) => void;
 }
@@ -187,7 +189,7 @@ export class RealtimeTranscriber {
     if (this.legacy) headers['OpenAI-Beta'] = 'realtime=v1';
 
     log.info(`Realtime STT: connecting (${this.legacy ? 'legacy' : 'GA'} protocol, model=${this.opts.model}, vad=${this.clientVad ? 'client' : 'server'})`);
-    const ws = new WebSocket(REALTIME_URL, { headers });
+    const ws = new WebSocket(this.opts.url || REALTIME_URL, { headers });
     this.ws = ws;
     this.configured = false;
 

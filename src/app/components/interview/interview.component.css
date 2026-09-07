@@ -125,6 +125,8 @@
   font-size: 0.8rem;
   min-width: 6.5rem;
 }
+.iv-field select.iv-source { max-width: 13rem; text-overflow: ellipsis; }
+.iv-field mat-icon { color: var(--text-dim); }
 .iv-toggle {
   display: inline-flex;
   align-items: center;
@@ -135,6 +137,70 @@
   user-select: none;
 }
 .iv-toggle input { accent-color: var(--primary); }
+
+/* ---------- Background context (CV / JD / notes) ---------- */
+.iv-context-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+}
+.iv-context-btn.on { background: rgba(255, 255, 255, 0.1); }
+.iv-context-btn mat-icon { color: var(--text-dim); }
+.iv-context-btn.filled mat-icon { color: #7dd3a0; }
+.iv-context-badge {
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #7dd3a0;
+  background: rgba(125, 211, 160, 0.12);
+  border: 1px solid rgba(125, 211, 160, 0.3);
+}
+
+.iv-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  flex: 0 0 auto;
+}
+.iv-context-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.iv-context-slot .iv-section-head { text-transform: none; letter-spacing: 0; }
+.iv-context-file {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.iv-context-actions { display: inline-flex; gap: 0.3rem; }
+.iv-context-text {
+  width: 100%;
+  min-height: 150px;
+  max-height: 280px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.iv-context-foot {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+@media (max-width: 960px) {
+  .iv-context { grid-template-columns: 1fr; }
+}
 
 /* ---------- Body ---------- */
 .iv-body {

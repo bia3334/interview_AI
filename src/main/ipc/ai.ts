@@ -45,6 +45,8 @@ import type { AppStore } from '../store';
 import { imageToBase64 } from '../utils/files';
 import { getMainWindow } from '../window';
 import { buildDocContextPrefix } from './documents';
+import { getInterviewContext } from './interview-context';
+import { buildInterviewContextPrefix } from '../ai/interview-context';
 import { overlayManager } from './overlay';
 import { getScreenshotQueue } from './screenshots';
 
@@ -515,7 +517,9 @@ export function registerAIIPC(
       const provider = resolveInterviewProvider(args.provider, store);
       const answerLanguage = args.answerLanguage || 'auto';
       const codeLanguage = store.get('preferredLanguage') || 'python';
-      const docPrefix = buildDocContextPrefix();
+      // CV / JD / notes first, then any exam-mode document the user activated.
+      const contextPrefix = buildInterviewContextPrefix(getInterviewContext(store));
+      const docPrefix = [contextPrefix, buildDocContextPrefix()].filter(Boolean).join('\n\n');
       const finalPrompt = generateInterviewPrompt(question, answerLanguage, codeLanguage, docPrefix);
 
       const history = Array.isArray(args.history) ? args.history : [];
@@ -526,7 +530,7 @@ export function registerAIIPC(
 
       const onDelta = makeStreamEmitter(event, args.requestId, provider);
       const stream = !!args.requestId;
-      log.info(`Interview: asking ${provider} (lang=${answerLanguage}, history=${history.length})`);
+      log.info(`Interview: asking ${provider} (lang=${answerLanguage}, history=${history.length}, context=${contextPrefix ? 'yes' : 'no'})`);
 
       let reply = '';
       switch (provider) {

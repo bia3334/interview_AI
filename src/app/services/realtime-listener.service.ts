@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { ElectronService } from './electron.service';
+import { AudioSource, captureCallAudio } from './call-audio';
 
 /**
  * Audio capture for realtime (streaming) transcription.
  *
- * Grabs the call audio via the same loopback trick as the other recorders,
- * but instead of recording files it converts the stream to 24 kHz mono PCM16
+ * Grabs the call audio from the chosen source (loopback or an input device,
+ * see call-audio.ts), but instead of recording files it converts it to 24 kHz mono PCM16
  * and pushes ~85 ms chunks to the main process, which relays them to the
  * OpenAI Realtime API. Utterance boundaries are decided server-side (VAD), so
  * this service does no segmentation of its own — it only reports a level for
@@ -27,7 +28,6 @@ export class RealtimeListenerService {
   private static readonly TARGET_RATE = 24000;
   private static readonly BUFFER_SIZE = 4096; // ≈85 ms at 48 kHz
 
-  private displayStream: MediaStream | null = null;
   private audioStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
@@ -45,23 +45,14 @@ export class RealtimeListenerService {
     return this.capturing;
   }
 
-  async start(): Promise<void> {
+  async start(audioSource: AudioSource = 'loopback'): Promise<void> {
     if (this.capturing) return;
 
-    const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-    this.displayStream = stream;
-    stream.getVideoTracks().forEach((track) => track.stop());
-
-    const audioTracks = stream.getAudioTracks();
-    if (audioTracks.length === 0) {
-      this.cleanup();
-      throw new Error('No system audio track captured. Make sure the call audio plays through your speakers.');
-    }
-    this.audioStream = new MediaStream(audioTracks);
-    audioTracks[0].addEventListener('ended', () => {
+    this.audioStream = await captureCallAudio(audioSource);
+    this.audioStream.getAudioTracks()[0].addEventListener('ended', () => {
       if (this.capturing) {
         this.stop();
-        this.ended$.next('System audio capture ended.');
+        this.ended$.next('Audio capture ended.');
       }
     });
 
@@ -170,10 +161,6 @@ export class RealtimeListenerService {
     if (this.audioStream) {
       this.audioStream.getTracks().forEach((track) => track.stop());
       this.audioStream = null;
-    }
-    if (this.displayStream) {
-      this.displayStream.getTracks().forEach((track) => track.stop());
-      this.displayStream = null;
     }
   }
 }

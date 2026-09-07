@@ -9,8 +9,11 @@ import {
 } from '@angular/core';
 import { Subscription } from 'rxjs';
 import {
+  AudioSource,
   ElectronService,
   HistoryItem,
+  InterviewContext,
+  InterviewContextSlot,
   ListenMode,
   RealtimeTranscriptEvent,
   StreamProvider,
@@ -19,6 +22,7 @@ import {
 import { AudioSegment, LiveListenerService } from '../../services/live-listener.service';
 import { RealtimeListenerService } from '../../services/realtime-listener.service';
 import { MarkdownService } from '../../services/markdown.service';
+import { AudioInputDevice, isInputDeviceSource, listAudioInputDevices } from '../../services/call-audio';
 
 interface TranscriptSegment {
   id: string;
@@ -66,6 +70,10 @@ export class InterviewComponent implements OnInit, OnDestroy {
   autoAnswer = true;
   listenMode: ListenMode = 'standard';
   realtimeModel = 'gpt-live-transcribe';
+  /** 'loopback' (Windows system audio), 'default' or an input deviceId. */
+  audioSource: AudioSource = 'loopback';
+  inputDevices: AudioInputDevice[] = [];
+  readonly isMac = /Mac/i.test(navigator.platform);
   private voiceProvider: 'openai' | 'gemini' = 'openai';
 
   readonly providerOptions: Array<{ id: InterviewProvider; label: string }> = [
@@ -84,6 +92,20 @@ export class InterviewComponent implements OnInit, OnDestroy {
   readonly listenModeOptions: Array<{ id: ListenMode; label: string; hint: string }> = [
     { id: 'standard', label: 'Standard', hint: 'One transcript per sentence (Whisper / Gemini). Works with any provider key.' },
     { id: 'realtime', label: 'Realtime', hint: 'Words appear as they are spoken (OpenAI Realtime API). Needs an OpenAI key.' },
+  ];
+
+  // ---- Background context (CV / JD / notes), sent with every answer ----
+  contextOpen = false;
+  context: InterviewContext = InterviewComponent.emptyContext();
+  /** Slot whose file is being read right now. */
+  contextBusy: InterviewContextSlot | null = null;
+  readonly contextSlots: Array<{ id: InterviewContextSlot; label: string; short: string; hint: string; file: boolean }> = [
+    { id: 'cv', label: 'My CV', short: 'CV', file: true,
+      hint: 'Import your CV (PDF, DOCX, TXT, MD) or paste it here. Answers will draw on this experience.' },
+    { id: 'jd', label: 'Job description', short: 'JD', file: true,
+      hint: 'Import or paste the job description so answers match what the role asks for.' },
+    { id: 'notes', label: 'Notes', short: 'Notes', file: false,
+      hint: 'Anything else: projects to highlight, stories to tell, topics to steer around, how to introduce yourself.' },
   ];
 
   // ---- Listening state ----
@@ -171,27 +193,68 @@ export class InterviewComponent implements OnInit, OnDestroy {
     this.clearAutoAnswerTimer();
     this.subs.forEach((s) => s.unsubscribe());
     this.subs = [];
+    navigator.mediaDevices?.removeEventListener?.('devicechange', this.onDeviceChange);
     if (this.listening) this.stopListening();
   }
 
   private async loadSettings() {
     try {
-      const [settings, speechLanguage, voiceProvider] = await Promise.all([
+      const [settings, speechLanguage, voiceProvider, context] = await Promise.all([
         this.electronService.getInterviewSettings(),
         this.electronService.getVoiceLanguage(),
         this.electronService.getVoiceProvider(),
+        this.electronService.getInterviewContext(),
       ]);
+      if (context.success && context.data) this.context = context.data;
       this.provider = settings.provider || 'auto';
       this.answerLanguage = settings.answerLanguage || 'auto';
       this.autoAnswer = settings.autoAnswer !== false;
       this.listenMode = settings.listenMode || 'standard';
       this.realtimeModel = settings.realtimeModel || 'gpt-live-transcribe';
+      this.audioSource = settings.audioSource || (this.isMac ? 'default' : 'loopback');
       this.speechLanguage = speechLanguage || 'auto';
       this.voiceProvider = voiceProvider || 'openai';
     } catch {
       // keep defaults
     }
+    await this.refreshInputDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', this.onDeviceChange);
     this.cdr.detectChanges();
+  }
+
+  /** Kept as a property so ngOnDestroy can remove exactly this listener. */
+  private readonly onDeviceChange = () => { void this.refreshInputDevices(); };
+
+  // ---------------------------------------------------------------------
+  // Audio source
+  // ---------------------------------------------------------------------
+
+  /** Input devices for the Source picker (labels appear once mic access was granted). */
+  async refreshInputDevices() {
+    this.inputDevices = await listAudioInputDevices();
+    this.cdr.detectChanges();
+  }
+
+  get usesInputDevice(): boolean {
+    return isInputDeviceSource(this.audioSource);
+  }
+
+  get audioSourceHint(): string {
+    if (!this.usesInputDevice) {
+      return 'Everything playing on the default output device (Windows only). Hears the call, never your microphone.';
+    }
+    if (this.isMac) {
+      return 'macOS has no system loopback: install BlackHole, set a Multi-Output Device (speakers + BlackHole) as the system output, then pick BlackHole here. A real microphone also works when the call runs on another device.';
+    }
+    return 'An input device. Pick a microphone when the call runs on another device (phone on speaker next to the laptop). It hears you too, so prefer Answer now over auto-answer.';
+  }
+
+  async onAudioSourceChange() {
+    await this.electronService.saveInterviewSettings({ audioSource: this.audioSource });
+    if (this.listening) {
+      this.stopListening();
+      await this.startListening();
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -233,6 +296,71 @@ export class InterviewComponent implements OnInit, OnDestroy {
   }
 
   // ---------------------------------------------------------------------
+  // Background context (CV / JD / notes)
+  // ---------------------------------------------------------------------
+
+  private static emptyContext(): InterviewContext {
+    const entry = () => ({ text: '', fileName: null, updatedAt: 0 });
+    return { cv: entry(), jd: entry(), notes: entry() };
+  }
+
+  /** Slots that currently hold text, e.g. "CV · JD". */
+  get contextSummary(): string {
+    return this.contextSlots
+      .filter((s) => this.context[s.id].text.trim())
+      .map((s) => s.short)
+      .join(' · ');
+  }
+
+  get contextCount(): number {
+    return this.contextSlots.filter((s) => this.context[s.id].text.trim()).length;
+  }
+
+  toggleContext() {
+    this.contextOpen = !this.contextOpen;
+    this.cdr.detectChanges();
+  }
+
+  /** Textarea `change` (fires on blur): persist what was typed or pasted. */
+  async saveContextSlot(slot: InterviewContextSlot) {
+    const entry = this.context[slot];
+    const res = await this.electronService.saveInterviewContext({
+      [slot]: { text: entry.text, fileName: entry.fileName },
+    });
+    if (res.success && res.data) {
+      this.context = res.data;
+    } else if (!res.success) {
+      this.electronService.showToast(`Context: ${res.error || 'save failed'}`);
+    }
+    this.cdr.detectChanges();
+  }
+
+  async importContextFile(slot: InterviewContextSlot) {
+    if (this.contextBusy) return;
+    this.contextBusy = slot;
+    this.cdr.detectChanges();
+    try {
+      const res = await this.electronService.importInterviewContextFile(slot);
+      if (!res.success) {
+        this.electronService.showToast(`Import: ${res.error || 'failed'}`);
+      } else if (res.data && !res.data.canceled && res.data.entry) {
+        this.context = { ...this.context, [slot]: res.data.entry };
+        this.electronService.showToast(`${res.data.entry.fileName} loaded (${res.data.entry.text.length.toLocaleString()} chars)`);
+      }
+    } catch (err: any) {
+      this.electronService.showToast(`Import: ${err?.message || 'failed'}`);
+    } finally {
+      this.contextBusy = null;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async clearContextSlot(slot: InterviewContextSlot) {
+    this.context = { ...this.context, [slot]: { text: '', fileName: null, updatedAt: Date.now() } };
+    await this.saveContextSlot(slot);
+  }
+
+  // ---------------------------------------------------------------------
   // Listening
   // ---------------------------------------------------------------------
 
@@ -251,16 +379,24 @@ export class InterviewComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     });
     try {
+      if (this.usesInputDevice) {
+        const access = await this.electronService.requestMicrophoneAccess();
+        if (access.success && access.data && !access.data.granted) {
+          throw new Error('Microphone access was denied. Allow it in System Settings → Privacy & Security → Microphone.');
+        }
+      }
       if (this.listenMode === 'realtime') {
         const started = await this.electronService.startRealtimeTranscription({
           language: this.speechLanguage,
           model: this.realtimeModel,
         });
         if (!started.success) throw new Error(started.error || 'Failed to start realtime transcription');
-        await this.realtimeListener.start();
+        await this.realtimeListener.start(this.audioSource);
       } else {
-        await this.listener.start();
+        await this.listener.start(this.audioSource);
       }
+      // A granted permission unlocks device labels.
+      if (this.usesInputDevice) void this.refreshInputDevices();
       this.ngZone.run(() => {
         this.listening = true;
         this.connecting = false;
@@ -272,7 +408,7 @@ export class InterviewComponent implements OnInit, OnDestroy {
       this.ngZone.run(() => {
         this.listening = false;
         this.connecting = false;
-        this.electronService.showToast(`Listen: ${err?.message || 'Failed to capture system audio'}`);
+        this.electronService.showToast(`Listen: ${err?.message || 'Failed to capture the call audio'}`);
         this.cdr.detectChanges();
       });
     }
