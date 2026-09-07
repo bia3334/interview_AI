@@ -13,7 +13,9 @@
  *                   voice too, so answer on demand rather than automatically.
  *   'default'   — the OS default input device.
  */
-export type AudioSource = 'loopback' | 'default' | string;
+// `string & {}` keeps the two literals from being absorbed into `string`, so
+// editors still offer them while any deviceId remains assignable.
+export type AudioSource = 'loopback' | 'default' | (string & {});
 
 export interface AudioInputDevice {
   deviceId: string;
@@ -33,7 +35,19 @@ export async function captureCallAudio(source: AudioSource): Promise<MediaStream
   if (!isInputDeviceSource(source)) {
     // Main process answers with the primary screen + audio: 'loopback'.
     // Only the audio track is kept.
-    const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+    } catch (err: any) {
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        throw new Error('System audio capture was refused. Allow screen recording for this app in the OS privacy settings and try again.');
+      }
+      if (name === 'NotSupportedError' || name === 'NotFoundError') {
+        throw new Error('System audio capture is not available on this system. Pick an input device (e.g. BlackHole on macOS) as the audio source.');
+      }
+      throw new Error(err?.message || 'Could not start system audio capture.');
+    }
     stream.getVideoTracks().forEach((track) => track.stop());
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {

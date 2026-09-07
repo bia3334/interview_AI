@@ -20,7 +20,7 @@ export type VoiceLanguage = 'auto' | 'en' | 'vi';
 export type ListenMode = 'standard' | 'realtime';
 
 /** 'loopback' = system output mix (Windows); 'default' or a deviceId = an audio input device. */
-export type AudioSource = 'loopback' | 'default' | string;
+export type AudioSource = 'loopback' | 'default' | (string & {});
 
 export interface InterviewSettings {
   provider: 'auto' | StreamProvider;

@@ -277,6 +277,25 @@ async function scenarioContext() {
   const clipped = m.buildInterviewContextPrefix(long);
   check('context', 'oversized CV is clipped to the slot limit with a marker', clipped.includes('[truncated: 5000 more characters]') && clipped.length < 15500, `${clipped.length} chars`);
   check('context', 'only slots with text are emitted', !clipped.includes('JOB DESCRIPTION') && !clipped.includes('MY NOTES'));
+
+  // saveInterviewContext patch semantics (src/main/ipc/interview-context.ts),
+  // bundled with node_modules external so the electron import stays a type.
+  const ipcOut = path.join(BUILD, 'interview-context-ipc.js');
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'src', 'main', 'ipc', 'interview-context.ts')],
+    bundle: true, platform: 'node', format: 'cjs', target: 'node18', packages: 'external',
+    outfile: ipcOut, logLevel: 'silent',
+  });
+  const ipc = require(ipcOut);
+  const mem = {}; const store = { get: (k) => mem[k], set: (k, v) => { mem[k] = v; } };
+  ipc.saveInterviewContext(store, { cv: { text: 'imported cv', fileName: 'cv.pdf' } });
+  ipc.saveInterviewContext(store, { cv: { text: 'imported cv, edited' } });
+  check('context', 'patch without fileName keeps the imported name', ipc.getInterviewContext(store).cv.fileName === 'cv.pdf', ipc.getInterviewContext(store).cv.fileName);
+  ipc.saveInterviewContext(store, { cv: { text: 'pasted instead', fileName: null } });
+  check('context', 'explicit fileName: null clears it', ipc.getInterviewContext(store).cv.fileName === null);
+  ipc.saveInterviewContext(store, { cv: { text: 'x', fileName: 'again.pdf' } });
+  ipc.saveInterviewContext(store, { cv: { text: '' } });
+  check('context', 'empty text clears the name too', ipc.getInterviewContext(store).cv.fileName === null && ipc.getInterviewContext(store).cv.text === '');
 }
 
 (async () => {

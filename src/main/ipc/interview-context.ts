@@ -40,9 +40,15 @@ export function saveInterviewContext(store: StoreLike, patch: InterviewContextPa
     const entry = patch[slot];
     if (!entry || typeof entry !== 'object') continue;
     const text = typeof entry.text === 'string' ? entry.text : '';
+    // `fileName` is optional in the patch: omitted keeps the current name,
+    // an explicit null/'' clears it, and empty text always clears it.
+    const fileName =
+      'fileName' in entry
+        ? (typeof entry.fileName === 'string' && entry.fileName ? entry.fileName : null)
+        : ctx[slot].fileName;
     ctx[slot] = {
       text,
-      fileName: text.trim() && typeof entry.fileName === 'string' && entry.fileName ? entry.fileName : null,
+      fileName: text.trim() ? fileName : null,
       updatedAt: now,
     };
   }

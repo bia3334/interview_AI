@@ -20,7 +20,7 @@ export type ListenMode = 'standard' | 'realtime';
  * 'default' (OS default input device) or an input deviceId (e.g. BlackHole on
  * macOS, or a microphone when the call runs on another device).
  */
-export type AudioSource = 'loopback' | 'default' | string;
+export type AudioSource = 'loopback' | 'default' | (string & {});
 
 export interface InterviewSettings {
   provider: InterviewProvider;

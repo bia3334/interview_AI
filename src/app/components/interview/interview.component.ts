@@ -193,6 +193,7 @@ export class InterviewComponent implements OnInit, OnDestroy {
     this.clearAutoAnswerTimer();
     this.subs.forEach((s) => s.unsubscribe());
     this.subs = [];
+    navigator.mediaDevices?.removeEventListener?.('devicechange', this.onDeviceChange);
     if (this.listening) this.stopListening();
   }
 
@@ -217,9 +218,12 @@ export class InterviewComponent implements OnInit, OnDestroy {
       // keep defaults
     }
     await this.refreshInputDevices();
-    navigator.mediaDevices?.addEventListener?.('devicechange', () => void this.refreshInputDevices());
+    navigator.mediaDevices?.addEventListener?.('devicechange', this.onDeviceChange);
     this.cdr.detectChanges();
   }
+
+  /** Kept as a property so ngOnDestroy can remove exactly this listener. */
+  private readonly onDeviceChange = () => { void this.refreshInputDevices(); };
 
   // ---------------------------------------------------------------------
   // Audio source
