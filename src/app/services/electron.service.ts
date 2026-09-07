@@ -4,6 +4,10 @@ import type {
   AppMode,
   ElectronAPI,
   InterviewPromptArgs,
+  InterviewContext,
+  InterviewContextEntry,
+  InterviewContextPatch,
+  InterviewContextSlot,
   InterviewSettings,
   ListenMode,
   RealtimeTranscriptEvent,
@@ -16,6 +20,10 @@ import { STORAGE_KEYS } from '../constants/settings';
 export type {
   AppMode,
   InterviewPromptArgs,
+  InterviewContext,
+  InterviewContextEntry,
+  InterviewContextPatch,
+  InterviewContextSlot,
   InterviewSettings,
   ListenMode,
   RealtimeTranscriptEvent,
@@ -139,6 +147,19 @@ export class ElectronService {
 
   sendInterviewPrompt(args: InterviewPromptArgs): Promise<{ success: boolean; data?: { reply: string; provider: StreamProvider }; error?: string }> {
     return this.electronAPI.sendInterviewPrompt(args);
+  }
+
+  // Interview background context (CV / JD / notes)
+  getInterviewContext(): Promise<{ success: boolean; data?: InterviewContext; error?: string }> {
+    return this.electronAPI.getInterviewContext();
+  }
+
+  saveInterviewContext(patch: InterviewContextPatch): Promise<{ success: boolean; data?: InterviewContext; error?: string }> {
+    return this.electronAPI.saveInterviewContext(patch);
+  }
+
+  importInterviewContextFile(slot: InterviewContextSlot): Promise<{ success: boolean; data?: { canceled: boolean; entry?: InterviewContextEntry }; error?: string }> {
+    return this.electronAPI.importInterviewContextFile(slot);
   }
 
   getAccumulatedTokenUsage(): Promise<any> {
@@ -719,6 +740,9 @@ export class ElectronService {
       stopRealtimeTranscription: () => Promise.resolve({ success: true }),
       onRealtimeTranscript: () => () => {},
       saveInterviewSettings: () => Promise.resolve({ success: false }),
+      getInterviewContext: () => Promise.resolve({ success: true, data: { cv: { text: '', fileName: null, updatedAt: 0 }, jd: { text: '', fileName: null, updatedAt: 0 }, notes: { text: '', fileName: null, updatedAt: 0 } } }),
+      saveInterviewContext: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      importInterviewContextFile: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       sendInterviewPrompt: () => Promise.resolve({ success: true, data: { reply: 'Mock interview answer', provider: 'openai' } }),
       closeWindow: () => {},
       hideWindow: () => {},

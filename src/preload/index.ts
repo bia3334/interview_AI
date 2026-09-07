@@ -23,6 +23,9 @@ const api: ElectronAPI = {
   setAppMode: (mode) => ipcRenderer.invoke('setAppMode', mode),
   getInterviewSettings: () => ipcRenderer.invoke('getInterviewSettings'),
   saveInterviewSettings: (settings) => ipcRenderer.invoke('saveInterviewSettings', settings),
+  getInterviewContext: () => ipcRenderer.invoke('getInterviewContext'),
+  saveInterviewContext: (patch) => ipcRenderer.invoke('saveInterviewContext', patch),
+  importInterviewContextFile: (slot) => ipcRenderer.invoke('importInterviewContextFile', slot),
   sendInterviewPrompt: (args) => ipcRenderer.invoke('sendInterviewPrompt', args),
 
   closeWindow: () => ipcRenderer.send('close-window'),

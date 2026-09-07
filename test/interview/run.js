@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Interview-mode audio pipeline test (Google Meet style call audio).
 //
-//   node test/interview/run.js [--only loopback|standard|realtime|fallback]
+//   node test/interview/run.js [--only loopback|standard|realtime|fallback|context]
 //
 // What it checks, without speakers, a microphone, an API key or a live call:
 //   loopback  what the app's untouched getDisplayMedia + audio:'loopback'
@@ -14,6 +14,8 @@
 //             VAD) yield one completed transcript per utterance
 //   fallback  RealtimeTranscriber retries with the pre-GA protocol when the
 //             GA session.update is rejected (node only, no Electron)
+//   context   the CV / JD / notes prefix placed ahead of every interview
+//             question is built, clipped and omitted correctly (node only)
 //
 // Renderer services run in a real Electron/Chromium under Xvfb; the audio
 // comes from Chromium's fake capture device fed with gen-meet-audio.js.
@@ -245,6 +247,38 @@ async function scenarioFallback(prep) {
   check('fallback', 'audio buffered during reconnect still produced a transcript', completed.length === 1 && conn && near(conn.utterances[0] && conn.utterances[0].speechMs, 2400, 400), completed.map((c) => c.transcript).join('|') || 'none');
 }
 
+// Node-only: the CV / JD / notes prefix that is placed ahead of every
+// interview question (src/main/ai/interview-context.ts).
+async function scenarioContext() {
+  console.log('\n[context] interview prompt prefix from CV / JD / notes');
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'main', 'ai', 'interview-context.ts'), 'utf8');
+  const out = await esbuild.transform(src, { loader: 'ts', format: 'cjs', platform: 'node', target: 'node18' });
+  const modPath = path.join(BUILD, 'interview-context.js');
+  fs.writeFileSync(modPath, out.code);
+  const m = require(modPath);
+
+  const empty = m.normalizeInterviewContext(undefined);
+  check('context', 'missing store value normalizes to three empty slots', ['cv', 'jd', 'notes'].every((k) => empty[k] && empty[k].text === '' && empty[k].fileName === null));
+  check('context', 'no context → empty prefix (question goes out untouched)', m.buildInterviewContextPrefix(empty) === '');
+
+  const junk = m.normalizeInterviewContext({ cv: 'not-an-object', jd: { text: 42 }, notes: { text: 'ok', fileName: '' } });
+  check('context', 'malformed entries are coerced, not thrown', junk.cv.text === '' && junk.jd.text === '' && junk.notes.text === 'ok' && junk.notes.fileName === null);
+
+  const ctx = m.normalizeInterviewContext({
+    cv: { text: 'Nguyen Van A — 3 years Angular + NestJS at FPT IS', fileName: 'cv.pdf', updatedAt: 1 },
+    jd: { text: 'Senior Frontend Engineer: Angular, RxJS, mentoring', fileName: null, updatedAt: 1 },
+    notes: { text: 'Mention the akaBot migration project', fileName: null, updatedAt: 1 },
+  });
+  const prefix = m.buildInterviewContextPrefix(ctx);
+  check('context', 'prefix carries CV, JD and notes with their headers', /--- MY CV \(cv\.pdf\) ---\n.*Angular \+ NestJS/.test(prefix) && /--- JOB DESCRIPTION ---\n.*Senior Frontend/.test(prefix) && /--- MY NOTES ---\n.*akaBot/.test(prefix), `${prefix.length} chars`);
+  check('context', 'prefix tells the model not to invent facts', /Never invent facts about me/.test(prefix));
+
+  const long = m.normalizeInterviewContext({ cv: { text: 'x'.repeat(20000), fileName: null, updatedAt: 1 } });
+  const clipped = m.buildInterviewContextPrefix(long);
+  check('context', 'oversized CV is clipped to the slot limit with a marker', clipped.includes('[truncated: 5000 more characters]') && clipped.length < 15500, `${clipped.length} chars`);
+  check('context', 'only slots with text are emitted', !clipped.includes('JOB DESCRIPTION') && !clipped.includes('MY NOTES'));
+}
+
 (async () => {
   console.log('Interview audio pipeline test');
   console.log(`  platform ${process.platform}, electron ${require('electron/package.json').version}, node ${process.version}`);
@@ -257,6 +291,7 @@ async function scenarioFallback(prep) {
     if (want('standard')) await scenarioStandard(prep);
     if (want('realtime')) await scenarioRealtime(prep, server);
     if (want('fallback')) await scenarioFallback(prep);
+    if (want('context')) await scenarioContext();
   } finally {
     await server.close();
   }

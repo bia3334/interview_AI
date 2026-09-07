@@ -11,6 +11,8 @@ import { Subscription } from 'rxjs';
 import {
   ElectronService,
   HistoryItem,
+  InterviewContext,
+  InterviewContextSlot,
   ListenMode,
   RealtimeTranscriptEvent,
   StreamProvider,
@@ -84,6 +86,20 @@ export class InterviewComponent implements OnInit, OnDestroy {
   readonly listenModeOptions: Array<{ id: ListenMode; label: string; hint: string }> = [
     { id: 'standard', label: 'Standard', hint: 'One transcript per sentence (Whisper / Gemini). Works with any provider key.' },
     { id: 'realtime', label: 'Realtime', hint: 'Words appear as they are spoken (OpenAI Realtime API). Needs an OpenAI key.' },
+  ];
+
+  // ---- Background context (CV / JD / notes), sent with every answer ----
+  contextOpen = false;
+  context: InterviewContext = InterviewComponent.emptyContext();
+  /** Slot whose file is being read right now. */
+  contextBusy: InterviewContextSlot | null = null;
+  readonly contextSlots: Array<{ id: InterviewContextSlot; label: string; short: string; hint: string; file: boolean }> = [
+    { id: 'cv', label: 'My CV', short: 'CV', file: true,
+      hint: 'Import your CV (PDF, DOCX, TXT, MD) or paste it here. Answers will draw on this experience.' },
+    { id: 'jd', label: 'Job description', short: 'JD', file: true,
+      hint: 'Import or paste the job description so answers match what the role asks for.' },
+    { id: 'notes', label: 'Notes', short: 'Notes', file: false,
+      hint: 'Anything else: projects to highlight, stories to tell, topics to steer around, how to introduce yourself.' },
   ];
 
   // ---- Listening state ----
@@ -176,11 +192,13 @@ export class InterviewComponent implements OnInit, OnDestroy {
 
   private async loadSettings() {
     try {
-      const [settings, speechLanguage, voiceProvider] = await Promise.all([
+      const [settings, speechLanguage, voiceProvider, context] = await Promise.all([
         this.electronService.getInterviewSettings(),
         this.electronService.getVoiceLanguage(),
         this.electronService.getVoiceProvider(),
+        this.electronService.getInterviewContext(),
       ]);
+      if (context.success && context.data) this.context = context.data;
       this.provider = settings.provider || 'auto';
       this.answerLanguage = settings.answerLanguage || 'auto';
       this.autoAnswer = settings.autoAnswer !== false;
@@ -230,6 +248,71 @@ export class InterviewComponent implements OnInit, OnDestroy {
 
   get listenModeHint(): string {
     return this.listenModeOptions.find((o) => o.id === this.listenMode)?.hint || '';
+  }
+
+  // ---------------------------------------------------------------------
+  // Background context (CV / JD / notes)
+  // ---------------------------------------------------------------------
+
+  private static emptyContext(): InterviewContext {
+    const entry = () => ({ text: '', fileName: null, updatedAt: 0 });
+    return { cv: entry(), jd: entry(), notes: entry() };
+  }
+
+  /** Slots that currently hold text, e.g. "CV · JD". */
+  get contextSummary(): string {
+    return this.contextSlots
+      .filter((s) => this.context[s.id].text.trim())
+      .map((s) => s.short)
+      .join(' · ');
+  }
+
+  get contextCount(): number {
+    return this.contextSlots.filter((s) => this.context[s.id].text.trim()).length;
+  }
+
+  toggleContext() {
+    this.contextOpen = !this.contextOpen;
+    this.cdr.detectChanges();
+  }
+
+  /** Textarea `change` (fires on blur): persist what was typed or pasted. */
+  async saveContextSlot(slot: InterviewContextSlot) {
+    const entry = this.context[slot];
+    const res = await this.electronService.saveInterviewContext({
+      [slot]: { text: entry.text, fileName: entry.fileName },
+    });
+    if (res.success && res.data) {
+      this.context = res.data;
+    } else if (!res.success) {
+      this.electronService.showToast(`Context: ${res.error || 'save failed'}`);
+    }
+    this.cdr.detectChanges();
+  }
+
+  async importContextFile(slot: InterviewContextSlot) {
+    if (this.contextBusy) return;
+    this.contextBusy = slot;
+    this.cdr.detectChanges();
+    try {
+      const res = await this.electronService.importInterviewContextFile(slot);
+      if (!res.success) {
+        this.electronService.showToast(`Import: ${res.error || 'failed'}`);
+      } else if (res.data && !res.data.canceled && res.data.entry) {
+        this.context = { ...this.context, [slot]: res.data.entry };
+        this.electronService.showToast(`${res.data.entry.fileName} loaded (${res.data.entry.text.length.toLocaleString()} chars)`);
+      }
+    } catch (err: any) {
+      this.electronService.showToast(`Import: ${err?.message || 'failed'}`);
+    } finally {
+      this.contextBusy = null;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async clearContextSlot(slot: InterviewContextSlot) {
+    this.context = { ...this.context, [slot]: { text: '', fileName: null, updatedAt: Date.now() } };
+    await this.saveContextSlot(slot);
   }
 
   // ---------------------------------------------------------------------

@@ -13,8 +13,9 @@ services:
 | `standard` | `LiveListenerService` (energy VAD, `MediaRecorder`) | One decodable `audio/webm;codecs=opus` file per utterance, each containing the whole question; a 120 ms click is dropped; capture does not end on its own. |
 | `realtime` | `RealtimeListenerService` → `realtime:audio` IPC → `RealtimeTranscriber` (one per model) → mock Realtime API | 24 kHz PCM16 streamed for the whole call; GA `session.update` accepted; `gpt-live-transcribe` (client VAD) commits once per utterance and streams deltas; `gpt-4o-mini-transcribe` (server VAD) relays speech_started/stopped; each utterance reaches the server with the right amount of speech; no error events. |
 | `fallback` | `RealtimeTranscriber` against a mock that rejects the GA session shape (node only) | One reconnect with the pre-GA protocol and `OpenAI-Beta` header, language hint forwarded, audio buffered during the reconnect still transcribed. |
+| `context` | `buildInterviewContextPrefix` from `src/main/ai/interview-context.ts` (node only) | Empty context → empty prefix; CV, JD and notes emitted with headers and the no-invented-facts rule; oversized slots clipped with a marker; malformed store values coerced. |
 
-Run one scenario with `node test/interview/run.js --only realtime`.
+Run one scenario with `node test/interview/run.js --only realtime` (or `context`, which needs no Electron).
 
 ## Files
 

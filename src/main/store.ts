@@ -7,6 +7,7 @@ import { DEFAULT_ANSWER_STYLE, DEFAULT_LANGUAGE } from './constants/answer-style
 import { AI_PROVIDER, LMSTUDIO_CONFIG } from './constants/ai';
 import { DEFAULT_WINDOW } from './constants/app';
 import { OCR_CONFIG, OCRLanguage } from './constants/ocr';
+import { emptyInterviewContext, InterviewContext } from './ai/interview-context';
 
 const Store = require('electron-store');
 
@@ -53,6 +54,9 @@ export interface StoreSchema {
   // Realtime API streaming (words appear as spoken, needs an OpenAI key).
   interviewListenMode: 'standard' | 'realtime';
   interviewRealtimeModel: string;
+  // Interview mode: the candidate's CV, the job description and notes, sent
+  // ahead of every interview question so answers are grounded in them.
+  interviewContext: InterviewContext;
   // Window behavior
   autoInteractionOnShow: boolean;
   // Note view mode: 'editor-only' shows the rendered preview only inside the
@@ -100,6 +104,7 @@ export const STORE_DEFAULTS: StoreSchema = {
   interviewAutoAnswer: true,
   interviewListenMode: 'standard',
   interviewRealtimeModel: 'gpt-live-transcribe',
+  interviewContext: emptyInterviewContext(),
   // Window behavior default — keep current click-through-on-show behavior
   // unless the user opts in to auto-interaction.
   autoInteractionOnShow: false,

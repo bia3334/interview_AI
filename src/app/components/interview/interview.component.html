@@ -29,6 +29,17 @@
       </button>
     </div>
 
+    <button
+      type="button"
+      class="btn iv-context-btn"
+      [class.on]="contextOpen"
+      [class.filled]="contextCount > 0"
+      (click)="toggleContext()"
+      title="Your CV, the job description and notes — sent with every answer so it is grounded in your background">
+      <mat-icon class="inline-icon small">badge</mat-icon>
+      Context<span class="iv-context-badge" *ngIf="contextCount > 0">{{ contextSummary }}</span>
+    </button>
+
     <div class="iv-spacer"></div>
 
     <label class="iv-field">
@@ -54,6 +65,34 @@
       <span>Auto-answer</span>
     </label>
   </div>
+
+  <!-- Background context: CV / JD / notes -->
+  <section class="iv-context" *ngIf="contextOpen">
+    <div class="iv-context-slot" *ngFor="let slot of contextSlots">
+      <div class="iv-section-head small">
+        <span>{{ slot.label }}</span>
+        <span class="iv-answer-meta iv-context-file" *ngIf="context[slot.id].fileName" [title]="context[slot.id].fileName">{{ context[slot.id].fileName }}</span>
+        <span class="iv-answer-meta" *ngIf="context[slot.id].text.trim()">· {{ context[slot.id].text.length | number }} chars</span>
+        <span class="iv-spacer"></span>
+        <span class="iv-context-actions">
+          <button type="button" class="btn btn-small" *ngIf="slot.file" (click)="importContextFile(slot.id)" [disabled]="contextBusy !== null">
+            {{ contextBusy === slot.id ? 'Reading…' : 'Import file…' }}
+          </button>
+          <button type="button" class="btn btn-small" (click)="clearContextSlot(slot.id)" [disabled]="!context[slot.id].text.trim()">Clear</button>
+        </span>
+      </div>
+      <textarea
+        class="prompt-input iv-context-text"
+        [attr.data-slot]="slot.id"
+        [(ngModel)]="context[slot.id].text"
+        (change)="saveContextSlot(slot.id)"
+        [placeholder]="slot.hint"
+        spellcheck="false"></textarea>
+    </div>
+    <div class="iv-context-foot">
+      Saved on this machine and sent ahead of every interview answer. Very long documents are trimmed (CV ~15k, JD ~10k, notes ~6k characters). Edits save when you leave the box.
+    </div>
+  </section>
 
   <div class="iv-body">
     <!-- Transcript column -->
