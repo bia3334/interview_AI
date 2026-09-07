@@ -12,7 +12,8 @@
     "build": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --win --config.win.signAndEditExecutable=false --publish never",
     "build:mac": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --mac --publish never",
     "build:linux": "npm run ng:build:prod && tsc && node scripts/copy-assets.js && electron-builder --linux --publish never",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "test:interview": "node test/interview/run.js"
   },
   "dependencies": {
     "@angular/animations": "^21.0.6",

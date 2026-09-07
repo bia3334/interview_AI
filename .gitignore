@@ -12,3 +12,6 @@ package-lock.json
 
 # Promo video working dir (node_modules, ffmpeg binary, rendered mp4)
 promo-video/
+
+# Interview audio test harness build output (bundles, synthetic wav, results)
+test/interview/.build/

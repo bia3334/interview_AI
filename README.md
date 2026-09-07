@@ -99,7 +99,7 @@ Keys are stored on your machine and only ever sent to the provider they belong t
 
 - **Shortcuts do nothing** — another app owns the same hotkey. Rebind in Settings or close the other app.
 - **Screenshots are blank** — check the OS screen-recording permission for the app (macOS: System Settings → Privacy & Security → Screen Recording).
-- **No audio in Interview mode** — the app captures system audio through the OS loopback, not the microphone. This works out of the box on Windows. On macOS, install a loopback audio device such as BlackHole.
+- **No audio in Interview mode** — the app captures system audio through the OS loopback of the *default output device*, not the microphone. This works out of the box on Windows; make sure the call (Meet, Zoom, Teams) plays on the default speakers/headphones rather than a device picked inside the call app. macOS is not supported yet: Electron's loopback capture is Windows-only and the app has no input-device path, so a virtual device such as BlackHole cannot feed it.
 - **API errors** — press Test next to the provider in Settings. Most failures are a wrong model name or an exhausted quota.
 
 ## Support
