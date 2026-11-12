@@ -1,6 +1,9 @@
+import { describeNetworkError, getProxyAgent } from '../network';
 import { OpenAI } from 'openai';
 const { GoogleGenAI } = require('@google/genai');
 import { AI_MODELS, DEFAULT_AI_PROVIDER, LMSTUDIO_CONFIG, ZAI_CONFIG, OPENAI_COMPATIBLE_PROVIDERS, OpenAICompatibleProvider } from '../constants/ai';
+
+const OPENAI_API_URL = 'https://api.openai.com';
 
 // AI Models Configuration
 export const AI_CONFIG = {
@@ -214,6 +217,7 @@ export const getOpenAICompatibleClient = (providerId: string, store: any): OpenA
   return new OpenAI({
     apiKey,
     baseURL,
+    httpAgent: getProxyAgent(baseURL || OPENAI_API_URL),
   });
 };
 
@@ -322,7 +326,7 @@ export const testOpenAICompatibleConnection = async (
     });
     return { success: true, model };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
+    return { success: false, error: describeNetworkError(error, OPENAI_COMPATIBLE_PROVIDERS[providerId]?.baseURL || OPENAI_API_URL) };
   }
 };
 
@@ -528,7 +532,7 @@ export const getOpenAIClient = (store: any) => {
   if (!apiKey) {
     throw new Error('OpenAI API key is not configured');
   }
-  return new OpenAI({ apiKey });
+  return new OpenAI({ apiKey, httpAgent: getProxyAgent(OPENAI_API_URL) });
 };
 
 export const getGeminiClient = (store: any) => {
@@ -654,7 +658,7 @@ export const testGeminiConnection = async (store: any): Promise<{ success: boole
     });
     return { success: true, model };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
+    return { success: false, error: describeNetworkError(error, 'https://generativelanguage.googleapis.com') };
   }
 };
 
@@ -855,6 +859,7 @@ export const sendPromptToClaude = async (
 
   const fetch = require('node-fetch');
   const response = await fetch(client.baseURL, {
+    agent: getProxyAgent(client.baseURL),
     method: 'POST',
     headers: {
       'x-api-key': client.apiKey,
@@ -912,6 +917,7 @@ export const sendConversationToClaude = async (
 
   const fetch = require('node-fetch');
   const response = await fetch(client.baseURL, {
+    agent: getProxyAgent(client.baseURL),
     method: 'POST',
     headers: {
       'x-api-key': client.apiKey,
@@ -988,6 +994,7 @@ export const sendPromptWithScreenshotsToClaude = async (
 
   const fetch = require('node-fetch');
   const response = await fetch(client.baseURL, {
+    agent: getProxyAgent(client.baseURL),
     method: 'POST',
     headers: {
       'x-api-key': client.apiKey,
@@ -1023,6 +1030,7 @@ const streamClaudeAPI = async (
 ): Promise<string> => {
   const fetch = require('node-fetch');
   const response = await fetch(client.baseURL, {
+    agent: getProxyAgent(client.baseURL),
     method: 'POST',
     headers: {
       'x-api-key': client.apiKey,
@@ -1210,6 +1218,7 @@ export const testClaudeConnection = async (store: any): Promise<{ success: boole
 
     const fetch = require('node-fetch');
     const response = await fetch(client.baseURL, {
+      agent: getProxyAgent(client.baseURL),
       method: 'POST',
       headers: {
         'x-api-key': client.apiKey,
@@ -1230,6 +1239,6 @@ export const testClaudeConnection = async (store: any): Promise<{ success: boole
 
     return { success: true, model };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
+    return { success: false, error: describeNetworkError(error, 'https://api.anthropic.com') };
   }
 };

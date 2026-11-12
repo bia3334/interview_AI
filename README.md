@@ -105,6 +105,7 @@ Keys are stored on your machine and only ever sent to the provider they belong t
   - *macOS* — there is no system loopback. Install [BlackHole](https://existential.audio/blackhole/), create a **Multi-Output Device** in Audio MIDI Setup (your speakers + BlackHole), set it as the system output, then pick *BlackHole* as the source. Allow microphone access when macOS asks.
   - *Call on another device* (e.g. you joined from your phone) — put the call on speaker next to the laptop and pick a *microphone* as the source. It hears you too, so turn off auto-answer and press **Answer now** (Ctrl+Shift+P) when the interviewer finishes.
 - **Notes only cover the other side** — system audio never contains your own voice. On Windows turn on **Include my microphone** in the settings view; lines are not labelled by speaker.
+- **"Connection error" on a company network** — the app follows the system proxy settings on its own. If the test still fails, set the proxy explicitly before starting the app: `HTTPS_PROXY=http://proxy-host:port` as an environment variable or in a `.env` file next to the app. The log prints `Network: api.openai.com → proxy …` or `→ direct` at startup, which shows what was picked.
 - **API errors** — press Test next to the provider in Settings. Most failures are a wrong model name or an exhausted quota.
 
 ## Support

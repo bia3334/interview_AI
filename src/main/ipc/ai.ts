@@ -40,6 +40,7 @@ import {
   recordTokenUsage
 } from '../ai/clients';
 import { generateInterviewPrompt, generatePrompt } from '../ai/prompts';
+import { getProxyAgent } from '../network';
 import { combineOCRResults, extractTextFromImages, isConfidenceAcceptable, OCRResult } from '../ocr';
 import type { AppStore } from '../store';
 import { imageToBase64 } from '../utils/files';
@@ -872,6 +873,7 @@ export function registerAIIPC(
       const zaiClient = new OpenAI({
         apiKey: zaiApiKey,
         baseURL: 'https://api.z.ai/api/paas/v4/',
+        httpAgent: getProxyAgent('https://api.z.ai'),
       });
 
       const zaiModel = store.get('zaiModel') || 'GLM-4.6V-Flash';
@@ -1060,6 +1062,7 @@ export function registerAIIPC(
       const zaiClient = new OpenAI({
         apiKey: zaiApiKey,
         baseURL: 'https://api.z.ai/api/paas/v4/',
+        httpAgent: getProxyAgent('https://api.z.ai'),
       });
 
       // Use vision-capable model for image analysis

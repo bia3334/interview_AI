@@ -24,6 +24,7 @@ import { registerFilesIPC } from './main/ipc/files';
 import { registerModeIPC } from './main/ipc/mode';
 import { registerInterviewContextIPC } from './main/ipc/interview-context';
 import { registerMeetingIPC } from './main/ipc/meeting';
+import { initNetworkProxy } from './main/network';
 import { registerOverlayIPC } from './main/ipc/overlay';
 import { registerPreferencesIPC } from './main/ipc/preferences';
 import { registerScreenshotsIPC } from './main/ipc/screenshots';
@@ -104,6 +105,9 @@ ipcMain.on('move-window', (_event, direction) => moveWindow(direction));
 
 // Application lifecycle
 app.whenReady().then(() => {
+  // Provider calls go through the system (or HTTPS_PROXY) proxy when there is one.
+  void initNetworkProxy(log).catch((err) => log.warn('Proxy setup failed:', err));
+
   // Enable system audio loopback so renderer's getDisplayMedia can capture Zoom/system audio
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
     desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {

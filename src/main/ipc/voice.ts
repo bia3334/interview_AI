@@ -1,6 +1,7 @@
 /**
  * Voice-input IPC handlers: transcription + provider / language preferences.
  */
+import { getProxyAgent } from '../network';
 import { ipcMain, IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import {
   normalizeTranscriptionLanguage,
@@ -62,6 +63,7 @@ export function registerVoiceIPC(deps: { store: AppStore; log: any }) {
           apiKey,
           model,
           language,
+          agent: getProxyAgent('https://api.openai.com'),
           log,
           onEvent: (evt) => {
             if (!sender.isDestroyed()) sender.send('realtime-transcript', evt);
