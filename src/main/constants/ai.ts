@@ -55,6 +55,9 @@ export interface OpenAICompatibleProvider {
   modelStore: string;   // store key for model name
   defaultModel: string;
   requiresApiKey: boolean;
+  baseURLStore?: string;  // store key for a user-configured endpoint (overrides baseURL)
+  usesMaxCompletionTokens?: boolean;  // newer OpenAI models reject max_tokens
+  supportsStreamUsage?: boolean;  // accepts stream_options.include_usage
 }
 
 export const OPENAI_COMPATIBLE_PROVIDERS: Record<string, OpenAICompatibleProvider> = {
@@ -66,6 +69,8 @@ export const OPENAI_COMPATIBLE_PROVIDERS: Record<string, OpenAICompatibleProvide
     modelStore: 'openaiModel',
     defaultModel: AI_MODELS.openai.default,
     requiresApiKey: true,
+    usesMaxCompletionTokens: true,
+    supportsStreamUsage: true,
   },
   zai: {
     id: 'zai',
@@ -75,6 +80,7 @@ export const OPENAI_COMPATIBLE_PROVIDERS: Record<string, OpenAICompatibleProvide
     modelStore: 'zaiModel',
     defaultModel: ZAI_CONFIG.DEFAULT_MODEL,
     requiresApiKey: true,
+    supportsStreamUsage: true,
   },
   lmstudio: {
     id: 'lmstudio',
@@ -84,5 +90,6 @@ export const OPENAI_COMPATIBLE_PROVIDERS: Record<string, OpenAICompatibleProvide
     modelStore: 'lmstudioModel',
     defaultModel: LMSTUDIO_CONFIG.DEFAULT_MODEL,
     requiresApiKey: false,
+    baseURLStore: 'lmstudioEndpoint',
   },
 };
