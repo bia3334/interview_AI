@@ -10,6 +10,13 @@ import type {
   InterviewContextPatch,
   InterviewContextSlot,
   InterviewSettings,
+  AssistAction,
+  MeetingNotesArgs,
+  MeetingSession,
+  MeetingSessionSummary,
+  SessionKind,
+  SessionQA,
+  TranscriptLine,
   ListenMode,
   RealtimeTranscriptEvent,
   ShortcutBinding,
@@ -27,6 +34,13 @@ export type {
   InterviewContextPatch,
   InterviewContextSlot,
   InterviewSettings,
+  AssistAction,
+  MeetingNotesArgs,
+  MeetingSession,
+  MeetingSessionSummary,
+  SessionKind,
+  SessionQA,
+  TranscriptLine,
   ListenMode,
   RealtimeTranscriptEvent,
   StreamProvider,
@@ -153,6 +167,35 @@ export class ElectronService {
 
   sendInterviewPrompt(args: InterviewPromptArgs): Promise<{ success: boolean; data?: { reply: string; provider: StreamProvider }; error?: string }> {
     return this.electronAPI.sendInterviewPrompt(args);
+  }
+
+  setInterviewPanelCollapsed(collapsed: boolean): Promise<{ success: boolean; data?: { collapsed: boolean }; error?: string }> {
+    return this.electronAPI.setInterviewPanelCollapsed(collapsed);
+  }
+
+  // Meeting notes + saved sessions
+  generateMeetingNotes(args: MeetingNotesArgs): Promise<{ success: boolean; data?: { notes: string; provider: StreamProvider }; error?: string }> {
+    return this.electronAPI.generateMeetingNotes(args);
+  }
+
+  listMeetingSessions(): Promise<{ success: boolean; data?: MeetingSessionSummary[]; error?: string }> {
+    return this.electronAPI.listMeetingSessions();
+  }
+
+  getMeetingSession(id: string): Promise<{ success: boolean; data?: MeetingSession; error?: string }> {
+    return this.electronAPI.getMeetingSession(id);
+  }
+
+  saveMeetingSession(session: MeetingSession): Promise<{ success: boolean; data?: MeetingSessionSummary; error?: string }> {
+    return this.electronAPI.saveMeetingSession(session);
+  }
+
+  deleteMeetingSession(id: string): Promise<{ success: boolean; error?: string }> {
+    return this.electronAPI.deleteMeetingSession(id);
+  }
+
+  exportMeetingSession(session: MeetingSession): Promise<{ success: boolean; data?: { canceled: boolean; filePath?: string }; error?: string }> {
+    return this.electronAPI.exportMeetingSession(session);
   }
 
   // Interview background context (CV / JD / notes)
@@ -740,7 +783,7 @@ export class ElectronService {
       sendConversationToZAI: () => Promise.resolve('Mock Z.AI conversation response'),
       getAppMode: () => Promise.resolve(null),
       setAppMode: () => Promise.resolve({ success: true, data: null }),
-      getInterviewSettings: () => Promise.resolve({ provider: 'auto', answerLanguage: 'auto', autoAnswer: true, listenMode: 'standard', realtimeModel: 'gpt-live-transcribe', audioSource: 'default' }),
+      getInterviewSettings: () => Promise.resolve({ provider: 'auto', answerLanguage: 'auto', autoAnswer: true, listenMode: 'standard', realtimeModel: 'gpt-live-transcribe', audioSource: 'default', sessionKind: 'interview', autoNotes: true, includeMic: false }),
       requestMicrophoneAccess: () => Promise.resolve({ success: true, data: { granted: true } }),
       startRealtimeTranscription: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       sendRealtimeAudio: () => {},
@@ -751,6 +794,13 @@ export class ElectronService {
       saveInterviewContext: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       importInterviewContextFile: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       sendInterviewPrompt: () => Promise.resolve({ success: true, data: { reply: 'Mock interview answer', provider: 'openai' } }),
+      setInterviewPanelCollapsed: (collapsed: boolean) => Promise.resolve({ success: true, data: { collapsed } }),
+      generateMeetingNotes: () => Promise.resolve({ success: true, data: { notes: '## Summary\n\nMock notes', provider: 'openai' } }),
+      listMeetingSessions: () => Promise.resolve({ success: true, data: [] }),
+      getMeetingSession: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      saveMeetingSession: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      deleteMeetingSession: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
+      exportMeetingSession: () => Promise.resolve({ success: false, error: 'Not in Electron' }),
       closeWindow: () => {},
       hideWindow: () => {},
       showWindow: () => {},

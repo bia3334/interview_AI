@@ -13,6 +13,79 @@ export type AppMode = 'exam' | 'interview';
 // Mode currently shown by the renderer; null while the launch picker is up.
 let currentMode: AppMode | null = null;
 
+/** Interview mode runs in its own compact window, top-centre of the screen. */
+const INTERVIEW_WINDOW = { width: 920, height: 700, collapsedHeight: 76 } as const;
+// Panel folded away: only the command bar is showing.
+let interviewCollapsed = false;
+let interviewExpandedHeight: number = INTERVIEW_WINDOW.height;
+
+type Bounds = { x: number; y: number; width: number; height: number };
+
+function isBounds(value: any): value is Bounds {
+  return !!value && ['x', 'y', 'width', 'height'].every((k) => typeof value[k] === 'number' && isFinite(value[k]))
+    && value.width >= 320 && value.height >= 200;
+}
+
+/**
+ * Remember where the window is, under the key of the mode that is showing:
+ * the exam overlay and the interview panel keep separate geometry.
+ */
+function persistBounds(store: any) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const b = mainWindow.getBounds();
+  if (currentMode === 'interview') {
+    store.set('interviewWindowBounds', {
+      x: b.x,
+      y: b.y,
+      width: b.width,
+      height: interviewCollapsed ? interviewExpandedHeight : b.height,
+    });
+  } else {
+    store.set('windowPosition', { x: b.x, y: b.y });
+    store.set('windowSize', { width: b.width, height: b.height });
+  }
+}
+
+/** Geometry the window should have for the mode that is showing. */
+function targetBounds(store: any): Bounds | null {
+  if (currentMode === 'interview') {
+    const saved = store.get('interviewWindowBounds');
+    let base: Bounds;
+    if (isBounds(saved)) {
+      base = saved;
+    } else {
+      const area = screen.getPrimaryDisplay().workArea;
+      const width = Math.min(INTERVIEW_WINDOW.width, area.width - 40);
+      const height = Math.min(INTERVIEW_WINDOW.height, area.height - 60);
+      base = { x: area.x + Math.round((area.width - width) / 2), y: area.y + 24, width, height };
+    }
+    interviewExpandedHeight = base.height;
+    return { ...base, height: interviewCollapsed ? INTERVIEW_WINDOW.collapsedHeight : base.height };
+  }
+  const position = store.get('windowPosition');
+  const size = store.get('windowSize');
+  return position && size ? { ...position, ...size } : null;
+}
+
+/**
+ * Fold the interview panel down to its command bar (or back). The window
+ * shrinks with it, so nothing invisible is left covering the desktop.
+ */
+export function setInterviewPanelCollapsed(collapsed: boolean, store: any) {
+  if (!mainWindow || mainWindow.isDestroyed() || currentMode !== 'interview') return;
+  if (collapsed === interviewCollapsed) return;
+  const b = mainWindow.getBounds();
+  if (collapsed) interviewExpandedHeight = b.height;
+  interviewCollapsed = collapsed;
+  mainWindow.setBounds({
+    x: b.x,
+    y: b.y,
+    width: b.width,
+    height: collapsed ? INTERVIEW_WINDOW.collapsedHeight : interviewExpandedHeight,
+  });
+  persistBounds(store);
+}
+
 /**
  * Pool of innocuous, system-looking window titles. One is picked at random on
  * every startup so the overlay can't be fingerprinted by a fixed window name
@@ -54,9 +127,7 @@ export const getWindowState = () => ({
  */
 export function hideMainWindow(store: any) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    const bounds = mainWindow.getBounds();
-    store.set('windowPosition', { x: bounds.x, y: bounds.y });
-    store.set('windowSize', { width: bounds.width, height: bounds.height });
+    persistBounds(store);
 
     mainWindow.setIgnoreMouseEvents(true, { forward: true });
     mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
@@ -93,8 +164,18 @@ function applyAutoInteractionIfEnabled(store: any) {
  *   null      — mode picker is showing: interactive so it can be clicked
  */
 export function applyAppMode(mode: AppMode | null, store: any) {
+  const previous = currentMode;
+  // Entering or leaving interview mode swaps the window geometry: save the
+  // outgoing mode's bounds before the mode changes, then apply the new ones.
+  const swapsGeometry = previous !== mode && (previous === 'interview' || mode === 'interview');
+  if (swapsGeometry) persistBounds(store);
   currentMode = mode;
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (swapsGeometry) {
+    interviewCollapsed = false;
+    const bounds = targetBounds(store);
+    if (bounds) mainWindow.setBounds(bounds);
+  }
   const stealth = mode === 'exam' && !store.get('autoInteractionOnShow');
   isIgnoringMouseEvents = stealth;
   mainWindow.setIgnoreMouseEvents(stealth, { forward: true });
@@ -106,15 +187,8 @@ export function applyAppMode(mode: AppMode | null, store: any) {
  */
 export function showMainWindow(store: any) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    const savedPosition = store.get('windowPosition');
-    const savedSize = store.get('windowSize');
-
-    if (savedPosition && savedSize) {
-      mainWindow.setBounds({
-        ...savedPosition,
-        ...savedSize
-      });
-    }
+    const bounds = targetBounds(store);
+    if (bounds) mainWindow.setBounds(bounds);
 
     mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
     mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -275,17 +349,11 @@ export function createWindow(store: any, preloadPath: string) {
   applyAutoInteractionIfEnabled(store);
 
   mainWindow.on('moved', () => {
-    if (mainWindow) {
-      const position = mainWindow.getPosition();
-      store.set('windowPosition', { x: position[0], y: position[1] });
-    }
+    persistBounds(store);
   });
 
   mainWindow.on('resized', () => {
-    if (mainWindow) {
-      const size = mainWindow.getSize();
-      store.set('windowSize', { width: size[0], height: size[1] });
-    }
+    persistBounds(store);
   });
 
   mainWindow.on('closed', () => {

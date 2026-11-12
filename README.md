@@ -10,12 +10,13 @@ Windows and macOS. Bring your own API key, or run fully offline with LM Studio.
 
 Pick one when the app opens. Both are hidden from screen capture.
 
-| | Exam | Interview |
+| | Exam | Interview & Meetings |
 |---|---|---|
 | For | Anything on your screen | Anything you hear |
-| Window | See-through, click-through, hotkeys only | Larger readable panel, always clickable |
+| Window | See-through, click-through, hotkeys only | Compact floating bar with a panel you can fold away, always clickable |
 | Input | Full or region screenshot, on-device OCR, clipboard | System audio from the call (Zoom, Meet, Teams) |
-| Output | Several providers side by side, formatted code and math | One provider, spoken-style answer in English or Vietnamese |
+| Output | Several providers side by side, formatted code and math | One provider: answers you can say, quick help (Assist, What should I say?, Follow-up questions, Recap) and meeting notes, in English or Vietnamese |
+| Notes | — | Summary, key points, decisions and action items written as the call goes, saved per session with the transcript, exportable as Markdown |
 | Listening | — | Realtime streaming (OpenAI Realtime API) or file-based (Whisper / Gemini) with a local pause detector |
 
 ## What's inside
@@ -99,10 +100,11 @@ Keys are stored on your machine and only ever sent to the provider they belong t
 
 - **Shortcuts do nothing** — another app owns the same hotkey. Rebind in Settings or close the other app.
 - **Screenshots are blank** — check the OS screen-recording permission for the app (macOS: System Settings → Privacy & Security → Screen Recording).
-- **No audio in Interview mode** — check the **Source** picker in the interview toolbar:
+- **No audio in Interview mode** — check **Audio source** in the settings view (the sliders button on the bar):
   - *System audio (what you hear)* — Windows only. Captures the OS loopback of the *default output device*, never the microphone. Make sure the call (Meet, Zoom, Teams) plays on the default speakers/headphones rather than a device picked inside the call app.
   - *macOS* — there is no system loopback. Install [BlackHole](https://existential.audio/blackhole/), create a **Multi-Output Device** in Audio MIDI Setup (your speakers + BlackHole), set it as the system output, then pick *BlackHole* as the source. Allow microphone access when macOS asks.
   - *Call on another device* (e.g. you joined from your phone) — put the call on speaker next to the laptop and pick a *microphone* as the source. It hears you too, so turn off auto-answer and press **Answer now** (Ctrl+Shift+P) when the interviewer finishes.
+- **Notes only cover the other side** — system audio never contains your own voice. On Windows turn on **Include my microphone** in the settings view; lines are not labelled by speaker.
 - **API errors** — press Test next to the provider in Settings. Most failures are a wrong model name or an exhausted quota.
 
 ## Support

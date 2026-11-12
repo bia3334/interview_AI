@@ -15,8 +15,9 @@ macOS uses through BlackHole, or a microphone):
 | `realtime` | `RealtimeListenerService` → `realtime:audio` IPC → `RealtimeTranscriber` (one per model) → mock Realtime API | 24 kHz PCM16 streamed for the whole call; GA `session.update` accepted; `gpt-live-transcribe` (client VAD) commits once per utterance and streams deltas; `gpt-4o-mini-transcribe` (server VAD) relays speech_started/stopped; each utterance reaches the server with the right amount of speech; no error events. |
 | `fallback` | `RealtimeTranscriber` against a mock that rejects the GA session shape (node only) | One reconnect with the pre-GA protocol and `OpenAI-Beta` header, language hint forwarded, audio buffered during the reconnect still transcribed. |
 | `context` | `buildInterviewContextPrefix` from `src/main/ai/interview-context.ts` (node only) | Empty context → empty prefix; CV, JD and notes emitted with headers and the no-invented-facts rule; oversized slots clipped with a marker; malformed store values coerced. |
+| `meeting` | `src/main/ai/meeting.ts` and the session files of `src/main/ipc/meeting.ts` (node only) | Quick-action prompts carry the recent transcript (its end, when long), the action and the language rule; the notes prompt sends the previous notes plus only the new lines, and the final pass asks for a title; sessions are written atomically with a derived title, listed newest first, exported as one Markdown document, and unsafe ids never reach the file system. |
 
-Run one scenario with `node test/interview/run.js --only realtime` (or `context`, which needs no Electron).
+Run one scenario with `node test/interview/run.js --only realtime` (or `context` / `meeting`, which need no Electron).
 
 ## Files
 

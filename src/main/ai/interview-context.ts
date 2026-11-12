@@ -69,12 +69,21 @@ function clip(text: string, limit: number): string {
 /**
  * Prompt prefix placed ahead of the interview question. Empty string when no
  * slot has text, so callers can drop it without a check.
+ *
+ * The same three slots serve a meeting session, where they are read as
+ * "about me", "meeting brief / agenda" and notes instead of CV and JD.
  */
-export function buildInterviewContextPrefix(ctx: InterviewContext): string {
+export function buildInterviewContextPrefix(
+  ctx: InterviewContext,
+  kind: 'interview' | 'meeting' = 'interview',
+): string {
   if (!hasInterviewContext(ctx)) return '';
 
+  const meeting = kind === 'meeting';
   const parts: string[] = [
-    'Background for this interview. Ground every answer in it: speak as the candidate described in the CV, cite real experience from it, and match what the job description asks for. Never invent facts about me; if a question is about something not covered here, answer from general knowledge without claiming it is on my CV.',
+    meeting
+      ? 'Background for this meeting. Use it to understand who I am, what the meeting is about and the terms and names involved. Never invent facts about me or the project; if something is not covered here or in the transcript, say so or answer from general knowledge without presenting it as a fact about us.'
+      : 'Background for this interview. Ground every answer in it: speak as the candidate described in the CV, cite real experience from it, and match what the job description asks for. Never invent facts about me; if a question is about something not covered here, answer from general knowledge without claiming it is on my CV.',
   ];
 
   const section = (title: string, entry: InterviewContextEntry, limit: number) => {
@@ -83,8 +92,8 @@ export function buildInterviewContextPrefix(ctx: InterviewContext): string {
     parts.push(['', `--- ${label} ---`, clip(entry.text, limit), `--- END ${title} ---`].join('\n'));
   };
 
-  section('MY CV', ctx.cv, INTERVIEW_CONTEXT_LIMITS.cv);
-  section('JOB DESCRIPTION', ctx.jd, INTERVIEW_CONTEXT_LIMITS.jd);
+  section(meeting ? 'ABOUT ME' : 'MY CV', ctx.cv, INTERVIEW_CONTEXT_LIMITS.cv);
+  section(meeting ? 'MEETING BRIEF' : 'JOB DESCRIPTION', ctx.jd, INTERVIEW_CONTEXT_LIMITS.jd);
   section('MY NOTES', ctx.notes, INTERVIEW_CONTEXT_LIMITS.notes);
 
   return parts.join('\n');

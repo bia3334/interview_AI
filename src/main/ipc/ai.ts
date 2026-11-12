@@ -47,6 +47,14 @@ import { getMainWindow } from '../window';
 import { buildDocContextPrefix } from './documents';
 import { getInterviewContext } from './interview-context';
 import { buildInterviewContextPrefix } from '../ai/interview-context';
+import {
+  AssistAction,
+  generateAssistPrompt,
+  generateMeetingNotesPrompt,
+  normalizeAssistAction,
+  normalizeSessionKind,
+  SessionKind,
+} from '../ai/meeting';
 import { overlayManager } from './overlay';
 import { getScreenshotQueue } from './screenshots';
 
@@ -495,10 +503,33 @@ export function registerAIIPC(
     }
   });
 
-  // Interview mode: one provider, streamed, spoken-style answer to a live
-  // transcribed question. `history` carries prior Q/A turns (raw text) so
-  // follow-up questions keep context; the instruction prompt is only applied
-  // to the newest turn to keep token usage low.
+  /** One conversation with one provider, streamed when `onDelta` is given. */
+  const runConversation = async (
+    provider: StreamProvider,
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    onDelta?: (delta: string) => void,
+  ): Promise<string> => {
+    switch (provider) {
+      case 'openai':
+        return onDelta ? streamConversationToOpenAI(messages, store, onDelta) : sendConversationToOpenAI(messages, store);
+      case 'gemini':
+        return onDelta ? streamConversationToGemini(messages, store, onDelta) : sendConversationToGemini(messages, store);
+      case 'claude':
+        return onDelta ? streamConversationToClaude(messages, store, onDelta) : sendConversationToClaude(messages, store);
+      case 'zai':
+        return onDelta ? streamConversationToZAI(messages, store, onDelta) : sendConversationToZAI(messages, store);
+      case 'lmstudio':
+        return onDelta ? streamConversationToLMStudio(messages, store, onDelta) : sendConversationToLMStudio(messages, store);
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
+  };
+
+  // Interview / meeting assistant: one provider, streamed, short answer to a
+  // live transcribed question or a quick action over the transcript.
+  // `history` carries prior Q/A turns (raw text) so follow-up questions keep
+  // context; the instruction prompt is only applied to the newest turn to
+  // keep token usage low.
   ipcMain.handle('sendInterviewPrompt', async (
     event: IpcMainInvokeEvent,
     args: {
@@ -507,20 +538,35 @@ export function registerAIIPC(
       history?: Array<{ role: 'user' | 'assistant'; content: string }>;
       answerLanguage?: 'auto' | 'en' | 'vi';
       requestId?: string;
+      /** Defaults keep the original behaviour: answer as the candidate. */
+      sessionKind?: SessionKind;
+      action?: AssistAction;
+      /** Recent transcript, used by every action except the interview answer. */
+      transcript?: string;
     }
   ) => {
     try {
       const question = (args?.question || '').trim();
-      if (!question) {
+      const kind = normalizeSessionKind(args?.sessionKind);
+      const action = normalizeAssistAction(args?.action);
+      const transcript = typeof args?.transcript === 'string' ? args.transcript : '';
+      if (action === 'answer' && !question) {
         return { success: false, error: 'Empty question' };
       }
       const provider = resolveInterviewProvider(args.provider, store);
       const answerLanguage = args.answerLanguage || 'auto';
       const codeLanguage = store.get('preferredLanguage') || 'python';
       // CV / JD / notes first, then any exam-mode document the user activated.
-      const contextPrefix = buildInterviewContextPrefix(getInterviewContext(store));
+      const contextPrefix = buildInterviewContextPrefix(getInterviewContext(store), kind);
       const docPrefix = [contextPrefix, buildDocContextPrefix()].filter(Boolean).join('\n\n');
-      const finalPrompt = generateInterviewPrompt(question, answerLanguage, codeLanguage, docPrefix);
+      const finalPrompt = action === 'answer' && kind === 'interview'
+        ? generateInterviewPrompt(question, answerLanguage, codeLanguage, docPrefix)
+        : generateAssistPrompt({
+            action, kind, transcript, question,
+            language: answerLanguage,
+            codeLanguage: action === 'answer' ? codeLanguage : undefined,
+            contextPrefix: docPrefix,
+          });
 
       const history = Array.isArray(args.history) ? args.history : [];
       const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -528,30 +574,10 @@ export function registerAIIPC(
         { role: 'user', content: finalPrompt },
       ];
 
-      const onDelta = makeStreamEmitter(event, args.requestId, provider);
-      const stream = !!args.requestId;
-      log.info(`Interview: asking ${provider} (lang=${answerLanguage}, history=${history.length}, context=${contextPrefix ? 'yes' : 'no'})`);
+      const onDelta = args.requestId ? makeStreamEmitter(event, args.requestId, provider) : undefined;
+      log.info(`Assistant: ${kind}/${action} → ${provider} (lang=${answerLanguage}, history=${history.length}, transcript=${transcript.length}, context=${contextPrefix ? 'yes' : 'no'})`);
 
-      let reply = '';
-      switch (provider) {
-        case 'openai':
-          reply = stream ? await streamConversationToOpenAI(messages, store, onDelta) : await sendConversationToOpenAI(messages, store);
-          break;
-        case 'gemini':
-          reply = stream ? await streamConversationToGemini(messages, store, onDelta) : await sendConversationToGemini(messages, store);
-          break;
-        case 'claude':
-          reply = stream ? await streamConversationToClaude(messages, store, onDelta) : await sendConversationToClaude(messages, store);
-          break;
-        case 'zai':
-          reply = stream ? await streamConversationToZAI(messages, store, onDelta) : await sendConversationToZAI(messages, store);
-          break;
-        case 'lmstudio':
-          reply = stream ? await streamConversationToLMStudio(messages, store, onDelta) : await sendConversationToLMStudio(messages, store);
-          break;
-        default:
-          return { success: false, error: `Unknown provider: ${provider}` };
-      }
+      const reply = await runConversation(provider, messages, onDelta);
 
       // Keep Ctrl+Shift+C (copy latest answer) working, but don't pop the exam
       // overlay bubble — interview mode shows the answer in its own panel.
@@ -562,6 +588,48 @@ export function registerAIIPC(
     } catch (error) {
       log.error('Interview prompt failed:', error);
       return { success: false, error: (error as Error).message || 'Interview request failed' };
+    }
+  });
+
+  // Rolling meeting notes: the notes so far + the transcript added since →
+  // the full updated notes. Not written to `latestAIResponse`, so a notes
+  // refresh in the background never replaces what Ctrl+Shift+C copies.
+  ipcMain.handle('generateMeetingNotes', async (
+    event: IpcMainInvokeEvent,
+    args: {
+      provider: string;
+      sessionKind?: SessionKind;
+      newTranscript: string;
+      previousNotes?: string;
+      language?: 'auto' | 'en' | 'vi';
+      final?: boolean;
+      requestId?: string;
+    }
+  ) => {
+    try {
+      const newTranscript = typeof args?.newTranscript === 'string' ? args.newTranscript.trim() : '';
+      const previousNotes = typeof args?.previousNotes === 'string' ? args.previousNotes.trim() : '';
+      if (!newTranscript && !previousNotes) {
+        return { success: false, error: 'Nothing to take notes on yet' };
+      }
+      const kind = normalizeSessionKind(args?.sessionKind);
+      const provider = resolveInterviewProvider(args.provider, store);
+      const prompt = generateMeetingNotesPrompt({
+        kind,
+        newTranscript,
+        previousNotes,
+        language: args.language || 'auto',
+        final: !!args.final,
+        contextPrefix: buildInterviewContextPrefix(getInterviewContext(store), kind),
+      });
+      const onDelta = args.requestId ? makeStreamEmitter(event, args.requestId, provider) : undefined;
+      log.info(`Notes: ${kind} → ${provider} (new=${newTranscript.length}, previous=${previousNotes.length}, final=${!!args.final})`);
+      const notes = (await runConversation(provider, [{ role: 'user', content: prompt }], onDelta)).trim();
+      if (!notes) return { success: false, error: 'The model returned empty notes' };
+      return { success: true, data: { notes, provider } };
+    } catch (error) {
+      log.error('Meeting notes failed:', error);
+      return { success: false, error: (error as Error).message || 'Notes request failed' };
     }
   });
 

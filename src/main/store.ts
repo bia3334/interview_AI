@@ -58,6 +58,15 @@ export interface StoreSchema {
   // input deviceId (BlackHole on macOS, or a microphone). Unset → per-platform
   // default from ipc/mode.ts#defaultAudioSource.
   interviewAudioSource?: string;
+  // Interview mode session: 'interview' answers as the candidate, 'meeting'
+  // is the meeting assistant + note-taker. autoNotes refreshes the notes
+  // while listening; includeMic mixes my microphone into the system audio.
+  interviewSessionKind: 'interview' | 'meeting';
+  interviewAutoNotes: boolean;
+  interviewIncludeMic: boolean;
+  // Interview mode uses its own compact window; kept apart from the exam
+  // overlay's windowPosition / windowSize.
+  interviewWindowBounds?: { x: number; y: number; width: number; height: number };
   // Interview mode: the candidate's CV, the job description and notes, sent
   // ahead of every interview question so answers are grounded in them.
   interviewContext: InterviewContext;
@@ -108,6 +117,9 @@ export const STORE_DEFAULTS: StoreSchema = {
   interviewAutoAnswer: true,
   interviewListenMode: 'standard',
   interviewRealtimeModel: 'gpt-live-transcribe',
+  interviewSessionKind: 'interview',
+  interviewAutoNotes: true,
+  interviewIncludeMic: false,
   interviewContext: emptyInterviewContext(),
   // Window behavior default — keep current click-through-on-show behavior
   // unless the user opts in to auto-interaction.

@@ -3,7 +3,8 @@
  */
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { systemPreferences } from 'electron';
-import { applyAppMode, AppMode } from '../window';
+import { applyAppMode, AppMode, setInterviewPanelCollapsed } from '../window';
+import { normalizeSessionKind, SessionKind } from '../ai/meeting';
 import { normalizeRealtimeModel } from './voice';
 
 export type InterviewProvider = 'auto' | 'openai' | 'gemini' | 'claude' | 'zai' | 'lmstudio';
@@ -29,6 +30,12 @@ export interface InterviewSettings {
   listenMode: ListenMode;
   realtimeModel: string;
   audioSource: AudioSource;
+  /** Interview (I am the candidate) or meeting (assistant + note-taker). */
+  sessionKind: SessionKind;
+  /** Refresh the notes on their own while listening. */
+  autoNotes: boolean;
+  /** Mix my microphone into the system-audio capture so my side is transcribed too. */
+  includeMic: boolean;
 }
 
 /** Loopback exists only on Windows; elsewhere start on the default input. */
@@ -105,6 +112,9 @@ export function registerModeIPC(
       listenMode: LISTEN_MODES.includes(listenMode) ? listenMode : 'standard',
       realtimeModel: normalizeRealtimeModel(store.get('interviewRealtimeModel')),
       audioSource: normalizeAudioSource(store.get('interviewAudioSource')),
+      sessionKind: normalizeSessionKind(store.get('interviewSessionKind')),
+      autoNotes: store.get('interviewAutoNotes') !== false,
+      includeMic: store.get('interviewIncludeMic') === true,
     };
   });
 
@@ -128,10 +138,33 @@ export function registerModeIPC(
       if (typeof settings.audioSource === 'string') {
         store.set('interviewAudioSource', normalizeAudioSource(settings.audioSource));
       }
+      if (settings.sessionKind === 'interview' || settings.sessionKind === 'meeting') {
+        store.set('interviewSessionKind', settings.sessionKind);
+      }
+      if (typeof settings.autoNotes === 'boolean') {
+        store.set('interviewAutoNotes', settings.autoNotes);
+      }
+      if (typeof settings.includeMic === 'boolean') {
+        store.set('interviewIncludeMic', settings.includeMic);
+      }
       return { success: true };
     } catch (error: any) {
       log.error('saveInterviewSettings error:', error);
       return { success: false, error: error.message || 'Failed to save interview settings' };
+    }
+  });
+
+  /**
+   * Interview mode's panel can be folded away, leaving only the command bar;
+   * the window shrinks with it so the desktop behind stays clickable.
+   */
+  ipcMain.handle('setInterviewPanelCollapsed', (_event: IpcMainInvokeEvent, collapsed: boolean) => {
+    try {
+      setInterviewPanelCollapsed(!!collapsed, store);
+      return { success: true, data: { collapsed: !!collapsed } };
+    } catch (error: any) {
+      log.error('setInterviewPanelCollapsed error:', error);
+      return { success: false, error: error.message || 'Failed to resize the window' };
     }
   });
 }
