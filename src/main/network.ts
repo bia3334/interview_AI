@@ -159,3 +159,27 @@ export function getProxyAgent(targetUrl: string): Agent | undefined {
   }
   return agent;
 }
+
+/**
+ * Error text for a failed provider call that says what actually went wrong.
+ * The SDKs wrap socket failures in a bare "Connection error."; the cause
+ * (DNS, refused proxy, certificate) and the route taken are what tell a
+ * proxy problem apart from a bad key.
+ */
+export function describeNetworkError(error: any, targetUrl: string): string {
+  const message = String(error?.message || 'Connection failed');
+  // Walk the cause chain: the useful code is usually one or two levels down.
+  const details: string[] = [];
+  let cause = error?.cause;
+  for (let depth = 0; cause && depth < 4; depth++, cause = cause.cause) {
+    const text = [cause.code, cause.message].filter(Boolean).join(' ');
+    if (text && !details.includes(text) && !message.includes(text)) details.push(text);
+  }
+  // An HTTP status came back, so the network path works: leave the message alone.
+  if (typeof error?.status === 'number' && details.length === 0) return message;
+  const looksLikeNetwork = details.length > 0 || /connection error|fetch failed|net::|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|certificate|socket/i.test(message);
+  if (!looksLikeNetwork) return message;
+  const proxy = proxyFor(targetUrl);
+  const route = proxy ? `via proxy ${proxy.replace(/\/\/[^@/]*@/, '//***@')}` : 'direct, no proxy detected';
+  return `${message}${details.length ? ` (${details.join('; ')})` : ''} [${route}]`;
+}

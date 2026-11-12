@@ -1,4 +1,4 @@
-import { getProxyAgent } from '../network';
+import { describeNetworkError, getProxyAgent } from '../network';
 import { OpenAI } from 'openai';
 const { GoogleGenAI } = require('@google/genai');
 import { AI_MODELS, DEFAULT_AI_PROVIDER, LMSTUDIO_CONFIG, ZAI_CONFIG, OPENAI_COMPATIBLE_PROVIDERS, OpenAICompatibleProvider } from '../constants/ai';
@@ -326,7 +326,7 @@ export const testOpenAICompatibleConnection = async (
     });
     return { success: true, model };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
+    return { success: false, error: describeNetworkError(error, OPENAI_COMPATIBLE_PROVIDERS[providerId]?.baseURL || OPENAI_API_URL) };
   }
 };
 
@@ -658,7 +658,7 @@ export const testGeminiConnection = async (store: any): Promise<{ success: boole
     });
     return { success: true, model };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
+    return { success: false, error: describeNetworkError(error, 'https://generativelanguage.googleapis.com') };
   }
 };
 
@@ -1239,6 +1239,6 @@ export const testClaudeConnection = async (store: any): Promise<{ success: boole
 
     return { success: true, model };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Connection failed' };
+    return { success: false, error: describeNetworkError(error, 'https://api.anthropic.com') };
   }
 };
