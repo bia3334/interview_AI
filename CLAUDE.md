@@ -30,6 +30,7 @@ The codebase has three layers that communicate through a strict bridge pattern:
 **Main Process** (`src/main/`) — Electron backend. Orchestrated from `src/main.ts`. Logic is split into:
 - `ipc/` — IPC handler modules (ai, screenshots, overlay, documents, files, preferences, voice)
 - `ai/` — API clients for each provider (`clients.ts`) and prompt templates (`prompts.ts`)
+- `network.ts` — outbound proxy: resolves the system proxy per provider host through Chromium (`HTTPS_PROXY` overrides) and hands clients an agent via `getProxyAgent(url)`. Every new provider client (OpenAI SDK `httpAgent`, node-fetch `agent`, ws `agent`) must pass it, or it fails with "Connection error" behind a corporate proxy
 - `window.ts` — window creation, visibility toggling, click-through mode
 - `store.ts` — `electron-store` wrapper for persistent user preferences
 - `shortcuts.ts` — debounced global keyboard shortcut registration
