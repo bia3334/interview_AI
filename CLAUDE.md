@@ -29,7 +29,7 @@ The codebase has three layers that communicate through a strict bridge pattern:
 
 **Main Process** (`src/main/`) — Electron backend. Orchestrated from `src/main.ts`. Logic is split into:
 - `ipc/` — IPC handler modules (ai, screenshots, overlay, documents, files, preferences, voice)
-- `ai/` — API clients for each provider (`clients.ts`) and prompt templates (`prompts.ts`)
+- `ai/` — AI clients and prompt templates (`prompts.ts`). `clients.ts` is only the entry point re-exporting `settings.ts` (API keys, system prompt, shared types), `pricing.ts` (price table) + `usage.ts` (token tracking), `providers/` (`openai-compatible.ts` for OpenAI / Z.AI / LM Studio, `gemini.ts`, `claude.ts`) and `key-info.ts`. Per-provider differences belong in `OPENAI_COMPATIBLE_PROVIDERS` (`constants/ai.ts`) or the `PRICING` table, not in `if` branches
 - `window.ts` — window creation, visibility toggling, click-through mode
 - `store.ts` — `electron-store` wrapper for persistent user preferences
 - `shortcuts.ts` — debounced global keyboard shortcut registration
