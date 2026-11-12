@@ -175,6 +175,12 @@ export function describeNetworkError(error: any, targetUrl: string): string {
     const text = [cause.code, cause.message].filter(Boolean).join(' ');
     if (text && !details.includes(text) && !message.includes(text)) details.push(text);
   }
+  // The proxy answered, but wants credentials this app does not have. Its
+  // reply is a full HTML page; say what it means instead of printing it.
+  if (error?.status === 407 || /^407\b/.test(message) || /Proxy Authentication/i.test(message)) {
+    const via = proxyFor(targetUrl);
+    return `The proxy${via ? ` ${via.replace(/\/\/[^@/]*@/, '//***@')}` : ''} requires authentication (407). Point HTTPS_PROXY at a local authenticating proxy, or use a network without one.`;
+  }
   // An HTTP status came back, so the network path works: leave the message alone.
   if (typeof error?.status === 'number' && details.length === 0) return message;
   const looksLikeNetwork = details.length > 0 || /connection error|fetch failed|net::|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|certificate|socket/i.test(message);
