@@ -29,6 +29,49 @@ export interface InterviewSettings {
   listenMode: ListenMode;
   realtimeModel: string;
   audioSource: AudioSource;
+  sessionKind: SessionKind;
+  autoNotes: boolean;
+  includeMic: boolean;
+}
+
+/** interview = I am the candidate; meeting = assistant + note-taker. */
+export type SessionKind = 'interview' | 'meeting';
+/** What the assistant does with the live conversation. */
+export type AssistAction = 'answer' | 'assist' | 'say-next' | 'follow-up' | 'recap';
+
+export interface TranscriptLine { at: number; text: string; }
+export interface SessionQA { at: number; question: string; answer: string; }
+/** A saved session: notes (Markdown) + transcript + assistant answers. */
+export interface MeetingSession {
+  id: string;
+  kind: SessionKind;
+  title: string;
+  startedAt: number;
+  endedAt: number;
+  notes: string;
+  transcript: TranscriptLine[];
+  qa: SessionQA[];
+  updatedAt: number;
+}
+export interface MeetingSessionSummary {
+  id: string;
+  kind: SessionKind;
+  title: string;
+  startedAt: number;
+  endedAt: number;
+  lineCount: number;
+  hasNotes: boolean;
+}
+export interface MeetingNotesArgs {
+  provider: 'auto' | StreamProvider;
+  sessionKind: SessionKind;
+  /** Transcript lines added since `previousNotes` was written. */
+  newTranscript: string;
+  previousNotes?: string;
+  language?: VoiceLanguage;
+  /** Last update of the session: adds a title and tidies the document. */
+  final?: boolean;
+  requestId?: string;
 }
 
 /** Interview background context: CV, job description, notes. */
@@ -58,6 +101,10 @@ export interface InterviewPromptArgs {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
   answerLanguage?: VoiceLanguage;
   requestId?: string;
+  sessionKind?: SessionKind;
+  action?: AssistAction;
+  /** Recent transcript the action works on. */
+  transcript?: string;
 }
 
 export interface ElectronAPI {
@@ -86,6 +133,15 @@ export interface ElectronAPI {
   saveInterviewContext: (patch: InterviewContextPatch) => Promise<{ success: boolean; data?: InterviewContext; error?: string }>;
   importInterviewContextFile: (slot: InterviewContextSlot) => Promise<{ success: boolean; data?: { canceled: boolean; entry?: InterviewContextEntry }; error?: string }>;
   sendInterviewPrompt: (args: InterviewPromptArgs) => Promise<{ success: boolean; data?: { reply: string; provider: StreamProvider }; error?: string }>;
+  setInterviewPanelCollapsed: (collapsed: boolean) => Promise<{ success: boolean; data?: { collapsed: boolean }; error?: string }>;
+
+  // Meeting notes + saved sessions
+  generateMeetingNotes: (args: MeetingNotesArgs) => Promise<{ success: boolean; data?: { notes: string; provider: StreamProvider }; error?: string }>;
+  listMeetingSessions: () => Promise<{ success: boolean; data?: MeetingSessionSummary[]; error?: string }>;
+  getMeetingSession: (id: string) => Promise<{ success: boolean; data?: MeetingSession; error?: string }>;
+  saveMeetingSession: (session: MeetingSession) => Promise<{ success: boolean; data?: MeetingSessionSummary; error?: string }>;
+  deleteMeetingSession: (id: string) => Promise<{ success: boolean; error?: string }>;
+  exportMeetingSession: (session: MeetingSession) => Promise<{ success: boolean; data?: { canceled: boolean; filePath?: string }; error?: string }>;
 
   closeWindow: () => void;
   hideWindow: () => void;

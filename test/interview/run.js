@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Interview-mode audio pipeline test (Google Meet style call audio).
 //
-//   node test/interview/run.js [--only loopback|standard|realtime|fallback|context]
+//   node test/interview/run.js [--only loopback|standard|realtime|fallback|context|meeting]
 //
 // What it checks, without speakers, a microphone, an API key or a live call:
 //   loopback  what the app's untouched getDisplayMedia + audio:'loopback'
@@ -16,6 +16,8 @@
 //             GA session.update is rejected (node only, no Electron)
 //   context   the CV / JD / notes prefix placed ahead of every interview
 //             question is built, clipped and omitted correctly (node only)
+//   meeting   the meeting assistant's quick-action and rolling-notes prompts,
+//             and the saved-session files (node only)
 //
 // Renderer services run in a real Electron/Chromium under Xvfb; the audio
 // comes from Chromium's fake capture device fed with gen-meet-audio.js.
@@ -298,6 +300,82 @@ async function scenarioContext() {
   check('context', 'empty text clears the name too', ipc.getInterviewContext(store).cv.fileName === null && ipc.getInterviewContext(store).cv.text === '');
 }
 
+// Node-only: the meeting assistant's prompts, notes prompt and saved-session
+// files (src/main/ai/meeting.ts, src/main/ipc/meeting.ts).
+async function scenarioMeeting() {
+  console.log('\n[meeting] assistant prompts, rolling notes prompt, saved sessions');
+  const out = path.join(BUILD, 'meeting-ipc.js');
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'src', 'main', 'ipc', 'meeting.ts')],
+    bundle: true, platform: 'node', format: 'cjs', target: 'node18', packages: 'external',
+    outfile: out, logLevel: 'silent',
+  });
+  const aiOut = path.join(BUILD, 'meeting-ai.js');
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'src', 'main', 'ai', 'meeting.ts')],
+    bundle: true, platform: 'node', format: 'cjs', target: 'node18',
+    outfile: aiOut, logLevel: 'silent',
+  });
+  const ai = require(aiOut);
+  const ipc = require(out);
+
+  const transcript = '[10:00:01] We need to settle the cutover date.\n[10:00:09] Linh, can you own the runbook by Friday?';
+  const followUp = ai.generateAssistPrompt({ action: 'follow-up', kind: 'meeting', transcript, language: 'en' });
+  check('meeting', 'quick action prompt carries the transcript and the action', followUp.includes('Linh, can you own the runbook') && /follow-up questions/.test(followUp) && /meeting assistant/.test(followUp));
+  check('meeting', 'transcript-only action has no Question block', !/\nQuestion:\n/.test(followUp));
+  const answer = ai.generateAssistPrompt({ action: 'answer', kind: 'meeting', transcript, question: 'When is the cutover?', language: 'vi', contextPrefix: 'BACKGROUND' });
+  check('meeting', 'typed question, language rule and background are included', answer.startsWith('BACKGROUND\n\n') && answer.includes('"When is the cutover?"') && answer.includes('tiếng Việt'));
+  const interviewAssist = ai.generateAssistPrompt({ action: 'say-next', kind: 'interview', transcript, language: 'auto' });
+  check('meeting', 'interview kind keeps the candidate framing', /I am the candidate/.test(interviewAssist) && /as the candidate/.test(interviewAssist));
+  const long = Array.from({ length: 400 }, (_, i) => `[10:00:${String(i % 60).padStart(2, '0')}] line number ${i} of the conversation`).join('\n');
+  const clipped = ai.generateAssistPrompt({ action: 'recap', kind: 'meeting', transcript: long, language: 'en' });
+  check('meeting', 'long transcript keeps its end, not its start', clipped.includes('line number 399 ') && !clipped.includes('line number 0 ') && clipped.includes('[earlier part omitted]'), `${clipped.length} chars`);
+  check('meeting', 'unknown action / kind fall back to answer / interview', ai.normalizeAssistAction('rm -rf') === 'answer' && ai.normalizeSessionKind('party') === 'interview');
+
+  const first = ai.generateMeetingNotesPrompt({ kind: 'meeting', newTranscript: transcript, language: 'en' });
+  check('meeting', 'first notes prompt asks for the meeting sections, no title', /## Action items/.test(first) && /## Decisions/.test(first) && /Do not add a title line/.test(first) && !/Notes written so far/.test(first));
+  const update = ai.generateMeetingNotesPrompt({ kind: 'meeting', newTranscript: '[10:05:00] Rollback is a DNS switch.', previousNotes: '## Summary\n\nCutover planning.', language: 'en', final: true });
+  check('meeting', 'update sends previous notes + only the new lines; final adds a title', /Notes written so far:[\s\S]*Cutover planning\./.test(update) && /New transcript since those notes/.test(update) && update.includes('DNS switch') && !update.includes('own the runbook') && /final version/.test(update));
+  const interviewNotes = ai.generateMeetingNotesPrompt({ kind: 'interview', newTranscript: transcript, language: 'auto' });
+  check('meeting', 'interview notes use interview sections', /## Questions asked/.test(interviewNotes) && !/## Action items/.test(interviewNotes));
+
+  check('meeting', 'title comes from the notes heading, else a dated fallback', ai.deriveSessionTitle('# **Billing** cutover\n\n## Summary', 'meeting', 0) === 'Billing cutover' && /^Interview \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(ai.deriveSessionTitle('## Summary', 'interview', Date.now())));
+  check('meeting', 'unsafe session ids are rejected', !ai.isSafeSessionId('../../etc/passwd') && !ai.isSafeSessionId('a/b') && !ai.isSafeSessionId('') && ai.isSafeSessionId('s-1700000000000-ab12cd'));
+
+  const dir = path.join(BUILD, 'meetings-test');
+  fs.rmSync(dir, { recursive: true, force: true });
+  const startedAt = Date.now() - 600000;
+  const session = {
+    id: 's-1-test', kind: 'meeting', title: '', startedAt, endedAt: startedAt + 540000,
+    notes: '# Billing cutover\n\n## Decisions\n\n- Cutover on 21 Nov',
+    transcript: [{ at: startedAt, text: 'We need to settle the cutover date.' }, { at: startedAt + 8000, text: '' }, { at: startedAt + 9000, text: 'Linh owns the runbook.' }],
+    qa: [{ at: startedAt + 20000, question: 'Follow-up questions', answer: '- Who owns QA?' }],
+    updatedAt: 0,
+  };
+  const saved = ipc.writeSession(dir, session);
+  check('meeting', 'session is written with a derived title and empty lines dropped', saved.title === 'Billing cutover' && saved.transcript.length === 2 && fs.existsSync(path.join(dir, 's-1-test.json')) && !fs.existsSync(path.join(dir, 's-1-test.json.tmp')));
+  ipc.writeSession(dir, { ...session, id: 's-2-test', startedAt: startedAt + 1000, notes: '' });
+  fs.writeFileSync(path.join(dir, 'broken.json'), '{not json');
+  const list = ipc.listSessions(dir);
+  check('meeting', 'list is newest first, skips unreadable files, flags missing notes', list.length === 2 && list[0].id === 's-2-test' && list[0].hasNotes === false && list[1].hasNotes === true && list[1].lineCount === 2, list.map((s) => s.id).join(','));
+  let threw = false;
+  try { ipc.writeSession(dir, { ...session, id: '../escape' }); } catch { threw = true; }
+  check('meeting', 'a session with an unsafe id is refused and nothing is written outside', threw && !fs.existsSync(path.join(BUILD, 'escape.json')) && ipc.readSession(dir, '../s-1-test') === null);
+  const md = ai.formatSessionMarkdown(ipc.readSession(dir, 's-1-test'));
+  check('meeting', 'export has notes first (one title), then answers and the transcript', md.startsWith('# Billing cutover\n') && (md.match(/^# /gm) || []).length === 1 && md.indexOf('## Assistant answers') > md.indexOf('Cutover on 21 Nov') && md.indexOf('## Transcript') > md.indexOf('## Assistant answers') && md.includes('Linh owns the runbook.') && /9 min/.test(md));
+  check('meeting', 'delete removes the file; deleting again reports false', ipc.deleteSession(dir, 's-1-test') === true && ipc.deleteSession(dir, 's-1-test') === false && ipc.listSessions(dir).length === 1);
+
+  // The background prefix reads the same three slots differently in a meeting.
+  const ctxSrc = fs.readFileSync(path.join(ROOT, 'src', 'main', 'ai', 'interview-context.ts'), 'utf8');
+  const ctxOut = await esbuild.transform(ctxSrc, { loader: 'ts', format: 'cjs', platform: 'node', target: 'node18' });
+  const ctxPath = path.join(BUILD, 'interview-context-meeting.js');
+  fs.writeFileSync(ctxPath, ctxOut.code);
+  const ctx = require(ctxPath);
+  const filled = ctx.normalizeInterviewContext({ cv: { text: 'PM on the billing team' }, jd: { text: 'Agenda: cutover date' } });
+  const meetingPrefix = ctx.buildInterviewContextPrefix(filled, 'meeting');
+  check('meeting', 'meeting background uses "About me" / "Meeting brief" labels', /--- ABOUT ME ---/.test(meetingPrefix) && /--- MEETING BRIEF ---/.test(meetingPrefix) && !/MY CV|JOB DESCRIPTION|candidate/.test(meetingPrefix));
+}
+
 (async () => {
   console.log('Interview audio pipeline test');
   console.log(`  platform ${process.platform}, electron ${require('electron/package.json').version}, node ${process.version}`);
@@ -311,6 +389,7 @@ async function scenarioContext() {
     if (want('realtime')) await scenarioRealtime(prep, server);
     if (want('fallback')) await scenarioFallback(prep);
     if (want('context')) await scenarioContext();
+    if (want('meeting')) await scenarioMeeting();
   } finally {
     await server.close();
   }

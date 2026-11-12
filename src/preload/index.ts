@@ -28,6 +28,15 @@ const api: ElectronAPI = {
   saveInterviewContext: (patch) => ipcRenderer.invoke('saveInterviewContext', patch),
   importInterviewContextFile: (slot) => ipcRenderer.invoke('importInterviewContextFile', slot),
   sendInterviewPrompt: (args) => ipcRenderer.invoke('sendInterviewPrompt', args),
+  setInterviewPanelCollapsed: (collapsed) => ipcRenderer.invoke('setInterviewPanelCollapsed', collapsed),
+
+  // Meeting notes + saved sessions
+  generateMeetingNotes: (args) => ipcRenderer.invoke('generateMeetingNotes', args),
+  listMeetingSessions: () => ipcRenderer.invoke('listMeetingSessions'),
+  getMeetingSession: (id) => ipcRenderer.invoke('getMeetingSession', id),
+  saveMeetingSession: (session) => ipcRenderer.invoke('saveMeetingSession', session),
+  deleteMeetingSession: (id) => ipcRenderer.invoke('deleteMeetingSession', id),
+  exportMeetingSession: (session) => ipcRenderer.invoke('exportMeetingSession', session),
 
   closeWindow: () => ipcRenderer.send('close-window'),
   hideWindow: () => ipcRenderer.send('hide-window'),

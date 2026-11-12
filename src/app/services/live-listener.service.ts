@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-import { AudioSource, captureCallAudio } from './call-audio';
+import { AudioSource, CaptureOptions, captureCallAudio, releaseCallAudio } from './call-audio';
 
 const CANDIDATE_MIME_TYPES = [
   'audio/webm;codecs=opus',
@@ -75,10 +75,10 @@ export class LiveListenerService {
     return this.listening;
   }
 
-  async start(audioSource: AudioSource = 'loopback'): Promise<void> {
+  async start(audioSource: AudioSource = 'loopback', options: CaptureOptions = {}): Promise<void> {
     if (this.listening) return;
 
-    this.audioStream = await captureCallAudio(audioSource);
+    this.audioStream = await captureCallAudio(audioSource, options);
     this.audioStream.getAudioTracks()[0].addEventListener('ended', () => {
       if (this.listening) {
         this.stop();
@@ -230,7 +230,7 @@ export class LiveListenerService {
     this.analyser = null;
     this.timeDomain = null;
     if (this.audioStream) {
-      this.audioStream.getTracks().forEach((track) => track.stop());
+      releaseCallAudio(this.audioStream);
       this.audioStream = null;
     }
   }

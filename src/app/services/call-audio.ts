@@ -27,11 +27,63 @@ export function isInputDeviceSource(source: AudioSource): boolean {
   return source !== 'loopback';
 }
 
+export interface CaptureOptions {
+  /**
+   * Loopback only: also open the default microphone and mix it in, so both
+   * sides of the conversation are transcribed (meeting notes need my side
+   * too). Echo cancellation stays on for the microphone so speakers playing
+   * the call are not transcribed twice.
+   */
+  includeMic?: boolean;
+}
+
+/** Extra teardown for streams that are a mix of several captures. */
+const releasers = new WeakMap<MediaStream, () => void>();
+
+/** Stop a stream returned by captureCallAudio, including what feeds a mix. */
+export function releaseCallAudio(stream: MediaStream): void {
+  stream.getTracks().forEach((track) => track.stop());
+  releasers.get(stream)?.();
+  releasers.delete(stream);
+}
+
 /**
  * Open the call audio as an audio-only MediaStream. The caller owns the
- * stream and must stop its tracks when done.
+ * stream and must hand it to releaseCallAudio when done.
  */
-export async function captureCallAudio(source: AudioSource): Promise<MediaStream> {
+export async function captureCallAudio(source: AudioSource, options: CaptureOptions = {}): Promise<MediaStream> {
+  const call = await captureSource(source);
+  if (!options.includeMic || isInputDeviceSource(source)) return call;
+
+  let mic: MediaStream;
+  try {
+    mic = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: false,
+    });
+  } catch (err: any) {
+    call.getTracks().forEach((track) => track.stop());
+    throw new Error(`Could not open your microphone (${err?.name || err?.message || 'unknown error'}). Turn off "Include my microphone" or allow microphone access.`);
+  }
+
+  const context = new AudioContext();
+  await context.resume().catch(() => undefined);
+  const mix = context.createMediaStreamDestination();
+  context.createMediaStreamSource(call).connect(mix);
+  context.createMediaStreamSource(mic).connect(mix);
+  const mixedTrack = mix.stream.getAudioTracks()[0];
+  // The mix never ends on its own; pass on the end of the call capture so
+  // listeners still notice when the system audio goes away.
+  call.getAudioTracks()[0].addEventListener('ended', () => mixedTrack.dispatchEvent(new Event('ended')));
+  releasers.set(mix.stream, () => {
+    call.getTracks().forEach((track) => track.stop());
+    mic.getTracks().forEach((track) => track.stop());
+    context.close().catch(() => undefined);
+  });
+  return mix.stream;
+}
+
+async function captureSource(source: AudioSource): Promise<MediaStream> {
   if (!isInputDeviceSource(source)) {
     // Main process answers with the primary screen + audio: 'loopback'.
     // Only the audio track is kept.

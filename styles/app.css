@@ -31,14 +31,54 @@ body {
   -webkit-app-region: no-drag; /* default no-drag */
 }
 
-/* Interview mode: a panel you read and work in, not a hidden overlay.
-   Near-opaque ground and a slightly larger type scale for legibility. */
+/* Interview / meeting assistant: a floating bar and glass panel on a clear
+   window instead of the overlay's solid ground. Cool ink glass, a sky accent
+   and light solid buttons; the tokens also retint the shared toast, buttons
+   and response styles while this mode is showing. */
 body.mode-interview {
-  --background: rgba(12, 13, 16, 0.97);
-  --surface: rgba(255, 255, 255, 0.05);
-  --border: rgba(255, 255, 255, 0.1);
+  --iv-glass: rgba(14, 18, 30, 0.9);
+  --iv-glass-strong: rgba(14, 18, 30, 0.95);
+  --iv-line: rgba(190, 215, 255, 0.14);
+  --iv-line-strong: rgba(190, 215, 255, 0.28);
+  --iv-accent: #8ec5ff;
+  --iv-solid: #eef4ff;
+  --iv-solid-text: #0d1220;
+  --primary: #8ec5ff;
+  --primary-hover: #a9d3ff;
+  --background: transparent;
+  --surface: rgba(255, 255, 255, 0.06);
+  --text: #eef2fa;
+  --text-dim: rgba(214, 224, 242, 0.62);
+  --border: var(--iv-line);
+  --border-strong: var(--iv-line-strong);
   font-size: 1.02rem;
 }
+body.mode-interview .app-container { padding: 8px; }
+body.mode-interview .toast { border-radius: 999px; background: var(--iv-glass-strong); border-color: var(--iv-line); }
+
+/* Model-written content (answers, notes) is injected as HTML, so it is
+   styled here rather than in the component's scoped stylesheet. */
+body.mode-interview .response-container p { margin-bottom: 0.7rem; }
+body.mode-interview .response-container ul,
+body.mode-interview .response-container ol { margin-left: 1.3rem; margin-bottom: 0.7rem; }
+body.mode-interview .response-container li { margin-bottom: 0.3rem; }
+body.mode-interview .response-container li::marker { color: var(--iv-accent); }
+body.mode-interview .response-container > :last-child { margin-bottom: 0; }
+body.mode-interview .iv-answer-body > p:first-child { font-size: 1.1rem; font-weight: 600; color: #fff; }
+body.mode-interview .response-container.loading { border-color: transparent; }
+body.mode-interview .iv-notes-body h1 { font-size: 1.2rem; font-weight: 650; margin: 0 0 0.8rem; }
+body.mode-interview .iv-notes-body h2 {
+  margin: 1.1rem 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--iv-accent);
+}
+body.mode-interview .iv-notes-body h2:first-child { margin-top: 0; }
+body.mode-interview .iv-notes-body h3 { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; font-weight: 600; }
+body.mode-interview .iv-notes-body li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3rem; }
+body.mode-interview .iv-notes-body input[type="checkbox"] { margin-right: 0.5rem; accent-color: var(--iv-accent); }
 
 .app-container { display: flex; flex-direction: column; padding: 1rem; height: 100vh; box-sizing: border-box; }
 

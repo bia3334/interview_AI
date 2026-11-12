@@ -1,5 +1,5 @@
 <div class="app-container">
-  <div class="header">
+  <div class="header" *ngIf="mode !== APP_MODE.INTERVIEW">
     <h1>
       Screen Genius
       <span class="mode-badge" *ngIf="mode" [class.interview]="mode === APP_MODE.INTERVIEW">{{ mode }}</span>
@@ -40,15 +40,15 @@
     </div>
   </ng-container>
 
-  <!-- Interview mode: live listening + spoken answers -->
+  <!-- Interview mode: floating assistant (its command bar replaces the header) -->
   <div class="content" *ngIf="mode === APP_MODE.INTERVIEW">
-    <app-interview></app-interview>
+    <app-interview (switchMode)="switchMode()"></app-interview>
   </div>
 
-  <div class="footer">
+  <div class="footer" *ngIf="mode !== APP_MODE.INTERVIEW">
     <div class="status">
       <div class="status-indicator"></div>
-      <span>{{ mode === APP_MODE.INTERVIEW ? 'Interview · Ctrl+Shift+V listen · Ctrl+Shift+P answer · Ctrl+Shift+A hide' : (mode === APP_MODE.EXAM ? 'Exam · Ctrl+Shift+A hide · Ctrl+Shift+W click-through' : 'Choose a mode') }}</span>
+      <span>{{ mode === APP_MODE.EXAM ? 'Exam · Ctrl+Shift+A hide · Ctrl+Shift+W click-through' : 'Choose a mode' }}</span>
     </div>
     <div>Screen Genius v1.0.0</div>
   </div>

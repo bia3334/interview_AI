@@ -3,8 +3,8 @@
  *
  *  exam      — the stealth overlay: click-through window, screenshots, OCR,
  *              multi-provider side-by-side answers, floating overlay bubble.
- *  interview — a readable, always-interactive panel that listens to the call
- *              audio and streams spoken-style answers in real time (EN / VI).
+ *  interview — a floating assistant for live calls: listens to the call audio,
+ *              answers or helps on demand (EN / VI) and keeps meeting notes.
  */
 export const APP_MODE = {
   EXAM: 'exam',
@@ -35,12 +35,12 @@ export const APP_MODE_OPTIONS: AppModeOption[] = [
   },
   {
     id: APP_MODE.INTERVIEW,
-    title: 'Interview',
-    tagline: 'Live answers while you talk.',
+    title: 'Interview & Meetings',
+    tagline: 'Live answers and meeting notes.',
     points: [
-      'Listens to the call and transcribes each question',
-      'Streams what to say, in English or Vietnamese',
-      'Large, readable layout — still hidden from screen share',
+      'Listens to the call and transcribes it as it goes',
+      'Answers questions and suggests what to say (EN / VI)',
+      'Writes meeting notes: summary, decisions, action items',
     ],
     hotkey: '2',
   },

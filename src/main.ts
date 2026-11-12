@@ -23,6 +23,7 @@ import { initDocumentsFromStore, registerDocumentsIPC } from './main/ipc/documen
 import { registerFilesIPC } from './main/ipc/files';
 import { registerModeIPC } from './main/ipc/mode';
 import { registerInterviewContextIPC } from './main/ipc/interview-context';
+import { registerMeetingIPC } from './main/ipc/meeting';
 import { registerOverlayIPC } from './main/ipc/overlay';
 import { registerPreferencesIPC } from './main/ipc/preferences';
 import { registerScreenshotsIPC } from './main/ipc/screenshots';
@@ -93,6 +94,7 @@ registerOverlayIPC(ipcMain, { preloadPath });
 registerDocumentsIPC(ipcMain, { mainWindow: getMainWindow, log });
 registerModeIPC(ipcMain, { store, log });
 registerInterviewContextIPC(ipcMain, { store, log, dialog });
+registerMeetingIPC(ipcMain, { log, dialog, getSessionsDir: () => path.join(app.getPath('userData'), 'meetings') });
 
 // Window management IPC
 ipcMain.on('close-window', () => getMainWindow()?.close());
